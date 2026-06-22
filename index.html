@@ -428,17 +428,20 @@ function buildEventRequest({ model, band, yearLevels, month, categories }) {
 }
 
 // Phase 2: one batched call; prefer trusted cyber-safety/edu sites, news fallback.
-function buildResourceRequest({ model, issues, band, yearLevels }) {
+function buildResourceRequest({ model, issues, band, yearLevels, types }) {
   const list = issues.map((it, i) => `${i + 1}. ${it.title} — ${it.searchHint || it.category || ""}`).join("\n");
+  const typeList = (types && types.length) ? types : ["article", "image", "video"];
+  const typeWord = typeList.map(t => t === "article" ? "an article/guide page" : t === "image" ? "an image or infographic" : "a video").join(", OR ");
   const prompt = [
-    `For each student online-safety issue below, use web search to find ONE free, openly accessible teaching resource (article, image/infographic, or video).`,
+    `For each student online-safety issue below, use web search to find ONE free, openly accessible teaching resource. The resource MUST be ${typeWord}.`,
     `Audience: ${audienceStr(band, yearLevels)}.`,
-    `STRONGLY PREFER resources published by well-known cyber-safety / digital-citizenship organisations (eSafety Commissioner, ThinkUKnow, Common Sense, Be Internet Awesome, Childnet, Internet Matters, UK Safer Internet Centre). If none exists for an issue, use a reputable FREE (non-paywalled) news article instead.`,
+    `STRONGLY PREFER resources published by well-known cyber-safety / digital-citizenship organisations (eSafety Commissioner, ThinkUKnow, Common Sense, Be Internet Awesome, Childnet, Internet Matters, UK Safer Internet Centre). If none exists for an issue, use a reputable FREE (non-paywalled) source instead.`,
+    `Choose links that are RELIABLY ACCESSIBLE and easy to open in a browser. For article resources, prefer clean, readable guide/article pages and AVOID paywalled, login-required, JavaScript-only, or PDF-only pages. For images, give a direct image/infographic page. For videos, prefer a YouTube link (so a transcript can be pulled).`,
     `Every resource MUST be free to access (no paywall, no login).`,
     `Issues:\n${list}`,
     `Return STRICT JSON only (no markdown, no code fences) of EXACTLY this shape:`,
-    `{ "resources": [ { "index": 1, "resourceType": "article" | "image" | "video", "resourceTitle": "title", "resourceUrl": "the real URL you found", "resourceOrigin": "trusted" if from a cyber-safety/education organisation else "news", "source": "short source label e.g. eSafety", "blurb": "one line describing the resource" } ] }`,
-    `Include one object per issue, matched by its number in "index". Use only URLs you actually found via web search.`,
+    `{ "resources": [ { "index": 1, "resourceType": "${typeList.join('" | "')}", "resourceTitle": "title", "resourceUrl": "the real URL you found", "resourceOrigin": "trusted" if from a cyber-safety/education organisation else "news", "source": "short source label e.g. eSafety", "blurb": "one line describing the resource" } ] }`,
+    `Each "resourceType" MUST be one of: ${typeList.join(", ")}. Include one object per issue, matched by its number in "index". Use only URLs you actually found via web search.`,
   ].join("\n");
   return { model, tools: [{ type: "web_search", filters: { allowed_domains: RESOURCE_DOMAINS } }], input: prompt };
 }
@@ -537,7 +540,7 @@ async function callResponses({ apiKey, body }) {
   return resp.json();
 }
 
-async function discoverIssues({ apiKey, model, band, yearLevels, month, categories }) {
+async function discoverIssues({ apiKey, model, band, yearLevels, month, categories, types }) {
   // Phase 1 — event spotting (broad).
   const evData = await callResponses({ apiKey, body: buildEventRequest({ model, band, yearLevels, month, categories }) });
   const evOut = extractResponseText(evData);
@@ -549,7 +552,7 @@ async function discoverIssues({ apiKey, model, band, yearLevels, month, categori
   if (!issues.length) return { cards: [], raw: evOut.text };
 
   // Phase 2 — resource attach (trusted-first, batched single call).
-  const rsData = await callResponses({ apiKey, body: buildResourceRequest({ model, issues, band, yearLevels }) });
+  const rsData = await callResponses({ apiKey, body: buildResourceRequest({ model, issues, band, yearLevels, types }) });
   const rsOut = extractResponseText(rsData);
   let resources = [];
   try { const p = parseJsonLoose(rsOut.text); resources = Array.isArray(p.resources) ? p.resources : []; }
@@ -679,6 +682,7 @@ function App() {
   const [discoverYears, setDiscoverYears] = useState([]);     // [] = whole band
   const [discoverMonth, setDiscoverMonth] = useState(curMonth);
   const [discoverCats, setDiscoverCats] = useState([]);       // category ids
+  const [discoverTypes, setDiscoverTypes] = useState(["article", "image", "video"]); // resource types
   const [discovering, setDiscovering] = useState(false);
   const [discoverError, setDiscoverError] = useState("");
   const [discoverCards, setDiscoverCards] = useState([]);
@@ -788,10 +792,11 @@ function App() {
     if (!apiKey.trim()) { setDiscoverError("Please paste your OpenAI API key first."); return; }
     const cats = availableCategories(band).filter(c => discoverCats.includes(c.id));
     if (!cats.length) { setDiscoverError("Pick at least one topic."); return; }
+    if (!discoverTypes.length) { setDiscoverError("Pick at least one resource type (article, image, or video)."); return; }
     setDiscovering(true);
     try {
       const { cards, raw } = await discoverIssues({
-        apiKey: apiKey.trim(), model, band, yearLevels: discoverYears, month: discoverMonth, categories: cats,
+        apiKey: apiKey.trim(), model, band, yearLevels: discoverYears, month: discoverMonth, categories: cats, types: discoverTypes,
       });
       setDiscoverCards(cards); setDiscoverRaw(raw);
       if (!cards.length) setDiscoverError(`No current issues found for ${monthLabel(discoverMonth)} — try a different month or topic.`);
@@ -1015,6 +1020,15 @@ function App() {
                 <button key={c.id} type="button"
                   style={{ cursor: "pointer", borderRadius: 999, padding: "4px 11px", fontSize: 12.5, fontWeight: 600, border: "1px solid var(--line)", background: discoverCats.includes(c.id) ? "var(--accent)" : "#fff", color: discoverCats.includes(c.id) ? "#fff" : "var(--ink)" }}
                   onClick={() => setDiscoverCats(a => toggleArr(a, c.id))}>{c.label}</button>
+              ))}
+            </div>
+
+            <div style={{ fontSize: 12.5, color: "var(--muted)", margin: "10px 0 4px" }}>Resource type</div>
+            <div className="lp-chips" style={{ marginTop: 0 }}>
+              {[["article", "📄 Articles"], ["image", "🖼 Images"], ["video", "🎬 Videos"]].map(([t, lbl]) => (
+                <button key={t} type="button"
+                  style={{ cursor: "pointer", borderRadius: 999, padding: "4px 11px", fontSize: 12.5, fontWeight: 600, border: "1px solid var(--line)", background: discoverTypes.includes(t) ? "var(--accent)" : "#fff", color: discoverTypes.includes(t) ? "#fff" : "var(--ink)" }}
+                  onClick={() => setDiscoverTypes(a => toggleArr(a, t))}>{lbl}</button>
               ))}
             </div>
 
