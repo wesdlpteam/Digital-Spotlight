@@ -12,8 +12,8 @@
 
 <!-- PowerPoint export -->
 <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
-<!-- QR codes -->
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<!-- QR codes (qrcode-generator: exposes a global `qrcode` with synchronous createDataURL) -->
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <!-- PDF text extraction -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
@@ -222,6 +222,20 @@ function readFileAsDataURL(file) {
     r.onerror = rej;
     r.readAsDataURL(file);
   });
+}
+
+// Build a QR code data URL synchronously. Never throws — returns "" if the
+// library is missing or generation fails, so a QR problem can't blank the app.
+function makeQrDataUrl(text) {
+  try {
+    if (typeof qrcode !== "function" || !text) return "";
+    const qr = qrcode(0, "M"); // type 0 = auto-size, medium error correction
+    qr.addData(String(text));
+    qr.make();
+    return qr.createDataURL(6, 8); // cellSize, margin -> GIF data URL
+  } catch (_) {
+    return "";
+  }
 }
 
 // Strip site chrome (nav, images, link URLs, related-article footers) out of the
@@ -500,8 +514,7 @@ function App() {
         s2.addImage({ data: imageDataUrl, x: 1.2, y: 2.1, w: 10.9, h: 4.5, sizing: { type: "contain", w: 10.9, h: 4.5 } });
       } else if (link.trim()) {
         const url = link.trim();
-        let qrData = "";
-        try { qrData = await QRCode.toDataURL(url, { margin: 1, width: 480 }); } catch (_) {}
+        const qrData = makeQrDataUrl(url);
         if (qrData) s2.addImage({ data: qrData, x: 1.2, y: 2.4, w: 3.0, h: 3.0 });
         s2.addText([{ text: `${MODE_VERB[mode]} here: `, options: { color: INK } }, { text: url, options: { color: VIOLET, underline: true, hyperlink: { url } } }],
           { x: 4.6, y: 3.4, w: 7.8, h: 1.2, fontSize: 18, valign: "middle" });
@@ -757,14 +770,9 @@ function App() {
   );
 }
 
-/* QR preview component */
+/* QR preview component (synchronous, crash-proof) */
 function StimLink({ url, verb }) {
-  const [qr, setQr] = useState("");
-  React.useEffect(() => {
-    let live = true;
-    QRCode.toDataURL(url, { margin: 1, width: 240 }).then(d => { if (live) setQr(d); }).catch(() => {});
-    return () => { live = false; };
-  }, [url]);
+  const qr = makeQrDataUrl(url);
   return (
     <div className="stim-link">
       {qr && <img className="qr" src={qr} alt="QR code" />}
@@ -773,7 +781,30 @@ function StimLink({ url, verb }) {
   );
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+/* Error boundary so a render error shows a message instead of a blank screen */
+class ErrorBoundary extends React.Component {
+  constructor(p) { super(p); this.state = { err: null }; }
+  static getDerivedStateFromError(err) { return { err }; }
+  componentDidCatch(err, info) { console.error("App crashed:", err, info); }
+  render() {
+    if (this.state.err) {
+      return (
+        <div style={{ maxWidth: 720, margin: "60px auto", padding: 24, fontFamily: "Segoe UI, sans-serif" }}>
+          <h2 style={{ color: "#d64545" }}>Something crashed in the app</h2>
+          <p>Try a hard refresh (Ctrl+F5). If it keeps happening, send this message:</p>
+          <pre style={{ whiteSpace: "pre-wrap", background: "#fdecec", border: "1px solid #f3c9c9", borderRadius: 10, padding: 12 }}>
+            {String(this.state.err && (this.state.err.stack || this.state.err.message || this.state.err))}
+          </pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(
+  <ErrorBoundary><App /></ErrorBoundary>
+);
 </script>
 </body>
 </html>
