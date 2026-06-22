@@ -350,6 +350,7 @@ function App() {
 
   // generation
   const [loading, setLoading] = useState(false);
+  const [fetchingArticle, setFetchingArticle] = useState(false);
   const [error, setError] = useState("");
   const [rawDump, setRawDump] = useState("");
   const [spot, setSpot] = useState(null); // editable spotlight object
@@ -368,6 +369,25 @@ function App() {
     setPdfName(f.name + " (extracting…)");
     try { const t = await extractPdfText(f); setArticleText(t); setPdfName(f.name + ` (${t.length.toLocaleString()} chars)`); }
     catch (err) { setError("Could not extract text from that PDF: " + err.message); setPdfName(""); }
+  }
+  // Pull readable article text from a public link via the r.jina.ai reader
+  // (it allows browser/CORS requests). Hard paywalls may still fail.
+  async function fetchArticleFromLink() {
+    const url = link.trim();
+    setError("");
+    if (!/^https?:\/\//i.test(url)) { setError("Enter a full article link starting with http(s):// first."); return; }
+    setFetchingArticle(true);
+    try {
+      const resp = await fetch("https://r.jina.ai/" + url);
+      if (!resp.ok) throw new Error("Reader service returned HTTP " + resp.status);
+      const text = (await resp.text()).trim();
+      if (text.length < 40) throw new Error("Got too little text back — the page may be paywalled or JS-only.");
+      setArticleText(text);
+    } catch (err) {
+      setError("Couldn't fetch that link (" + (err.message || err) + "). Paste the article text instead.");
+    } finally {
+      setFetchingArticle(false);
+    }
   }
 
   /* ------- validation ------- */
@@ -571,8 +591,16 @@ function App() {
                 <div className="small">{pdfName || "Click to upload a PDF"}</div>
               </div>
               <input ref={pdfInput} type="file" accept="application/pdf" hidden onChange={onPdf} />
-              <textarea style={{ marginTop: 10 }} value={articleText} placeholder="…or paste the article text here" onChange={e => setArticleText(e.target.value)} />
-              <div className="hint">Pasted <b>URLs aren't fetched</b> (paywalls/CORS block it) — upload the PDF or paste the text.</div>
+
+              <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+                <input type="text" value={link} placeholder="…or paste an article link (https://…)" onChange={e => setLink(e.target.value)} />
+                <button className="btn ghost" style={{ width: "auto", padding: "9px 12px", whiteSpace: "nowrap" }} disabled={fetchingArticle} onClick={fetchArticleFromLink}>
+                  {fetchingArticle ? "Fetching…" : "Fetch text"}
+                </button>
+              </div>
+
+              <textarea style={{ marginTop: 8 }} value={articleText} placeholder="…the fetched or pasted article text appears here (edit freely)" onChange={e => setArticleText(e.target.value)} />
+              <div className="hint"><b>Fetch text</b> pulls the article via a public reader service — works for open news sites (the link also becomes the QR code). Hard paywalls may fail; upload the PDF or paste the text instead.</div>
             </div>
           )}
 
@@ -584,9 +612,9 @@ function App() {
             </div>
           )}
 
-          {(mode === "article" || mode === "video") && (
+          {mode === "video" && (
             <div className="group">
-              <label className="cap">Link (optional — becomes a QR code)</label>
+              <label className="cap">Video link (optional — becomes a QR code)</label>
               <input type="text" value={link} placeholder="https://…" onChange={e => setLink(e.target.value)} />
             </div>
           )}
