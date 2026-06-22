@@ -163,6 +163,9 @@
   .stim-img { text-align: center; }
   .stim-img img { max-width: 100%; max-height: 280px; border-radius: 10px; box-shadow: var(--shadow); }
 
+  .resp-note { margin-top: 6px; padding-left: 9px; border-left: 2px solid var(--accent-soft); }
+  .resp-cap { font-size: 10.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--accent); font-weight: 700; display: block; margin-bottom: 2px; }
+
   .ql { margin: 0; padding: 0; list-style: none; }
   .ql li { display: flex; gap: 8px; align-items: start; margin-bottom: 6px; }
   .ql li .num { background: var(--accent); color: #fff; min-width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center; font-size: 12px; font-weight: 700; margin-top: 4px; }
@@ -347,6 +350,17 @@ function parseJsonLoose(raw) {
   throw new Error("No JSON object found in model output.");
 }
 
+// Strip stray markdown (bold/italic/code/heading markers) the model sometimes adds.
+function stripMd(s) {
+  return String(s == null ? "" : s)
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/__(.*?)__/g, "$1")
+    .replace(/\*(.*?)\*/g, "$1")
+    .replace(/`([^`]*)`/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .trim();
+}
+
 /* --------------------------- OpenAI call --------------------------- */
 
 async function generateSpotlight({ apiKey, model, mode, band, year, theme, title, imageDataUrl, sourceText }) {
@@ -369,12 +383,13 @@ async function generateSpotlight({ apiKey, model, mode, band, year, theme, title
   "routineName": "string — the EXACT name of the ONE thinking routine you chose from the list below",
   "routineIntro": "string — one warm sentence introducing the routine to the class",
   "steps": [
-    { "name": "string — short step label", "minutes": 1, "prompt": "string — a punchy, provocative discussion prompt the teacher poses at this step" }
+    { "name": "string — short step label", "minutes": 1, "prompt": "string — a punchy, provocative discussion prompt the teacher poses at this step", "responses": "string — 2 or 3 SHORT examples of what students at this band might actually say in response, so the teacher can anticipate the discussion (e.g. 'Some may say…; others might argue…')" }
   ],
   "guidingQuestions": ["3 to 4 guiding questions pitched to the band"],
   "studentAction": "string — one concrete action or takeaway a student leaves with",
   "learnerProfile": ["1 to 3 IB Learner Profile attributes that fit, e.g. 'Thinker', 'Principled', 'Caring'"]
 }
+Write every field in PLAIN TEXT — no markdown, no asterisks, no #, no backticks.
 Pick ONE routine from this Harvard Project Zero list for this band and use it as LOOSE INSPIRATION only — capture its spirit, but DON'T mechanically echo its exact wording. Write genuinely engaging, provocative discussion prompts that maximise intrigue and debate for the band:
 ${routineList}
 Rules: this is a FAST 5-minute TALKING activity. Every step must be students DISCUSSING out loud (in pairs, small groups, or whole class) — never silent independent writing or solo work. Keep it to 2–3 short steps, each 1–2 minutes, and the step "minutes" MUST total 5 or less with time to spare. Prioritise quick, punchy prompts that get students talking immediately.`;
@@ -437,9 +452,12 @@ Rules: this is a FAST 5-minute TALKING activity. Every step must be students DIS
 
 /* ------------------------------ App ------------------------------ */
 
+const KEY_STORE = "dss_openai_key";
+
 function App() {
-  // config
-  const [apiKey, setApiKey] = useState("");
+  // config — API key persists in this browser's localStorage (per user request)
+  const [apiKey, setApiKey] = useState(() => { try { return localStorage.getItem(KEY_STORE) || ""; } catch (_) { return ""; } });
+  const saveApiKey = (v) => { setApiKey(v); try { v ? localStorage.setItem(KEY_STORE, v) : localStorage.removeItem(KEY_STORE); } catch (_) {} };
   const [model, setModel] = useState("gpt-5.4");
 
   // inputs
@@ -525,21 +543,21 @@ function App() {
 
       // Build the editable spotlight, merging model output with user-chosen facts.
       const steps = Array.isArray(parsed.steps) && parsed.steps.length
-        ? parsed.steps.map(s => ({ name: String(s.name || "Step"), minutes: Number(s.minutes) || 1, prompt: String(s.prompt || "") }))
-        : [{ name: "Discuss", minutes: 5, prompt: "" }];
+        ? parsed.steps.map(s => ({ name: stripMd(s.name || "Step"), minutes: Number(s.minutes) || 1, prompt: stripMd(s.prompt || ""), responses: stripMd(s.responses || "") }))
+        : [{ name: "Discuss", minutes: 5, prompt: "", responses: "" }];
 
       setSpot({
-        hook: String(parsed.hook || ""),
-        title: String(parsed.title || title || "Digital Space Spotlight"),
-        summary: String(parsed.summary || ""),
-        framing: String(parsed.framing || MODE_FRAMING[mode]),
-        routineName: String(parsed.routineName || ROUTINES[band][0].name),
-        routineIntro: String(parsed.routineIntro || ""),
+        hook: stripMd(parsed.hook || ""),
+        title: stripMd(parsed.title || title || "Digital Space Spotlight"),
+        summary: stripMd(parsed.summary || ""),
+        framing: stripMd(parsed.framing || MODE_FRAMING[mode]),
+        routineName: stripMd(parsed.routineName || ROUTINES[band][0].name),
+        routineIntro: stripMd(parsed.routineIntro || ""),
         steps,
         guidingQuestions: Array.isArray(parsed.guidingQuestions) && parsed.guidingQuestions.length
-          ? parsed.guidingQuestions.map(String) : ["", "", ""],
-        studentAction: String(parsed.studentAction || ""),
-        learnerProfile: Array.isArray(parsed.learnerProfile) ? parsed.learnerProfile.map(String) : [],
+          ? parsed.guidingQuestions.map(stripMd) : ["", "", ""],
+        studentAction: stripMd(parsed.studentAction || ""),
+        learnerProfile: Array.isArray(parsed.learnerProfile) ? parsed.learnerProfile.map(stripMd) : [],
       });
       setRawDump(raw);
     } catch (err) {
@@ -580,11 +598,14 @@ function App() {
       pptx.defineLayout({ name: "WIDE", width: W, height: H });
       pptx.layout = "WIDE";
 
-      const newSlide = (n, kind) => {
+      let n = 0;
+      const total = spot.steps.length + 4; // Hook + Stimulus + (N step reveals) + Teacher notes + Takeaway
+      const newSlide = (kind) => {
+        n++;
         const s = pptx.addSlide();
         s.background = { color: kind === "title" ? T.titleBg : T.contentBg };
         s.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: W, h: 0.18, fill: { color: accent } });
-        s.addText(`Digital Space Spotlight · 5-minute discussion · ${n}/6`, { x: 0.6, y: H - 0.42, w: W - 1.2, h: 0.3, fontSize: 9, color: muted, fontFace: bFont });
+        s.addText(`Digital Space Spotlight · 5-minute discussion · ${n}/${total}`, { x: 0.6, y: H - 0.42, w: W - 1.2, h: 0.3, fontSize: 9, color: muted, fontFace: bFont });
         return s;
       };
       const kicker = (s, txt, col) => s.addText(String(txt).toUpperCase(), { x: 0.8, y: 0.55, w: W - 1.6, h: 0.4, fontSize: 13, bold: true, color: col || accent, charSpacing: 2, fontFace: bFont });
@@ -594,24 +615,14 @@ function App() {
       if (mode === "image" && imageDataUrl) stimImg = imageDataUrl;
       else if (mode === "article" && articleImageUrl) stimImg = await urlToDataUrl(articleImageUrl);
 
-      /* Slide 1 — HOOK */
-      const s1 = newSlide(1, "title");
+      /* Slide 1 — HOOK (now also carries band/theme, replacing the old Title slide) */
+      const s1 = newSlide("title");
       kicker(s1, "Hook", accent2);
       s1.addText(tCase(spot.hook || spot.title), { x: 0.9, y: 1.6, w: W - 1.8, h: 3.8, fontSize: 44, bold: true, color: ink, valign: "middle", fontFace: tFont });
-      s1.addText(`${bandLabel}${year ? " · " + year : ""}   ·   ${theme}`, { x: 0.9, y: 5.7, w: W - 1.8, h: 0.4, fontSize: 14, color: muted, fontFace: bFont });
+      s1.addText(`${bandLabel}${year ? " · " + year : ""}   ·   ${theme}   ·   5-minute discussion`, { x: 0.9, y: 5.7, w: W - 1.8, h: 0.4, fontSize: 14, color: muted, fontFace: bFont });
 
-      /* Slide 2 — TITLE */
-      const s2 = newSlide(2, "title");
-      s2.addText("DIGITAL SPACE SPOTLIGHT", { x: 0.8, y: 1.1, w: W - 1.6, h: 0.5, fontSize: 15, bold: true, color: accent, charSpacing: 2, fontFace: bFont });
-      s2.addText(tCase(spot.title), { x: 0.8, y: 1.8, w: W - 1.6, h: 2.0, fontSize: 40, bold: true, color: ink, valign: "top", fontFace: tFont });
-      s2.addText([
-        { text: bandLabel + (year ? " · " + year : "") + "      ", options: { color: accent, bold: true } },
-        { text: theme, options: { color: accent2, bold: true } },
-      ], { x: 0.8, y: 3.95, w: W - 1.6, h: 0.5, fontSize: 18, fontFace: bFont });
-      s2.addText("5-minute discussion", { x: 0.8, y: 4.65, w: W - 1.6, h: 0.5, fontSize: 16, italic: true, color: muted, fontFace: bFont });
-
-      /* Slide 3 — STIMULUS */
-      const s3 = newSlide(3, "content");
+      /* Slide 2 — STIMULUS */
+      const s3 = newSlide("content");
       kicker(s3, "Stimulus");
       s3.addText(spot.framing, { x: 0.8, y: 1.0, w: W - 1.6, h: 0.6, fontSize: 22, bold: true, color: ink, fontFace: tFont });
       const hasSummary = !!(spot.summary && spot.summary.trim());
@@ -634,30 +645,35 @@ function App() {
         }
       }
 
-      /* Slide 4 — DISCUSSION SCAFFOLD */
-      const s4 = newSlide(4, "content");
-      kicker(s4, "Discussion scaffold");
-      s4.addText(tCase(spot.routineName), { x: 0.8, y: 1.0, w: W - 1.6, h: 0.6, fontSize: 26, bold: true, color: ink, fontFace: tFont });
-      if (spot.routineIntro) s4.addText(spot.routineIntro, { x: 0.8, y: 1.65, w: W - 1.6, h: 0.5, fontSize: 15, italic: true, color: muted, fontFace: bFont });
-      let yy = 2.45;
-      spot.steps.forEach((st) => {
-        s4.addText([
-          { text: `${st.minutes} min    `, options: { bold: true, color: accent2 } },
-          { text: st.name, options: { bold: true, color: ink } },
-          { text: st.prompt ? `\n${st.prompt}` : "", options: { color: ink } },
-        ], { x: 0.9, y: yy, w: W - 1.8, h: 1.0, fontSize: 15, valign: "top", fontFace: bFont });
-        yy += 1.0;
+      /* DISCUSSION SCAFFOLD — one slide per step, cumulative, so steps reveal on click */
+      spot.steps.forEach((curr, k) => {
+        const ss = newSlide("content");
+        kicker(ss, "Discussion scaffold" + (spot.steps.length > 1 ? ` · step ${k + 1} of ${spot.steps.length}` : ""));
+        ss.addText(tCase(spot.routineName), { x: 0.8, y: 1.0, w: W - 1.6, h: 0.6, fontSize: 26, bold: true, color: ink, fontFace: tFont });
+        if (spot.routineIntro) ss.addText(spot.routineIntro, { x: 0.8, y: 1.65, w: W - 1.6, h: 0.5, fontSize: 15, italic: true, color: muted, fontFace: bFont });
+        let yy = 2.45;
+        for (let i = 0; i <= k; i++) {
+          const st = spot.steps[i];
+          ss.addText([
+            { text: `${st.minutes} min    `, options: { bold: true, color: accent2 } },
+            { text: st.name, options: { bold: true, color: ink } },
+            { text: st.prompt ? `\n${st.prompt}` : "", options: { color: ink } },
+          ], { x: 0.9, y: yy, w: W - 1.8, h: 1.0, fontSize: 15, valign: "top", fontFace: bFont });
+          yy += 1.0;
+        }
+        ss.addText(ROUTINE_SOURCE, { x: 0.8, y: H - 0.75, w: W - 1.6, h: 0.3, fontSize: 9, italic: true, color: muted, fontFace: bFont });
+        // Speaker notes: likely student responses for the step just revealed.
+        ss.addNotes(`Step ${k + 1}: ${curr.name}\nPrompt: ${curr.prompt}\nLikely student responses: ${curr.responses || "(none generated — add your own)"}`);
       });
-      s4.addText(ROUTINE_SOURCE, { x: 0.8, y: H - 0.75, w: W - 1.6, h: 0.3, fontSize: 9, italic: true, color: muted, fontFace: bFont });
 
-      /* Slide 5 — TEACHER NOTES (guiding questions) */
-      const s5 = newSlide(5, "content");
+      /* TEACHER NOTES (guiding questions) */
+      const s5 = newSlide("content");
       kicker(s5, "Teacher notes · guiding questions");
       const qBullets = spot.guidingQuestions.filter(q => q.trim()).map(q => ({ text: q, options: { bullet: { code: "2022" }, color: ink, paraSpaceAfter: 12 } }));
       s5.addText(qBullets.length ? qBullets : [{ text: "—", options: { color: muted } }], { x: 0.9, y: 1.5, w: W - 1.8, h: 4.8, fontSize: 18, valign: "top", fontFace: bFont });
 
-      /* Slide 6 — STUDENT KEY TAKEAWAY */
-      const s6 = newSlide(6, "title");
+      /* STUDENT KEY TAKEAWAY */
+      const s6 = newSlide("title");
       kicker(s6, "Your key takeaway", accent2);
       s6.addShape(pptx.ShapeType.roundRect, { x: 1.1, y: 2.2, w: W - 2.2, h: 2.8, fill: { color: accent2 }, rectRadius: 0.18 });
       s6.addText(spot.studentAction || "—", { x: 1.7, y: 2.4, w: W - 3.4, h: 2.4, fontSize: 26, bold: true, color: "FFFFFF", valign: "middle", align: "center", fontFace: tFont });
@@ -687,8 +703,11 @@ function App() {
         <div className="panel input">
           <div className="group">
             <label className="cap">OpenAI API key</label>
-            <input type="password" value={apiKey} placeholder="sk-…" onChange={e => setApiKey(e.target.value)} />
-            <div className="hint">Kept in memory only — never saved or stored.</div>
+            <div style={{ display: "flex", gap: 6 }}>
+              <input type="password" value={apiKey} placeholder="sk-…" onChange={e => saveApiKey(e.target.value)} />
+              {apiKey && <button className="btn ghost" style={{ width: "auto", padding: "9px 12px", whiteSpace: "nowrap" }} title="Remove the saved key from this browser" onClick={() => saveApiKey("")}>Forget</button>}
+            </div>
+            <div className="hint">Saved in <b>this browser only</b> (localStorage) so you don't re-enter it. Use <b>Forget</b> on a shared computer.</div>
           </div>
 
           <div className="group">
@@ -829,24 +848,17 @@ function App() {
               <div className="slides">
                 {/* Slide 1 — Hook */}
                 <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
-                  <div className="kicker" style={kickStyle}>Slide 1 · Hook <span style={{ color: "var(--muted)", fontWeight: 600 }}>· provokes thinking first</span></div>
+                  <div className="kicker" style={kickStyle}>Slide 1 · Hook <span style={{ color: "var(--muted)", fontWeight: 600 }}>· provokes thinking first · band &amp; theme shown here</span></div>
                   <textarea className="editable titlebig" rows={2} value={spot.hook} placeholder="A provoking question, statement, or headline…" onChange={e => patch({ hook: e.target.value })} />
-                </div></div>
-
-                {/* Slide 2 — Title */}
-                <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
-                  <div className="kicker" style={kickStyle}>Slide 2 · Title</div>
-                  <textarea className="editable titlebig" rows={1} value={spot.title} onChange={e => patch({ title: e.target.value })} />
                   <div className="meta-chips">
                     <span className="chip">{bandLabel}{year ? " · " + year : ""}</span>
                     <span className="chip coral">{theme}</span>
                   </div>
-                  <div style={{ color: "var(--muted)", fontStyle: "italic" }}>5-minute discussion</div>
                 </div></div>
 
-                {/* Slide 3 — Stimulus */}
+                {/* Slide 2 — Stimulus */}
                 <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
-                  <div className="kicker" style={kickStyle}>Slide 3 · Stimulus</div>
+                  <div className="kicker" style={kickStyle}>Slide 2 · Stimulus</div>
                   <textarea className="editable" rows={1} value={spot.framing} onChange={e => patch({ framing: e.target.value })} />
                   {mode !== "image" && (
                     <React.Fragment>
@@ -865,9 +877,9 @@ function App() {
                   {mode !== "image" && !link.trim() && !articleImageUrl && <div className="hint">Tip: add a link on the left for a clickable link + QR code, or fetch an article to pull in its lead image.</div>}
                 </div></div>
 
-                {/* Slide 4 — Scaffold */}
+                {/* Slide 3 — Scaffold */}
                 <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
-                  <div className="kicker" style={kickStyle}>Slide 4 · Discussion scaffold <span style={{ color: "var(--muted)", fontWeight: 600 }}>· {ROUTINE_SOURCE}</span></div>
+                  <div className="kicker" style={kickStyle}>Slide 3 · Discussion scaffold <span style={{ color: "var(--muted)", fontWeight: 600 }}>· steps reveal one-per-click · {ROUTINE_SOURCE}</span></div>
                   <textarea className="editable" rows={1} style={{ fontWeight: 700, fontSize: 16 }} value={spot.routineName} onChange={e => patch({ routineName: e.target.value })} />
                   <textarea className="editable" rows={1} style={{ fontStyle: "italic", color: "var(--muted)" }} value={spot.routineIntro} onChange={e => patch({ routineIntro: e.target.value })} />
                   {spot.steps.map((st, i) => (
@@ -876,6 +888,10 @@ function App() {
                       <div>
                         <input className="editable name" value={st.name} onChange={e => patchStep(i, { name: e.target.value })} />
                         <textarea className="editable" rows={2} value={st.prompt} onChange={e => patchStep(i, { prompt: e.target.value })} />
+                        <div className="resp-note">
+                          <span className="resp-cap">Likely student responses <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0 }}>(speaker notes)</span></span>
+                          <textarea className="editable" rows={2} value={st.responses || ""} placeholder="What students might actually say…" onChange={e => patchStep(i, { responses: e.target.value })} />
+                        </div>
                       </div>
                       <button className="iconbtn" title="Remove step" onClick={() => delStep(i)}>✕</button>
                     </div>
@@ -884,9 +900,9 @@ function App() {
                   <div className={"total" + (totalMins > 5 ? " over" : "")}>Total: {totalMins} min {totalMins > 5 ? "— over 5 minutes!" : "/ 5 min"}</div>
                 </div></div>
 
-                {/* Slide 5 — Teacher notes (guiding questions) */}
+                {/* Slide 4 — Teacher notes (guiding questions) */}
                 <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
-                  <div className="kicker" style={kickStyle}>Slide 5 · Teacher notes</div>
+                  <div className="kicker" style={kickStyle}>Slide 4 · Teacher notes</div>
                   <h3>Guiding questions</h3>
                   <ul className="ql">
                     {spot.guidingQuestions.map((q, i) => (
@@ -900,9 +916,9 @@ function App() {
                   <button className="addbtn" onClick={addQ}>+ Add question</button>
                 </div></div>
 
-                {/* Slide 6 — Student key takeaway */}
+                {/* Slide 5 — Student key takeaway */}
                 <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
-                  <div className="kicker" style={kickStyle}>Slide 6 · Student key takeaway</div>
+                  <div className="kicker" style={kickStyle}>Slide 5 · Student key takeaway</div>
                   <div className="action-box" style={{ background: hx(T.accent2) + "1A", borderColor: hx(T.accent2) + "55" }}>
                     <div className="cap" style={{ color: hx(T.accent2) }}>One thing to take away</div>
                     <textarea className="editable" rows={2} value={spot.studentAction} onChange={e => patch({ studentAction: e.target.value })} />

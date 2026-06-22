@@ -23,7 +23,7 @@ A single-page tool that creates 5-minute **Digital Space Spotlight** discussion 
 
 ## Privacy
 
-Your API key is held **in memory only** — it is never saved, stored, or committed. There are no secrets in this repository; each user supplies their own key at runtime.
+Your API key is saved in **this browser's localStorage** so you don't re-enter it each visit — it is never committed to this repository or sent anywhere except OpenAI. Use the **Forget** button to remove it (do this on shared computers). There are no secrets in the repo; each user supplies their own key.
 
 ## Tech
 
