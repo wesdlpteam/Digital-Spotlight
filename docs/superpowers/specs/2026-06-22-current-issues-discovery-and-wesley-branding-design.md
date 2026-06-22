@@ -5,12 +5,13 @@
 
 This spec covers two related additions:
 
-1. **Discover current issues** — a section that web-searches trusted cyber-safety
-   sources for genuinely current online-safety issues relevant to students
-   (Prep–Year 12), **scoped to a chosen month and one or more topic categories**,
-   ranked by how much attention/"buzz" they got that month, surfaces them with
-   real free resources, and feeds a chosen issue straight into the existing
-   Spotlight generator.
+1. **Discover current issues** — a section that web-searches a **broad range of
+   reputable sources** for genuinely current online-safety issues relevant to
+   students (Prep–Year 12), **scoped to a chosen month and one or more topic
+   categories**, ranked by how much attention/"buzz" they got that month, then
+   **attaches a free teaching resource to each** (preferring well-known
+   cyber-safety/education sites, falling back to reputable free news). A chosen
+   issue feeds straight into the existing Spotlight generator.
 2. **Wesley College branding** — replace the generic export themes with a single
    on-brand Wesley College PowerPoint look (purple/gold, Calibri, Wesley lion
    logo on every slide).
@@ -23,7 +24,10 @@ This spec covers two related additions:
 A new **"Discover current issues"** block at the top of the existing left input
 panel (above the stimulus-mode selector). The teacher:
 
-1. Picks a **band** (reuses the existing Band & Year selectors).
+1. Picks a **band** (reuses the existing Band selector), then **targets one or
+   more year levels within that band** (multi-select; defaults to the whole
+   band) — e.g. in PYP, tick Year 5 + Year 6. This sharpens how age-appropriate
+   the sourced issues are.
 2. Picks a **month** (defaults to the current month; can step back to previous
    months to find what was big then; future months disabled).
 3. Selects **one or more topic categories** (multi-select; see A2).
@@ -57,39 +61,50 @@ for receiving auto-filled inputs.
 - **Month/Senior gating:** the "Image-based abuse / sextortion" category is only
   offered when band = Senior.
 
-### A2. Sourcing — the web-search call
-- New function `discoverIssues({ apiKey, band, year, month, categories })` calls
-  **`POST https://api.openai.com/v1/responses`** (the Responses API) with:
-  - `tools: [{ type: "web_search", filters: { allowed_domains: TRUSTED_DOMAINS } }]`
-  - A web-search-capable model (default chosen during planning; **independent of
-    the model dropdown**, which drives the Chat Completions generate call).
-  - An instruction/prompt requesting **10** current online-safety issues that
-    were most prominent **in the chosen month/year**, blended across the selected
-    **categories**, **age-appropriate to the band**, ordered most-buzz-first.
-- **`TRUSTED_DOMAINS`** (domains only, no `https://` prefix — per OpenAI spec):
+### A2. Sourcing — two-phase web search
+`discoverIssues({ apiKey, band, yearLevels, month, categories })` makes **two**
+**`POST https://api.openai.com/v1/responses`** (Responses API) calls, both using a
+web-search-capable model (default chosen during planning; **independent of the
+model dropdown**, which drives the Chat Completions generate call). The teacher
+accepts the extra API cost of the second call for broader, better-sourced results.
+
+**Phase 1 — event-spotting (broad).**
+- `tools: [{ type: "web_search" }]` — **no `allowed_domains` restriction** (a
+  small `blocked_domains` paywall list may be added during planning).
+- Prompt: return the **10** online-safety issues most discussed **in the chosen
+  month/year**, blended across the selected **categories**, **age-appropriate to
+  the targeted year levels** (within the band), ordered most-buzz-first. Each
+  issue: `title`, `whyNow`, `category`,
+  `theme` (mapped to an existing `THEMES` value), and a short `searchHint` to
+  guide phase 2.
+
+**Phase 2 — resource attach (prefer trusted, news fallback).**
+- For the phase-1 issues, `tools: [{ type: "web_search", filters: {
+  allowed_domains: RESOURCE_DOMAINS } }]` to find a **free** teaching resource on
+  a trusted cyber-safety/education site for each issue.
+- For any issue with no trusted resource found, a fallback search (broad, or the
+  phase-1 news coverage) supplies a **reputable free** resource instead.
+- Each resulting card records `resourceOrigin: "trusted" | "news"` for its badge
+  (A4). The model is told to use **only freely accessible (non-paywalled) pages**
+  and **only URLs actually found via search**.
+- **`RESOURCE_DOMAINS`** (domains only, no `https://` prefix — per OpenAI spec):
   - Australian authorities: `esafety.gov.au`, `thinkuknow.org.au`, `accce.gov.au`
   - Global non-profits / education: `commonsense.org`,
     `beinternetawesome.withgoogle.com`, `childnet.com`, `internetmatters.org`,
     `saferinternet.org.uk`
-  - Reputable free news: `abc.net.au`, `theconversation.com`
-- The model is instructed to use **only freely accessible (non-paywalled) pages**
-  and **only URLs actually found via search**.
+  - Reputable free news (fallback tier): `abc.net.au`, `theconversation.com`
+    *(plus a few more reputable free outlets finalised during planning).*
 
 ### A2a. Month scoping & "buzz" — feasibility note
 - Month scoping is driven by the **prompt** ("issues most discussed in
   {Month YYYY}"), not a hard API date filter — the web_search tool has no strict
-  date parameter. Recall for a specific past month is therefore best-effort.
-- The dated, "buzzy event" signal comes mainly from the **news domains**
-  (`abc.net.au`, `theconversation.com`); the authority/education domains supply
-  more **evergreen teaching resources**. A card's *issue* may be news-driven
-  while its attached *resource* is an evergreen page from a trusted cyber-safety
-  org — this is intended.
-- **Known trade-off (flag for review):** restricting `allowed_domains` to the 10
-  trusted sources guarantees reputable links but may under-find events that only
-  trended on outlets outside the list. v1 keeps the single domain-restricted
-  search for safety/simplicity; if month-by-month recall proves thin, a later
-  iteration can add a broader unfiltered "event-spotting" pass that then attaches
-  a trusted resource (extra API call/cost). Not in v1 scope.
+  date parameter. Recall for a specific past month is therefore best-effort, but
+  the unrestricted phase-1 search gives it the widest possible reach.
+- A card's *issue* is typically news-driven (phase 1) while its attached
+  *resource* is preferentially an evergreen page from a trusted cyber-safety org
+  (phase 2) — this separation is intended.
+- Both phases apply the **citation cross-check** (A3): every URL shown — issue or
+  resource — must appear in the real `url_citation` set, so nothing is invented.
 - If a chosen month yields fewer than 10 valid (cited) issues, the tool shows
   however many it found with a note, rather than padding with invented items.
 
@@ -104,11 +119,13 @@ for receiving auto-filled inputs.
     "resourceType": "article | image | video",
     "resourceTitle": "string",
     "resourceUrl": "string — a real URL found via search",
+    "resourceOrigin": "trusted | news (which tier the resource came from)",
     "source": "string — short source label, e.g. 'eSafety'",
     "blurb": "string — one-line description of the resource"
   }
   ```
-- Up to **10** items, ordered most-prominent-first.
+- Up to **10** items, ordered most-prominent-first. (Shape shown is the merged
+  card after phase 1 + phase 2; the two calls are stitched together internally.)
 - Parse with the existing `parseJsonLoose` helper.
 - **Citation cross-check:** the Responses API returns real cited URLs in
   `message.content[0].annotations` (`url_citation`). `validateResourceUrls(cards,
@@ -118,6 +135,9 @@ for receiving auto-filled inputs.
 
 ### A4. UI — controls & issue cards
 **Controls** (in the discovery block):
+- **Band selector** + **year-level multi-select** — the year levels of the
+  chosen band as checkboxes/chips (e.g. Prep…Year 6 for PYP), defaulting to the
+  whole band; drives age-targeting of the search and the generator handoff band.
 - **Month picker** — defaults to the current month; can step back to earlier
   months; future months disabled. (A native `month` input or a month+year pair.)
 - **Topic categories** — multi-select chips/checkboxes for the 12 categories
@@ -126,8 +146,9 @@ for receiving auto-filled inputs.
 
 **Issue cards** — each surviving issue renders as a card showing:
 - **Title** + one-line *why it mattered that month*.
-- A **category tag**, a **source badge** (e.g. "eSafety"), and a
-  **resource-type icon** (📄 / 🖼 / 🎬).
+- A **category tag**, a **source badge** (e.g. "eSafety"), an **origin badge**
+  ("Trusted org" vs "News" from `resourceOrigin`), and a **resource-type icon**
+  (📄 / 🖼 / 🎬).
 - **"Open ↗"** — opens `resourceUrl` in a new tab.
 - **"Use this issue →"** — handoff (see A5).
 
@@ -138,7 +159,9 @@ sub-panel).
 
 ### A5. Handoff into the generator ("Use this issue →")
 Sets the `theme` to the card's THEMES value (keeping the existing `<select>`
-valid); band is already chosen. Then, by `resourceType`:
+valid); band is already chosen. The generator's single `year` field is set to the
+targeted year level if exactly one was selected, otherwise left as "Whole band."
+Then, by `resourceType`:
 
 - **article** → `setMode("article")`, `setLink(resourceUrl)`, auto-run the
   existing `fetchArticleFromLink()` (r.jina.ai) to pull text + lead image.
@@ -155,9 +178,13 @@ an inline message names the single manual step remaining.
 ### A6. Error handling & edge cases
 Reuses existing patterns (the `error` / `rawDump` alert area):
 - Missing API key → same guard as Generate.
-- Responses API HTTP error → surfaced like the existing OpenAI errors.
-- Zero issues after citation-filtering → "No current issues found from trusted
-  sources for {month} — try a different month or topic."
+- Responses API HTTP error (either phase) → surfaced like the existing OpenAI
+  errors.
+- Phase 1 returns issues but phase 2 finds no resource for some → those cards
+  fall back per A2, or (if even fallback fails) the card shows the issue with an
+  "open a search" link and no auto-handoff resource, rather than being dropped.
+- Zero issues after citation-filtering → "No current issues found for {month} —
+  try a different month or topic."
 - Fewer than 10 valid issues → show what was found, with a note (no padding).
 - Paywalled / JS-only article on fetch → existing fallback message.
 - JSON parse failure → existing raw-dump display.
@@ -165,10 +192,16 @@ Reuses existing patterns (the `error` / `rawDump` alert area):
 ### A7. Code shape
 Logic lives in small **pure helpers**, separate from the React component, so each
 is independently reasoned-about and verifiable:
-- `buildDiscoveryRequest({ band, year, month, categories })` → request body
-  (includes the allowed-domains filter and the month/category prompt).
-- `parseDiscoveryResponse(rawJson)` → `{ cards, citations }`.
-- `validateResourceUrls(cards, citations)` → filtered cards (≤10, order kept).
+- `buildEventRequest({ band, yearLevels, month, categories })` → phase-1 request
+  body (no domain filter; month/category/year-level/buzz prompt).
+- `buildResourceRequest({ issue })` → phase-2 request body (RESOURCE_DOMAINS
+  filter + the issue's `searchHint`).
+- `parseDiscoveryResponse(rawJson)` → `{ items, citations }` (used for both
+  phases).
+- `validateResourceUrls(cards, citations)` → drops cards/resources whose URL
+  isn't in the real citation set (≤10, order kept).
+- `mergeIssuesAndResources(issues, resources)` → stitched cards with
+  `resourceOrigin`.
 - `availableCategories(band)` → the category list with Senior-only gating.
 
 No new dependencies; same in-browser React/Babel, no build step.
@@ -221,8 +254,10 @@ The app has no automated test harness today. Verification is **manual**, with th
 pure helpers (A7) kept side-effect-free so they *could* be unit-tested later.
 
 Manual checks:
-1. **Discovery** runs for each band (PYP / MYP / Senior) with the current month
-   and a topic selection; returns up to 10 cards, most-buzz-first.
+1. **Discovery** runs for each band (PYP / MYP / Senior) with a year-level
+   selection, the current month, and a topic selection; returns up to 10 cards,
+   most-buzz-first. Narrowing to specific year levels visibly shifts the issues
+   toward that age group.
 2. Stepping back to a **previous month** and re-running returns issues relevant
    to that month; selecting different **topic categories** changes the mix; the
    Senior-only category appears only for Senior.
