@@ -224,6 +224,24 @@ function readFileAsDataURL(file) {
   });
 }
 
+// Strip site chrome (nav, images, link URLs, related-article footers) out of the
+// markdown a reader service returns, leaving mostly the article body.
+function cleanArticleMarkdown(md) {
+  let t = String(md || "");
+  // Cut everything from the first end-of-article / footer marker onward.
+  const markers = ["Explore more on these topics", "\n### Most viewed", "\n## Most viewed", "\nReuse this content", "\n## More from"];
+  let cut = t.length;
+  for (const m of markers) { const i = t.indexOf(m); if (i !== -1 && i < cut) cut = i; }
+  t = t.slice(0, cut);
+  t = t.replace(/!\[[^\]]*\]\([^)]*\)/g, "");          // drop images
+  t = t.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1");        // links -> plain label
+  t = t.replace(/^\s*-\s*\[[ xX]\]\s*$/gm, "");         // checkbox artefacts
+  const drop = /^(Skip to|Search input|Show more|Hide expanded|Close dialogue|Support the Guardian|Fund independent|US edition|UK edition|Australia edition|Europe edition|International edition|Sign in|Print subscriptions|Download the app|View image|Prefer the Guardian|Toggle caption|Next image|Previous image|google-search)/i;
+  t = t.split("\n").filter(l => !drop.test(l.trim())).join("\n");
+  t = t.replace(/\n{3,}/g, "\n\n").trim();
+  return t;
+}
+
 async function extractPdfText(file) {
   const buf = await file.arrayBuffer();
   const pdfjs = window.pdfjsLib;
@@ -380,7 +398,7 @@ function App() {
     try {
       const resp = await fetch("https://r.jina.ai/" + url);
       if (!resp.ok) throw new Error("Reader service returned HTTP " + resp.status);
-      const text = (await resp.text()).trim();
+      const text = cleanArticleMarkdown(await resp.text());
       if (text.length < 40) throw new Error("Got too little text back — the page may be paywalled or JS-only.");
       setArticleText(text);
     } catch (err) {
