@@ -835,15 +835,19 @@ function App() {
     if (discoverYears.length === 1 && BANDS[band].years.includes(discoverYears[0])) setYear(discoverYears[0]);
     else setYear("");
 
+    // A short brief built from the issue itself — always a valid stimulus, so a
+    // generation never dead-ends when the richer resource can't auto-load.
+    const seed = [card.title, card.whyNow, card.blurb].filter(Boolean).join(". ");
+    const useBrief = (msg) => { setMode("article"); setImageDataUrl(""); setImageName(""); setArticleText(seed); setNotice(msg); };
+
     const type = ["article", "image", "video"].includes(card.resourceType) ? card.resourceType : "article";
     if (!card.resourceUrl) {
-      setMode(type);
-      setNotice(`“${card.title}” loaded. No free resource auto-attached — add a stimulus (image, article, or transcript) on the left, then Generate.`);
+      useBrief(`Loaded “${card.title}” as the stimulus from the issue summary (no free resource was attached). Edit or replace it on the left, then Generate.`);
     } else if (type === "image") {
-      setMode("image");
+      setMode("image"); setLink("");
       const d = await urlToDataUrl(card.resourceUrl);
       if (d) { setImageDataUrl(d); setImageName(card.resourceTitle || "resource image"); }
-      else setNotice("Couldn't auto-load that image — use “Open ↗” on the issue and upload it manually.");
+      else useBrief("Couldn't auto-load that image, so I loaded the issue summary as the stimulus instead. Use “Open ↗” to grab the image manually, or just Generate.");
     } else if (type === "video") {
       setMode("video"); setLink(card.resourceUrl); setTranscript("");
       let gotTranscript = false;
@@ -853,14 +857,11 @@ function App() {
           if (r.ok) { const t = cleanArticleMarkdown(await r.text()); if (t.length > 80) { setTranscript(t); gotTranscript = true; } }
         } catch (_) { /* leave blank; teacher pastes */ }
       }
-      if (!gotTranscript) setNotice("Video link loaded. Paste the transcript on the left so the model can read it, then Generate.");
+      if (!gotTranscript) setNotice("Video link loaded (it becomes a QR code). Paste the transcript so the model can read the video — or switch to Article mode to Generate from the issue summary.");
     } else {
-      setMode("article");
+      setMode("article"); setImageDataUrl(""); setImageName("");
       const text = await fetchArticleFromLink(card.resourceUrl);
-      if (!text) {
-        setError("");
-        setNotice("Couldn't auto-load the article text from that link — it's filled in on the left, so click “Fetch text” to retry, or open it and paste the text. Then Generate.");
-      }
+      if (!text) { setError(""); setArticleText(seed); setNotice("Couldn't auto-load the full article, so I loaded the issue summary as the stimulus. The link is on the left — click “Fetch text” to retry, or just Generate."); }
     }
     setShowDiscoverModal(false);
     if (genBtnRef.current) genBtnRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
