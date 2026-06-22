@@ -409,6 +409,7 @@ function buildEventRequest({ model, band, yearLevels, month, categories }) {
   const prompt = [
     `You are an expert in student online safety and digital citizenship.`,
     `Use web search to find the 10 technology / online-safety issues that were MOST DISCUSSED and got the most public attention during ${when}, that are relevant and age-appropriate for these students: ${audienceStr(band, yearLevels)}.`,
+    `These students are in Australia. Prioritise AUSTRALIAN relevance: for government, policy, regulation, law-enforcement, school and online-safety-authority matters, focus on Australian decisions and context (e.g. the eSafety Commissioner, federal/state government, Australian schools and police, the under-16 social media age limit). For major technology and AI company developments (e.g. OpenAI, Google, Meta, Apple, TikTok, Snap), international news is appropriate and expected.`,
     `Blend them across these topic categories: ${cats}.`,
     `Order them most-discussed first.`,
     `Return STRICT JSON only (no markdown, no code fences) of EXACTLY this shape:`,
