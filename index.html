@@ -511,6 +511,44 @@ window.DSS = { DISCOVERY_CATEGORIES, RESOURCE_DOMAINS, availableCategories, mont
   audienceStr, buildEventRequest, buildResourceRequest, extractResponseText,
   citationSet, urlInCitations, mergeIssuesAndResources, validateResourceUrls };
 
+/* --------------------- Discovery: API orchestration --------------------- */
+
+async function callResponses({ apiKey, body }) {
+  const resp = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + apiKey },
+    body: JSON.stringify(body),
+  });
+  if (!resp.ok) {
+    let detail = "";
+    try { detail = JSON.stringify((await resp.json()).error || {}, null, 2); }
+    catch (_) { detail = await resp.text().catch(() => ""); }
+    throw new Error(`OpenAI Responses API error (${resp.status}).\n${detail}`);
+  }
+  return resp.json();
+}
+
+async function discoverIssues({ apiKey, model, band, yearLevels, month, categories }) {
+  // Phase 1 — event spotting (broad).
+  const evData = await callResponses({ apiKey, body: buildEventRequest({ model, band, yearLevels, month, categories }) });
+  const evOut = extractResponseText(evData);
+  if (!evOut.text.trim()) throw new Error("Discovery returned an empty response (phase 1).");
+  const evParsed = parseJsonLoose(evOut.text);
+  const issues = Array.isArray(evParsed.issues) ? evParsed.issues.slice(0, 10) : [];
+  if (!issues.length) return { cards: [], raw: evOut.text };
+
+  // Phase 2 — resource attach (trusted-first, batched single call).
+  const rsData = await callResponses({ apiKey, body: buildResourceRequest({ model, issues, band, yearLevels }) });
+  const rsOut = extractResponseText(rsData);
+  let resources = [];
+  try { const p = parseJsonLoose(rsOut.text); resources = Array.isArray(p.resources) ? p.resources : []; }
+  catch (_) { resources = []; } // issues still shown without resources
+
+  const cset = citationSet(rsOut.annotations);
+  const cards = validateResourceUrls(mergeIssuesAndResources(issues, resources), cset);
+  return { cards, raw: evOut.text + "\n\n--- resources ---\n\n" + rsOut.text };
+}
+
 /* --------------------------- OpenAI call --------------------------- */
 
 async function generateSpotlight({ apiKey, model, mode, band, year, theme, title, imageDataUrl, sourceText }) {
