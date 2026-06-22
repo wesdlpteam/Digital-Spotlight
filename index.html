@@ -174,6 +174,13 @@
   .empty .big { font-size: 46px; margin-bottom: 10px; }
   .toolbar { display: flex; gap: 10px; margin-bottom: 16px; }
   .toolbar .btn { width: auto; flex: 1; }
+
+  .design-row { display: flex; gap: 14px; align-items: center; margin-bottom: 16px; background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 12px; box-shadow: var(--shadow); }
+  .thumb-slide { width: 226px; height: 127px; flex: 0 0 auto; border-radius: 10px; padding: 12px; overflow: hidden; position: relative; box-shadow: var(--shadow); }
+  .thumb-bar { position: absolute; top: 0; left: 0; right: 0; height: 5px; }
+  .thumb-kick { font-size: 8px; letter-spacing: 1.5px; font-weight: 800; margin-top: 4px; }
+  .thumb-title { font-size: 15px; font-weight: 800; line-height: 1.12; margin-top: 3px; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+  .thumb-meta { font-size: 8px; position: absolute; bottom: 10px; left: 12px; right: 12px; }
   .spinner { width: 16px; height: 16px; border: 2.5px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 </style>
@@ -205,13 +212,50 @@ const THEMES = [
 ];
 
 const BAND_GUIDANCE = {
-  PYP: "Audience: IB PYP (Prep–Year 6). Use concrete, simple, inquiry-based language. Short sentences, warm and curious. Centre noticing and wondering. Choose a thinking routine from: See–Think–Wonder, or Connect–Extend–Challenge.",
-  MYP: "Audience: IB MYP (Years 7–10). Use analytical language with real scenarios and consequences. Choose a thinking routine from: 3-2-1 Bridge, Think–Pair–Share, or a chain-of-thought 'What happens next? Who is affected?' routine.",
-  Senior: "Audience: IB Senior (Years 11–12). Use critical and ethical reasoning, nuance, and real-world stakes. Choose a thinking routine from: Tug-of-War, or Circle of Viewpoints (for ethics debate).",
+  PYP: "Audience: IB PYP (Prep–Year 6). Use concrete, simple, inquiry-based language. Short sentences, warm and curious. Centre noticing and wondering.",
+  MYP: "Audience: IB MYP (Years 7–10). Use analytical language with real scenarios and consequences.",
+  Senior: "Audience: IB Senior (Years 11–12). Use critical and ethical reasoning, nuance, and real-world stakes.",
 };
+
+// Authentic Harvard Project Zero thinking routines (pz.harvard.edu/thinking-routines),
+// curated by band for a 5-minute discussion. The model picks ONE per Spotlight.
+const ROUTINES = {
+  PYP: [
+    { name: "See–Think–Wonder", moves: "What do you see? What do you think about that? What does it make you wonder?" },
+    { name: "Zoom In", moves: "Reveal only part: what do you notice and guess? Zoom out: what new things do you see, and how does your thinking change?" },
+    { name: "Think–Puzzle–Explore", moves: "What do you think you know? What puzzles or questions do you have? How could we explore it?" },
+    { name: "Color–Symbol–Image", moves: "Pick a colour, a symbol, and an image that capture the big idea." },
+    { name: "I Used to Think… Now I Think…", moves: "How has your thinking changed? I used to think… now I think…" },
+  ],
+  MYP: [
+    { name: "Connect–Extend–Challenge", moves: "How does this connect to what you knew? What extends your thinking? What's challenging or puzzling?" },
+    { name: "3-2-1 Bridge", moves: "3 thoughts, 2 questions, 1 analogy beforehand; revisit afterward and bridge the change." },
+    { name: "Think–Pair–Share", moves: "Think alone, pair to compare, then share with the group." },
+    { name: "Claim–Support–Question", moves: "Make a claim, give supporting evidence, raise a question it leaves open." },
+    { name: "Headlines", moves: "Write a headline that captures the core or heart of the issue right now." },
+    { name: "What Makes You Say That?", moves: "What's going on here? What do you see that makes you say that?" },
+  ],
+  Senior: [
+    { name: "Tug-of-War", moves: "Map the strongest pulls on each side of the dilemma, then weigh the competing 'tugs'." },
+    { name: "Circle of Viewpoints", moves: "List the viewpoints, then choose one: I am thinking of… from the point of view of… I wonder…" },
+    { name: "Take a Stand", moves: "Position yourself on a spectrum of opinion, justify with reasons, listen, and reconsider." },
+    { name: "Claim–Support–Question", moves: "Make a claim, marshal evidence, then surface the question it leaves unresolved." },
+    { name: "Step Inside", moves: "Inhabit a stakeholder's perspective: what do they perceive, feel, value, and risk?" },
+  ],
+};
+const ROUTINE_SOURCE = "Harvard Project Zero Thinking Routines · pz.harvard.edu/thinking-routines";
 
 const MODE_FRAMING = { image: "Look closely, then discuss.", article: "Read, then discuss.", video: "Watch, then discuss." };
 const MODE_VERB = { image: "Look", article: "Read", video: "Watch" };
+
+// PowerPoint / preview design themes. Hex values carry NO leading '#'.
+const THEME_DESIGNS = {
+  editorial: { label: "Bold Editorial", dark: true,  titleBg: "111317", contentBg: "1A1C22", ink: "FFFFFF", muted: "9AA3B2", accent: "19E6C1", accent2: "FF5C7A", titleFont: "Arial",        bodyFont: "Arial",    upper: true  },
+  warm:      { label: "Warm Inquiry",  dark: false, titleBg: "F4EDFB", contentBg: "FFFFFF", ink: "2B2536", muted: "6B6478", accent: "7C4DFF", accent2: "FF7043", titleFont: "Calibri",      bodyFont: "Calibri",  upper: false },
+  pop:       { label: "Playful Pop",   dark: false, titleBg: "FFF3D6", contentBg: "FFFFFF", ink: "23203A", muted: "6A6480", accent: "FF4D8D", accent2: "3DB9FF", titleFont: "Trebuchet MS", bodyFont: "Trebuchet MS", upper: false },
+  academic:  { label: "Clean Academic",dark: false, titleBg: "FFFFFF", contentBg: "FFFFFF", ink: "1A2433", muted: "5A6473", accent: "12476B", accent2: "128C8C", titleFont: "Georgia",      bodyFont: "Georgia",  upper: false },
+};
+const hx = (c) => "#" + c;
 
 /* ----------------------------- helpers ----------------------------- */
 
@@ -256,6 +300,31 @@ function cleanArticleMarkdown(md) {
   return t;
 }
 
+// Find the first real content image URL in reader markdown (skip logos/icons/sprites).
+function extractLeadImage(md) {
+  const re = /!\[[^\]]*\]\((https?:\/\/[^)\s]+)\)/g;
+  let m;
+  while ((m = re.exec(String(md || "")))) {
+    const u = m[1];
+    if (/logo|icon|sprite|avatar|placeholder|1x1|pixel|\.svg(\?|$)/i.test(u)) continue;
+    if (/\.(jpe?g|png|webp|gif)(\?|$)/i.test(u) || /\/img\/|\/media\/|\/images?\//i.test(u)) return u;
+  }
+  return "";
+}
+
+// Fetch a (possibly cross-origin) image and return a base64 data URL, routed through
+// the wsrv.nl image proxy so CORS never blocks embedding it in the .pptx. "" on failure.
+async function urlToDataUrl(url) {
+  if (!url) return "";
+  const proxied = "https://images.weserv.nl/?url=" + encodeURIComponent(url.replace(/^https?:\/\//, "")) + "&output=jpg";
+  try {
+    const resp = await fetch(proxied);
+    if (!resp.ok) throw new Error("proxy " + resp.status);
+    const blob = await resp.blob();
+    return await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(blob); });
+  } catch (_) { return ""; }
+}
+
 async function extractPdfText(file) {
   const buf = await file.arrayBuffer();
   const pdfjs = window.pdfjsLib;
@@ -289,11 +358,18 @@ async function generateSpotlight({ apiKey, model, mode, band, year, theme, title
     ? `The teacher provided this title: "${title}". Use it (lightly polished if needed).`
     : `No title was provided — invent a short, inviting title (max ~8 words).`;
 
+  const routineList = ROUTINES[band].map(r => `- ${r.name}: ${r.moves}`).join("\n");
+  const summaryRule = mode === "image"
+    ? `"summary": "" (empty string — the image is the stimulus, no summary needed),`
+    : `"summary": "string — EXACTLY 5 sentences summarising the ${mode === "video" ? "video" : "article"} for students, pitched to the band",`;
+
   const schema = `Return STRICT JSON only (no markdown, no preamble, no code fences) with EXACTLY this shape:
 {
+  "hook": "string — a short, provoking question, statement, or headline (max ~14 words) to spark thinking BEFORE students see the content",
   "title": "string — the spotlight title",
+  ${summaryRule}
   "framing": "string — one short line telling students what to do, e.g. '${MODE_FRAMING[mode]}'",
-  "routineName": "string — the name of the thinking routine you chose",
+  "routineName": "string — the EXACT name of the ONE thinking routine you chose from the list below",
   "routineIntro": "string — one warm sentence introducing the routine to the class",
   "steps": [
     { "name": "string — short step label", "minutes": 1, "prompt": "string — what the teacher says/asks at this step" }
@@ -302,6 +378,8 @@ async function generateSpotlight({ apiKey, model, mode, band, year, theme, title
   "studentAction": "string — one concrete action or takeaway a student leaves with",
   "learnerProfile": ["1 to 3 IB Learner Profile attributes that fit, e.g. 'Thinker', 'Principled', 'Caring'"]
 }
+Choose the routine ONLY from this Harvard Project Zero list for this band, and base the timed steps on its actual moves:
+${routineList}
 Rules: the sum of all step "minutes" MUST be 5 or less (this is a 5-minute discussion). Provide 2–4 steps. Keep language warm, curious, student-centred and IB-aligned.`;
 
   const systemMsg = "You are an expert IB educator and digital-citizenship coach. You design short, 5-minute 'Digital Space Spotlight' discussion prompts about cyber safety and digital citizenship. Your tone is warm, curious and student-centred, aligned to the IB Learner Profile. You ALWAYS respond with strict JSON only.";
@@ -372,6 +450,7 @@ function App() {
   const [imageDataUrl, setImageDataUrl] = useState("");
   const [imageName, setImageName] = useState("");
   const [articleText, setArticleText] = useState("");
+  const [articleImageUrl, setArticleImageUrl] = useState("");
   const [pdfName, setPdfName] = useState("");
   const [transcript, setTranscript] = useState("");
   const [title, setTitle] = useState("");
@@ -379,6 +458,7 @@ function App() {
   const [band, setBand] = useState("PYP");
   const [year, setYear] = useState("");
   const [theme, setTheme] = useState(THEMES[0]);
+  const [design, setDesign] = useState("editorial");
 
   // generation
   const [loading, setLoading] = useState(false);
@@ -412,9 +492,11 @@ function App() {
     try {
       const resp = await fetch("https://r.jina.ai/" + url);
       if (!resp.ok) throw new Error("Reader service returned HTTP " + resp.status);
-      const text = cleanArticleMarkdown(await resp.text());
+      const rawMd = await resp.text();
+      const text = cleanArticleMarkdown(rawMd);
       if (text.length < 40) throw new Error("Got too little text back — the page may be paywalled or JS-only.");
       setArticleText(text);
+      setArticleImageUrl(extractLeadImage(rawMd)); // grab the article's lead image (before stripping)
     } catch (err) {
       setError("Couldn't fetch that link (" + (err.message || err) + "). Paste the article text instead.");
     } finally {
@@ -450,9 +532,11 @@ function App() {
         : [{ name: "Discuss", minutes: 5, prompt: "" }];
 
       setSpot({
+        hook: String(parsed.hook || ""),
         title: String(parsed.title || title || "Digital Space Spotlight"),
+        summary: String(parsed.summary || ""),
         framing: String(parsed.framing || MODE_FRAMING[mode]),
-        routineName: String(parsed.routineName || "See–Think–Wonder"),
+        routineName: String(parsed.routineName || ROUTINES[band][0].name),
         routineIntro: String(parsed.routineIntro || ""),
         steps,
         guidingQuestions: Array.isArray(parsed.guidingQuestions) && parsed.guidingQuestions.length
@@ -481,78 +565,107 @@ function App() {
   const totalMins = useMemo(() => spot ? spot.steps.reduce((a, s) => a + (Number(s.minutes) || 0), 0) : 0, [spot]);
 
   const bandLabel = BANDS[band].label;
+  const T = THEME_DESIGNS[design];
+  const barStyle = { background: `linear-gradient(90deg, ${hx(T.accent)}, ${hx(T.accent2)})` };
+  const kickStyle = { color: hx(T.accent) };
 
   /* ------- export ------- */
   async function download() {
     if (!spot) return;
     try {
+      const T = THEME_DESIGNS[design];
+      const accent = T.accent, accent2 = T.accent2, ink = T.ink, muted = T.muted;
+      const tFont = T.titleFont, bFont = T.bodyFont;
+      const tCase = (s) => T.upper ? String(s).toUpperCase() : String(s);
+      const W = 13.33, H = 7.5;
+
       const pptx = new PptxGenJS();
-      pptx.defineLayout({ name: "WIDE", width: 13.33, height: 7.5 });
+      pptx.defineLayout({ name: "WIDE", width: W, height: H });
       pptx.layout = "WIDE";
-      const VIOLET = "7C4DFF", CORAL = "FF7043", INK = "2B2536", MUTED = "6B6478", CREAM = "FBF8FF";
 
-      const accentBar = (slide) => slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 13.33, h: 0.22, fill: { color: VIOLET } });
-      const footer = (slide, n) => slide.addText(`Digital Space Spotlight · 5-minute discussion · ${n}/4`, { x: 0.5, y: 7.0, w: 12.3, h: 0.3, fontSize: 9, color: MUTED, align: "left" });
+      const newSlide = (n, kind) => {
+        const s = pptx.addSlide();
+        s.background = { color: kind === "title" ? T.titleBg : T.contentBg };
+        s.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: W, h: 0.18, fill: { color: accent } });
+        s.addText(`Digital Space Spotlight · 5-minute discussion · ${n}/6`, { x: 0.6, y: H - 0.42, w: W - 1.2, h: 0.3, fontSize: 9, color: muted, fontFace: bFont });
+        return s;
+      };
+      const kicker = (s, txt, col) => s.addText(String(txt).toUpperCase(), { x: 0.8, y: 0.55, w: W - 1.6, h: 0.4, fontSize: 13, bold: true, color: col || accent, charSpacing: 2, fontFace: bFont });
 
-      /* Slide 1 — Title */
-      let s1 = pptx.addSlide(); s1.background = { color: CREAM }; accentBar(s1);
-      s1.addText("DIGITAL SPACE SPOTLIGHT", { x: 0.8, y: 1.0, w: 11.7, h: 0.5, fontSize: 16, bold: true, color: VIOLET, charSpacing: 2 });
-      s1.addText(spot.title, { x: 0.8, y: 1.7, w: 11.7, h: 1.8, fontSize: 40, bold: true, color: INK, valign: "top" });
-      s1.addText([
-        { text: bandLabel + "    ", options: { color: VIOLET, bold: true } },
-        { text: theme, options: { color: CORAL, bold: true } },
-      ], { x: 0.8, y: 3.7, w: 11.7, h: 0.5, fontSize: 18 });
-      s1.addText("5-minute discussion", { x: 0.8, y: 4.4, w: 11.7, h: 0.5, fontSize: 16, italic: true, color: MUTED });
-      footer(s1, 1);
+      // Resolve the stimulus image to an embeddable data URL.
+      let stimImg = "";
+      if (mode === "image" && imageDataUrl) stimImg = imageDataUrl;
+      else if (mode === "article" && articleImageUrl) stimImg = await urlToDataUrl(articleImageUrl);
 
-      /* Slide 2 — Stimulus */
-      let s2 = pptx.addSlide(); s2.background = { color: "FFFFFF" }; accentBar(s2);
-      s2.addText("STIMULUS", { x: 0.8, y: 0.7, w: 11.7, h: 0.4, fontSize: 14, bold: true, color: VIOLET, charSpacing: 2 });
-      s2.addText(spot.framing, { x: 0.8, y: 1.2, w: 11.7, h: 0.6, fontSize: 22, bold: true, color: INK });
+      /* Slide 1 — HOOK */
+      const s1 = newSlide(1, "title");
+      kicker(s1, "Hook", accent2);
+      s1.addText(tCase(spot.hook || spot.title), { x: 0.9, y: 1.6, w: W - 1.8, h: 3.8, fontSize: 44, bold: true, color: ink, valign: "middle", fontFace: tFont });
+      s1.addText(`${bandLabel}${year ? " · " + year : ""}   ·   ${theme}`, { x: 0.9, y: 5.7, w: W - 1.8, h: 0.4, fontSize: 14, color: muted, fontFace: bFont });
 
-      if (mode === "image" && imageDataUrl) {
-        s2.addImage({ data: imageDataUrl, x: 1.2, y: 2.1, w: 10.9, h: 4.5, sizing: { type: "contain", w: 10.9, h: 4.5 } });
-      } else if (link.trim()) {
-        const url = link.trim();
-        const qrData = makeQrDataUrl(url);
-        if (qrData) s2.addImage({ data: qrData, x: 1.2, y: 2.4, w: 3.0, h: 3.0 });
-        s2.addText([{ text: `${MODE_VERB[mode]} here: `, options: { color: INK } }, { text: url, options: { color: VIOLET, underline: true, hyperlink: { url } } }],
-          { x: 4.6, y: 3.4, w: 7.8, h: 1.2, fontSize: 18, valign: "middle" });
+      /* Slide 2 — TITLE */
+      const s2 = newSlide(2, "title");
+      s2.addText("DIGITAL SPACE SPOTLIGHT", { x: 0.8, y: 1.1, w: W - 1.6, h: 0.5, fontSize: 15, bold: true, color: accent, charSpacing: 2, fontFace: bFont });
+      s2.addText(tCase(spot.title), { x: 0.8, y: 1.8, w: W - 1.6, h: 2.0, fontSize: 40, bold: true, color: ink, valign: "top", fontFace: tFont });
+      s2.addText([
+        { text: bandLabel + (year ? " · " + year : "") + "      ", options: { color: accent, bold: true } },
+        { text: theme, options: { color: accent2, bold: true } },
+      ], { x: 0.8, y: 3.95, w: W - 1.6, h: 0.5, fontSize: 18, fontFace: bFont });
+      s2.addText("5-minute discussion", { x: 0.8, y: 4.65, w: W - 1.6, h: 0.5, fontSize: 16, italic: true, color: muted, fontFace: bFont });
+
+      /* Slide 3 — STIMULUS */
+      const s3 = newSlide(3, "content");
+      kicker(s3, "Stimulus");
+      s3.addText(spot.framing, { x: 0.8, y: 1.0, w: W - 1.6, h: 0.6, fontSize: 22, bold: true, color: ink, fontFace: tFont });
+      const hasSummary = !!(spot.summary && spot.summary.trim());
+      if (mode === "image" && stimImg) {
+        s3.addImage({ data: stimImg, x: 1.2, y: 1.9, w: 10.9, h: 4.7, sizing: { type: "contain", w: 10.9, h: 4.7 } });
       } else {
-        s2.addText("(No link provided — share the stimulus with students directly.)", { x: 0.8, y: 3.0, w: 11.7, h: 0.6, fontSize: 16, italic: true, color: MUTED });
+        const rightMedia = !!(stimImg || link.trim());
+        const sumW = rightMedia ? 6.9 : W - 1.6;
+        if (hasSummary) s3.addText(spot.summary, { x: 0.8, y: 1.9, w: sumW, h: 4.6, fontSize: 15, color: ink, valign: "top", fontFace: bFont, lineSpacingMultiple: 1.15 });
+        else if (!rightMedia) s3.addText("(Share the stimulus with students directly.)", { x: 0.8, y: 2.0, w: W - 1.6, h: 0.6, fontSize: 15, italic: true, color: muted, fontFace: bFont });
+        const rx = 8.0, rw = 4.5;
+        let ry = 1.9;
+        if (stimImg) { s3.addImage({ data: stimImg, x: rx, y: ry, w: rw, h: 3.2, sizing: { type: "contain", w: rw, h: 3.2 } }); ry += 3.4; }
+        if (link.trim()) {
+          const url = link.trim();
+          const qr = makeQrDataUrl(url);
+          if (qr) s3.addImage({ data: qr, x: rx, y: ry, w: 1.5, h: 1.5 });
+          s3.addText([{ text: `${MODE_VERB[mode]}: `, options: { color: ink, bold: true } }, { text: url, options: { color: accent, underline: true, hyperlink: { url } } }],
+            { x: rx + (qr ? 1.7 : 0), y: ry, w: rw - (qr ? 1.7 : 0), h: 1.5, fontSize: 11, valign: "middle", fontFace: bFont });
+        }
       }
-      footer(s2, 2);
 
-      /* Slide 3 — Discussion scaffold */
-      let s3 = pptx.addSlide(); s3.background = { color: CREAM }; accentBar(s3);
-      s3.addText("DISCUSSION SCAFFOLD", { x: 0.8, y: 0.7, w: 11.7, h: 0.4, fontSize: 14, bold: true, color: VIOLET, charSpacing: 2 });
-      s3.addText(spot.routineName, { x: 0.8, y: 1.15, w: 11.7, h: 0.6, fontSize: 26, bold: true, color: INK });
-      if (spot.routineIntro) s3.addText(spot.routineIntro, { x: 0.8, y: 1.8, w: 11.7, h: 0.5, fontSize: 15, italic: true, color: MUTED });
-      let y = 2.55;
+      /* Slide 4 — DISCUSSION SCAFFOLD */
+      const s4 = newSlide(4, "content");
+      kicker(s4, "Discussion scaffold");
+      s4.addText(tCase(spot.routineName), { x: 0.8, y: 1.0, w: W - 1.6, h: 0.6, fontSize: 26, bold: true, color: ink, fontFace: tFont });
+      if (spot.routineIntro) s4.addText(spot.routineIntro, { x: 0.8, y: 1.65, w: W - 1.6, h: 0.5, fontSize: 15, italic: true, color: muted, fontFace: bFont });
+      let yy = 2.45;
       spot.steps.forEach((st) => {
-        s3.addText([
-          { text: `${st.minutes} min   `, options: { bold: true, color: CORAL } },
-          { text: st.name, options: { bold: true, color: INK } },
-          { text: st.prompt ? `\n${st.prompt}` : "", options: { color: INK } },
-        ], { x: 0.9, y, w: 11.5, h: 1.0, fontSize: 15, valign: "top" });
-        y += 1.05;
+        s4.addText([
+          { text: `${st.minutes} min    `, options: { bold: true, color: accent2 } },
+          { text: st.name, options: { bold: true, color: ink } },
+          { text: st.prompt ? `\n${st.prompt}` : "", options: { color: ink } },
+        ], { x: 0.9, y: yy, w: W - 1.8, h: 1.0, fontSize: 15, valign: "top", fontFace: bFont });
+        yy += 1.0;
       });
-      footer(s3, 3);
+      s4.addText(ROUTINE_SOURCE, { x: 0.8, y: H - 0.75, w: W - 1.6, h: 0.3, fontSize: 9, italic: true, color: muted, fontFace: bFont });
 
-      /* Slide 4 — Teacher notes */
-      let s4 = pptx.addSlide(); s4.background = { color: "FFFFFF" }; accentBar(s4);
-      s4.addText("TEACHER NOTES", { x: 0.8, y: 0.7, w: 11.7, h: 0.4, fontSize: 14, bold: true, color: VIOLET, charSpacing: 2 });
-      s4.addText("Guiding questions", { x: 0.8, y: 1.2, w: 11.7, h: 0.4, fontSize: 18, bold: true, color: INK });
-      const qBullets = spot.guidingQuestions.filter(q => q.trim()).map(q => ({ text: q, options: { bullet: { code: "2022" }, color: INK, paraSpaceAfter: 8 } }));
-      s4.addText(qBullets.length ? qBullets : [{ text: "—", options: { color: MUTED } }], { x: 0.9, y: 1.7, w: 11.5, h: 3.2, fontSize: 16, valign: "top" });
-      s4.addShape(pptx.ShapeType.roundRect, { x: 0.8, y: 5.1, w: 11.7, h: 1.4, fill: { color: "FFF3EE" }, line: { color: "FFD9C9" }, rectRadius: 0.1 });
-      s4.addText([
-        { text: "STUDENT ACTION / TAKEAWAY\n", options: { bold: true, color: CORAL, fontSize: 12 } },
-        { text: spot.studentAction || "—", options: { color: INK, fontSize: 16 } },
-      ], { x: 1.0, y: 5.25, w: 11.3, h: 1.1, valign: "top" });
+      /* Slide 5 — TEACHER NOTES (guiding questions) */
+      const s5 = newSlide(5, "content");
+      kicker(s5, "Teacher notes · guiding questions");
+      const qBullets = spot.guidingQuestions.filter(q => q.trim()).map(q => ({ text: q, options: { bullet: { code: "2022" }, color: ink, paraSpaceAfter: 12 } }));
+      s5.addText(qBullets.length ? qBullets : [{ text: "—", options: { color: muted } }], { x: 0.9, y: 1.5, w: W - 1.8, h: 4.8, fontSize: 18, valign: "top", fontFace: bFont });
+
+      /* Slide 6 — STUDENT KEY TAKEAWAY */
+      const s6 = newSlide(6, "title");
+      kicker(s6, "Your key takeaway", accent2);
+      s6.addShape(pptx.ShapeType.roundRect, { x: 1.1, y: 2.2, w: W - 2.2, h: 2.8, fill: { color: accent2 }, rectRadius: 0.18 });
+      s6.addText(spot.studentAction || "—", { x: 1.7, y: 2.4, w: W - 3.4, h: 2.4, fontSize: 26, bold: true, color: "FFFFFF", valign: "middle", align: "center", fontFace: tFont });
       if (spot.learnerProfile.filter(Boolean).length)
-        s4.addText("IB Learner Profile: " + spot.learnerProfile.filter(Boolean).join(", "), { x: 0.8, y: 6.6, w: 11.7, h: 0.3, fontSize: 12, italic: true, color: VIOLET });
-      footer(s4, 4);
+        s6.addText("IB Learner Profile: " + spot.learnerProfile.filter(Boolean).join(", "), { x: 1.1, y: 5.4, w: W - 2.2, h: 0.4, fontSize: 14, italic: true, color: accent, align: "center", fontFace: bFont });
 
       const safe = (spot.title || "spotlight").replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "-").slice(0, 50) || "spotlight";
       await pptx.writeFile({ fileName: `Digital-Space-Spotlight_${safe}.pptx` });
@@ -699,10 +812,33 @@ function App() {
                 <button className="btn primary" onClick={download}>⬇ Download PowerPoint</button>
               </div>
 
+              {/* PowerPoint design picker + live themed thumbnail */}
+              <div className="design-row">
+                <div className="thumb-slide" style={{ background: hx(T.titleBg), color: hx(T.ink), fontFamily: T.bodyFont }}>
+                  <div className="thumb-bar" style={barStyle}></div>
+                  <div className="thumb-kick" style={{ color: hx(T.accent2) }}>HOOK</div>
+                  <div className="thumb-title" style={{ fontFamily: T.titleFont, textTransform: T.upper ? "uppercase" : "none" }}>{spot.hook || spot.title}</div>
+                  <div className="thumb-meta" style={{ color: hx(T.muted) }}>{bandLabel} · {theme}</div>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label className="cap" style={{ display: "block", marginBottom: 6 }}>PowerPoint design</label>
+                  <select value={design} onChange={e => setDesign(e.target.value)}>
+                    {Object.keys(THEME_DESIGNS).map(k => <option key={k} value={k}>{THEME_DESIGNS[k].label}</option>)}
+                  </select>
+                  <div className="hint">Switch anytime — the thumbnail shows the export look. Edit content in the cards below; styling applies on download.</div>
+                </div>
+              </div>
+
               <div className="slides">
-                {/* Slide 1 — Title */}
-                <div className="slide"><div className="bar"></div><div className="body">
-                  <div className="kicker">Slide 1 · Title</div>
+                {/* Slide 1 — Hook */}
+                <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
+                  <div className="kicker" style={kickStyle}>Slide 1 · Hook <span style={{ color: "var(--muted)", fontWeight: 600 }}>· provokes thinking first</span></div>
+                  <textarea className="editable titlebig" rows={2} value={spot.hook} placeholder="A provoking question, statement, or headline…" onChange={e => patch({ hook: e.target.value })} />
+                </div></div>
+
+                {/* Slide 2 — Title */}
+                <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
+                  <div className="kicker" style={kickStyle}>Slide 2 · Title</div>
                   <textarea className="editable titlebig" rows={1} value={spot.title} onChange={e => patch({ title: e.target.value })} />
                   <div className="meta-chips">
                     <span className="chip">{bandLabel}{year ? " · " + year : ""}</span>
@@ -711,18 +847,30 @@ function App() {
                   <div style={{ color: "var(--muted)", fontStyle: "italic" }}>5-minute discussion</div>
                 </div></div>
 
-                {/* Slide 2 — Stimulus */}
-                <div className="slide"><div className="bar"></div><div className="body">
-                  <div className="kicker">Slide 2 · Stimulus</div>
+                {/* Slide 3 — Stimulus */}
+                <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
+                  <div className="kicker" style={kickStyle}>Slide 3 · Stimulus</div>
                   <textarea className="editable" rows={1} value={spot.framing} onChange={e => patch({ framing: e.target.value })} />
+                  {mode !== "image" && (
+                    <React.Fragment>
+                      <div className="cap" style={{ marginTop: 6 }}>5-sentence summary</div>
+                      <textarea className="editable" rows={5} value={spot.summary} placeholder="A 5-sentence summary for students…" onChange={e => patch({ summary: e.target.value })} />
+                    </React.Fragment>
+                  )}
                   {mode === "image" && imageDataUrl && <div className="stim-img"><img src={imageDataUrl} alt="" /></div>}
+                  {mode === "article" && articleImageUrl && (
+                    <div className="stim-img" style={{ position: "relative" }}>
+                      <img src={articleImageUrl} alt="article" />
+                      <button className="iconbtn" style={{ position: "absolute", top: 6, right: 6 }} title="Remove image" onClick={() => setArticleImageUrl("")}>✕</button>
+                    </div>
+                  )}
                   {mode !== "image" && link.trim() && <StimLink url={link.trim()} verb={MODE_VERB[mode]} />}
-                  {mode !== "image" && !link.trim() && <div className="hint">No link added — add one on the left to include a clickable link + QR code.</div>}
+                  {mode !== "image" && !link.trim() && !articleImageUrl && <div className="hint">Tip: add a link on the left for a clickable link + QR code, or fetch an article to pull in its lead image.</div>}
                 </div></div>
 
-                {/* Slide 3 — Scaffold */}
-                <div className="slide"><div className="bar"></div><div className="body">
-                  <div className="kicker">Slide 3 · Discussion scaffold</div>
+                {/* Slide 4 — Scaffold */}
+                <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
+                  <div className="kicker" style={kickStyle}>Slide 4 · Discussion scaffold <span style={{ color: "var(--muted)", fontWeight: 600 }}>· {ROUTINE_SOURCE}</span></div>
                   <textarea className="editable" rows={1} style={{ fontWeight: 700, fontSize: 16 }} value={spot.routineName} onChange={e => patch({ routineName: e.target.value })} />
                   <textarea className="editable" rows={1} style={{ fontStyle: "italic", color: "var(--muted)" }} value={spot.routineIntro} onChange={e => patch({ routineIntro: e.target.value })} />
                   {spot.steps.map((st, i) => (
@@ -739,22 +887,27 @@ function App() {
                   <div className={"total" + (totalMins > 5 ? " over" : "")}>Total: {totalMins} min {totalMins > 5 ? "— over 5 minutes!" : "/ 5 min"}</div>
                 </div></div>
 
-                {/* Slide 4 — Teacher notes */}
-                <div className="slide"><div className="bar"></div><div className="body">
-                  <div className="kicker">Slide 4 · Teacher notes</div>
+                {/* Slide 5 — Teacher notes (guiding questions) */}
+                <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
+                  <div className="kicker" style={kickStyle}>Slide 5 · Teacher notes</div>
                   <h3>Guiding questions</h3>
                   <ul className="ql">
                     {spot.guidingQuestions.map((q, i) => (
                       <li key={i}>
-                        <span className="num">{i + 1}</span>
+                        <span className="num" style={{ background: hx(T.accent) }}>{i + 1}</span>
                         <textarea className="editable" rows={1} value={q} onChange={e => patchQ(i, e.target.value)} />
                         <button className="iconbtn" title="Remove" onClick={() => delQ(i)}>✕</button>
                       </li>
                     ))}
                   </ul>
                   <button className="addbtn" onClick={addQ}>+ Add question</button>
-                  <div className="action-box">
-                    <div className="cap">Student action / takeaway</div>
+                </div></div>
+
+                {/* Slide 6 — Student key takeaway */}
+                <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
+                  <div className="kicker" style={kickStyle}>Slide 6 · Student key takeaway</div>
+                  <div className="action-box" style={{ background: hx(T.accent2) + "1A", borderColor: hx(T.accent2) + "55" }}>
+                    <div className="cap" style={{ color: hx(T.accent2) }}>One thing to take away</div>
                     <textarea className="editable" rows={2} value={spot.studentAction} onChange={e => patch({ studentAction: e.target.value })} />
                   </div>
                   <div className="lp-chips">
