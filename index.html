@@ -181,7 +181,14 @@
 <body>
 <div id="root"></div>
 
-<script type="text/babel" data-presets="react">
+<!-- Force Babel to use the CLASSIC JSX runtime (React.createElement) instead of the
+     automatic runtime, which would emit an `import` that breaks a non-module script. -->
+<script>
+  Babel.registerPreset("react-classic", {
+    presets: [[Babel.availablePresets.react, { runtime: "classic" }]],
+  });
+</script>
+<script type="text/babel" data-presets="react-classic">
 const { useState, useRef, useMemo } = React;
 
 /* ----------------------------- constants ----------------------------- */
