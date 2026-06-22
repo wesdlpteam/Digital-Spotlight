@@ -663,6 +663,16 @@ function App() {
   const [theme, setTheme] = useState(THEMES[0]);
   const [design, setDesign] = useState("wesley");
 
+  // discovery
+  const curMonth = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; })();
+  const [discoverYears, setDiscoverYears] = useState([]);     // [] = whole band
+  const [discoverMonth, setDiscoverMonth] = useState(curMonth);
+  const [discoverCats, setDiscoverCats] = useState([]);       // category ids
+  const [discovering, setDiscovering] = useState(false);
+  const [discoverError, setDiscoverError] = useState("");
+  const [discoverCards, setDiscoverCards] = useState([]);
+  const [discoverRaw, setDiscoverRaw] = useState("");
+
   // generation
   const [loading, setLoading] = useState(false);
   const [fetchingArticle, setFetchingArticle] = useState(false);
@@ -755,6 +765,28 @@ function App() {
       setLoading(false);
     }
   }
+
+  async function runDiscovery() {
+    setDiscoverError(""); setDiscoverCards([]); setDiscoverRaw("");
+    if (!apiKey.trim()) { setDiscoverError("Please paste your OpenAI API key first."); return; }
+    const cats = availableCategories(band).filter(c => discoverCats.includes(c.id));
+    if (!cats.length) { setDiscoverError("Pick at least one topic."); return; }
+    setDiscovering(true);
+    try {
+      const { cards, raw } = await discoverIssues({
+        apiKey: apiKey.trim(), model, band, yearLevels: discoverYears, month: discoverMonth, categories: cats,
+      });
+      setDiscoverCards(cards); setDiscoverRaw(raw);
+      if (!cards.length) setDiscoverError(`No current issues found for ${monthLabel(discoverMonth)} — try a different month or topic.`);
+    } catch (err) {
+      setDiscoverError(err.message || String(err));
+      if (err._raw) setDiscoverRaw(err._raw);
+    } finally {
+      setDiscovering(false);
+    }
+  }
+
+  function toggleArr(arr, v) { return arr.includes(v) ? arr.filter(x => x !== v) : [...arr, v]; }
 
   /* ------- editing helpers ------- */
   const patch = (obj) => setSpot(s => ({ ...s, ...obj }));
@@ -895,6 +927,44 @@ function App() {
       <div className="layout">
         {/* ----------------- INPUT PANEL ----------------- */}
         <div className="panel input">
+          <div className="group" style={{ borderBottom: "1px solid var(--line)", paddingBottom: 14 }}>
+            <label className="cap">① Discover current issues</label>
+
+            <div style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 6 }}>Target year levels ({BANDS[band].label})</div>
+            <div className="lp-chips" style={{ marginTop: 0 }}>
+              {BANDS[band].years.map(y => (
+                <button key={y} type="button"
+                  className={"chip" + (discoverYears.includes(y) ? "" : "")}
+                  style={{ cursor: "pointer", border: "1px solid var(--line)", background: discoverYears.includes(y) ? "var(--accent)" : "#fff", color: discoverYears.includes(y) ? "#fff" : "var(--ink)" }}
+                  onClick={() => setDiscoverYears(a => toggleArr(a, y))}>{y}</button>
+              ))}
+            </div>
+            <div className="hint">Leave all unticked to target the whole band.</div>
+
+            <div className="row2" style={{ marginTop: 10 }}>
+              <div>
+                <div style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 4 }}>Month</div>
+                <input type="month" max={curMonth} value={discoverMonth} onChange={e => setDiscoverMonth(e.target.value)} />
+              </div>
+            </div>
+
+            <div style={{ fontSize: 12.5, color: "var(--muted)", margin: "10px 0 4px" }}>Topics</div>
+            <div className="lp-chips" style={{ marginTop: 0 }}>
+              {availableCategories(band).map(c => (
+                <button key={c.id} type="button"
+                  style={{ cursor: "pointer", borderRadius: 999, padding: "4px 11px", fontSize: 12.5, fontWeight: 600, border: "1px solid var(--line)", background: discoverCats.includes(c.id) ? "var(--accent)" : "#fff", color: discoverCats.includes(c.id) ? "#fff" : "var(--ink)" }}
+                  onClick={() => setDiscoverCats(a => toggleArr(a, c.id))}>{c.label}</button>
+              ))}
+            </div>
+
+            <button className="btn primary" style={{ marginTop: 12 }} disabled={discovering} onClick={runDiscovery}>
+              {discovering ? <React.Fragment><span className="spinner"></span> Searching {monthLabel(discoverMonth)}…</React.Fragment> : "🔎 Find current issues"}
+            </button>
+            <div className="hint">Uses a web search across reputable sources (a little extra API cost). Resources prefer well-known cyber-safety sites.</div>
+
+            {discoverError && <div className="alert bad"><pre>{discoverError}</pre></div>}
+          </div>
+
           <div className="group">
             <label className="cap">OpenAI API key</label>
             <div style={{ display: "flex", gap: 6 }}>
@@ -981,7 +1051,7 @@ function App() {
           <div className="group">
             <label className="cap">Band &amp; year</label>
             <div className="row2">
-              <select value={band} onChange={e => { setBand(e.target.value); setYear(""); }}>
+              <select value={band} onChange={e => { setBand(e.target.value); setYear(""); setDiscoverYears([]); setDiscoverCats([]); }}>
                 {Object.keys(BANDS).map(b => <option key={b} value={b}>{BANDS[b].label}</option>)}
               </select>
               <select value={year} onChange={e => setYear(e.target.value)}>
