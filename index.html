@@ -714,7 +714,7 @@ function App() {
   async function fetchArticleFromLink(overrideUrl) {
     const url = (typeof overrideUrl === "string" ? overrideUrl : link).trim();
     setError("");
-    if (!/^https?:\/\//i.test(url)) { setError("Enter a full article link starting with http(s):// first."); return; }
+    if (!/^https?:\/\//i.test(url)) { setError("Enter a full article link starting with http(s):// first."); return ""; }
     setLink(url);
     setFetchingArticle(true);
     try {
@@ -725,8 +725,10 @@ function App() {
       if (text.length < 40) throw new Error("Got too little text back — the page may be paywalled or JS-only.");
       setArticleText(text);
       setArticleImageUrl(extractLeadImage(rawMd)); // grab the article's lead image (before stripping)
+      return text;
     } catch (err) {
       setError("Couldn't fetch that link (" + (err.message || err) + "). Paste the article text instead.");
+      return "";
     } finally {
       setFetchingArticle(false);
     }
@@ -831,7 +833,11 @@ function App() {
       if (!gotTranscript) setNotice("Video link loaded. Paste the transcript on the left so the model can read it, then Generate.");
     } else {
       setMode("article");
-      await fetchArticleFromLink(card.resourceUrl);
+      const text = await fetchArticleFromLink(card.resourceUrl);
+      if (!text) {
+        setError("");
+        setNotice("Couldn't auto-load the article text from that link — it's filled in on the left, so click “Fetch text” to retry, or open it and paste the text. Then Generate.");
+      }
     }
     setShowDiscoverModal(false);
     if (genBtnRef.current) genBtnRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
