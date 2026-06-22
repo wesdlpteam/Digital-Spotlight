@@ -64,9 +64,11 @@ for receiving auto-filled inputs.
 ### A2. Sourcing — two-phase web search
 `discoverIssues({ apiKey, band, yearLevels, month, categories })` makes **two**
 **`POST https://api.openai.com/v1/responses`** (Responses API) calls, both using a
-web-search-capable model (default chosen during planning; **independent of the
-model dropdown**, which drives the Chat Completions generate call). The teacher
-accepts the extra API cost of the second call for broader, better-sourced results.
+web-search-capable model. **Decision (implemented):** discovery reuses the model
+selected in the existing dropdown — all current options are `gpt-5.x`, which
+support the Responses API `web_search` tool — rather than a separate fixed model
+id (revisit if a non-web-search model is ever added). The teacher accepts the
+extra API cost of the second call for broader, better-sourced results.
 
 **Phase 1 — event-spotting (broad).**
 - `tools: [{ type: "web_search" }]` — **no `allowed_domains` restriction** (a

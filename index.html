@@ -533,7 +533,9 @@ async function discoverIssues({ apiKey, model, band, yearLevels, month, categori
   const evData = await callResponses({ apiKey, body: buildEventRequest({ model, band, yearLevels, month, categories }) });
   const evOut = extractResponseText(evData);
   if (!evOut.text.trim()) throw new Error("Discovery returned an empty response (phase 1).");
-  const evParsed = parseJsonLoose(evOut.text);
+  let evParsed;
+  try { evParsed = parseJsonLoose(evOut.text); }
+  catch (perr) { const e = new Error("Could not parse the discovery response: " + perr.message); e._raw = evOut.text; throw e; }
   const issues = Array.isArray(evParsed.issues) ? evParsed.issues.slice(0, 10) : [];
   if (!issues.length) return { cards: [], raw: evOut.text };
 
@@ -966,8 +968,7 @@ function App() {
             <div style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 6 }}>Target year levels ({BANDS[band].label})</div>
             <div className="lp-chips" style={{ marginTop: 0 }}>
               {BANDS[band].years.map(y => (
-                <button key={y} type="button"
-                  className={"chip" + (discoverYears.includes(y) ? "" : "")}
+                <button key={y} type="button" className="chip"
                   style={{ cursor: "pointer", border: "1px solid var(--line)", background: discoverYears.includes(y) ? "var(--accent)" : "#fff", color: discoverYears.includes(y) ? "#fff" : "var(--ink)" }}
                   onClick={() => setDiscoverYears(a => toggleArr(a, y))}>{y}</button>
               ))}
@@ -995,7 +996,7 @@ function App() {
             </button>
             <div className="hint">Uses a web search across reputable sources (a little extra API cost). Resources prefer well-known cyber-safety sites.</div>
 
-            {discoverError && <div className="alert bad"><pre>{discoverError}</pre></div>}
+            {discoverError && <div className="alert bad"><pre>{discoverError}</pre>{discoverRaw && <React.Fragment><b>Raw model output:</b><pre>{discoverRaw}</pre></React.Fragment>}</div>}
             {discoverCards.length > 0 && (
               <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
                 <div style={{ fontSize: 12, color: "var(--muted)" }}>{discoverCards.length} issue{discoverCards.length > 1 ? "s" : ""} · {monthLabel(discoverMonth)} · most-discussed first</div>
