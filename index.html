@@ -682,6 +682,7 @@ function App() {
 
   const imgInput = useRef(null);
   const pdfInput = useRef(null);
+  const genBtnRef = useRef(null);
 
   /* ------- file handlers ------- */
   async function onImage(e) {
@@ -697,10 +698,11 @@ function App() {
   }
   // Pull readable article text from a public link via the r.jina.ai reader
   // (it allows browser/CORS requests). Hard paywalls may still fail.
-  async function fetchArticleFromLink() {
-    const url = link.trim();
+  async function fetchArticleFromLink(overrideUrl) {
+    const url = (typeof overrideUrl === "string" ? overrideUrl : link).trim();
     setError("");
     if (!/^https?:\/\//i.test(url)) { setError("Enter a full article link starting with http(s):// first."); return; }
+    setLink(url);
     setFetchingArticle(true);
     try {
       const resp = await fetch("https://r.jina.ai/" + url);
@@ -784,6 +786,37 @@ function App() {
     } finally {
       setDiscovering(false);
     }
+  }
+
+  async function useIssue(card) {
+    setError("");
+    setTheme(THEMES.includes(card.theme) ? card.theme : THEMES[0]);
+    // single targeted year level -> set it; otherwise whole band
+    if (discoverYears.length === 1 && BANDS[band].years.includes(discoverYears[0])) setYear(discoverYears[0]);
+    else setYear("");
+
+    const type = ["article", "image", "video"].includes(card.resourceType) ? card.resourceType : "article";
+    if (!card.resourceUrl) {
+      setMode(type);
+      setError("This issue had no auto-resource from a trusted source — add a stimulus manually, then Generate.");
+    } else if (type === "image") {
+      setMode("image");
+      const d = await urlToDataUrl(card.resourceUrl);
+      if (d) { setImageDataUrl(d); setImageName(card.resourceTitle || "resource image"); }
+      else setError("Couldn't load that image automatically — open it and upload manually.");
+    } else if (type === "video") {
+      setMode("video"); setLink(card.resourceUrl); setTranscript("");
+      if (/youtube\.com|youtu\.be/i.test(card.resourceUrl)) {
+        try {
+          const r = await fetch("https://r.jina.ai/" + card.resourceUrl);
+          if (r.ok) { const t = cleanArticleMarkdown(await r.text()); if (t.length > 80) setTranscript(t); }
+        } catch (_) { /* leave blank; teacher pastes */ }
+      }
+    } else {
+      setMode("article");
+      await fetchArticleFromLink(card.resourceUrl);
+    }
+    if (genBtnRef.current) genBtnRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
   function toggleArr(arr, v) { return arr.includes(v) ? arr.filter(x => x !== v) : [...arr, v]; }
@@ -963,6 +996,30 @@ function App() {
             <div className="hint">Uses a web search across reputable sources (a little extra API cost). Resources prefer well-known cyber-safety sites.</div>
 
             {discoverError && <div className="alert bad"><pre>{discoverError}</pre></div>}
+            {discoverCards.length > 0 && (
+              <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ fontSize: 12, color: "var(--muted)" }}>{discoverCards.length} issue{discoverCards.length > 1 ? "s" : ""} · {monthLabel(discoverMonth)} · most-discussed first</div>
+                {discoverCards.map((c, i) => (
+                  <div key={i} style={{ border: "1px solid var(--line)", borderRadius: 11, padding: "10px 12px", background: "#fff" }}>
+                    <div style={{ fontWeight: 700, fontSize: 13.5 }}>{c.title}</div>
+                    {c.whyNow && <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>{c.whyNow}</div>}
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", margin: "7px 0" }}>
+                      <span className="chip" style={{ fontSize: 11 }}>{c.category}</span>
+                      <span style={{ fontSize: 16 }} title={c.resourceType}>{c.resourceType === "image" ? "🖼" : c.resourceType === "video" ? "🎬" : "📄"}</span>
+                      {c.resourceOrigin && <span className={"chip" + (c.resourceOrigin === "news" ? " coral" : "")} style={{ fontSize: 11 }}>{c.resourceOrigin === "trusted" ? "Trusted org" : "News"}</span>}
+                      {c.source && <span style={{ fontSize: 11.5, color: "var(--muted)" }}>{c.source}</span>}
+                    </div>
+                    {c.blurb && <div style={{ fontSize: 12, color: "var(--ink)", marginBottom: 6 }}>{c.blurb}</div>}
+                    <div style={{ display: "flex", gap: 8 }}>
+                      {c.resourceUrl
+                        ? <a href={c.resourceUrl} target="_blank" rel="noreferrer" style={{ fontSize: 12.5, color: "var(--accent)", fontWeight: 600, alignSelf: "center" }}>Open ↗</a>
+                        : <span style={{ fontSize: 12, color: "var(--muted)", alignSelf: "center" }}>no auto-resource</span>}
+                      <button className="addbtn" style={{ marginLeft: "auto" }} onClick={() => useIssue(c)}>Use this issue →</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="group">
@@ -1068,7 +1125,7 @@ function App() {
             </select>
           </div>
 
-          <button className="btn primary" disabled={loading} onClick={generate}>
+          <button className="btn primary" ref={genBtnRef} disabled={loading} onClick={generate}>
             {loading ? <React.Fragment><span className="spinner"></span> Generating…</React.Fragment> : (spot ? "↻ Regenerate" : "✦ Generate Spotlight")}
           </button>
 
