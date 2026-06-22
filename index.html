@@ -965,7 +965,12 @@ function App() {
           <div className="group" style={{ borderBottom: "1px solid var(--line)", paddingBottom: 14 }}>
             <label className="cap">① Discover current issues</label>
 
-            <div style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 6 }}>Target year levels ({BANDS[band].label})</div>
+            <div style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 4 }}>Band</div>
+            <select value={band} onChange={e => { setBand(e.target.value); setYear(""); setDiscoverYears([]); setDiscoverCats([]); }}>
+              {Object.keys(BANDS).map(b => <option key={b} value={b}>{BANDS[b].label}</option>)}
+            </select>
+
+            <div style={{ fontSize: 12.5, color: "var(--muted)", margin: "10px 0 6px" }}>Target year levels ({BANDS[band].label})</div>
             <div className="lp-chips" style={{ marginTop: 0 }}>
               {BANDS[band].years.map(y => (
                 <button key={y} type="button" className="chip"
