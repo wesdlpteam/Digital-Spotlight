@@ -437,12 +437,15 @@ function buildResourceRequest({ model, issues, band, yearLevels }) {
 // Responses API: pull concatenated assistant text + url_citation annotations.
 function extractResponseText(data) {
   let text = "", annotations = [];
-  if (data && typeof data.output_text === "string") text = data.output_text;
+  // Prefer the top-level shorthand when present; otherwise concatenate ALL
+  // message content blocks (multi-block responses must not be truncated).
+  const hasTop = !!(data && typeof data.output_text === "string" && data.output_text.trim());
+  if (hasTop) text = data.output_text;
   const out = (data && Array.isArray(data.output)) ? data.output : [];
   for (const item of out) {
     if (item && item.type === "message" && Array.isArray(item.content)) {
       for (const c of item.content) {
-        if (c && typeof c.text === "string") { if (!text) text += c.text; }
+        if (!hasTop && c && typeof c.text === "string") text += c.text;
         if (c && Array.isArray(c.annotations)) annotations = annotations.concat(c.annotations);
       }
     }
