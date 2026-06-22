@@ -7,8 +7,10 @@ This spec covers two related additions:
 
 1. **Discover current issues** — a section that web-searches trusted cyber-safety
    sources for genuinely current online-safety issues relevant to students
-   (Prep–Year 12), surfaces them with real free resources, and feeds a chosen
-   issue straight into the existing Spotlight generator.
+   (Prep–Year 12), **scoped to a chosen month and one or more topic categories**,
+   ranked by how much attention/"buzz" they got that month, surfaces them with
+   real free resources, and feeds a chosen issue straight into the existing
+   Spotlight generator.
 2. **Wesley College branding** — replace the generic export themes with a single
    on-brand Wesley College PowerPoint look (purple/gold, Calibri, Wesley lion
    logo on every slide).
@@ -21,25 +23,49 @@ This spec covers two related additions:
 A new **"Discover current issues"** block at the top of the existing left input
 panel (above the stimulus-mode selector). The teacher:
 
-1. Picks a **band** (reuses the existing Band & Year selectors) and optionally a
-   **focus theme** (existing `THEMES` list).
-2. Clicks **"Find current issues."**
-3. The tool web-searches trusted cyber-safety sources and returns **4–6 issue
-   cards**, each with a real, verified resource link.
-4. Clicking **"Use this issue →"** on a card pipes it into the existing
-   generator (sets theme + stimulus) → teacher edits → Download PowerPoint.
+1. Picks a **band** (reuses the existing Band & Year selectors).
+2. Picks a **month** (defaults to the current month; can step back to previous
+   months to find what was big then; future months disabled).
+3. Selects **one or more topic categories** (multi-select; see A2).
+4. Clicks **"Find current issues."**
+5. The tool web-searches trusted cyber-safety sources and returns **10 issue
+   cards**, ranked by how much attention they got that month, each with a real,
+   verified resource link.
+6. Clicking **"Use this issue →"** on a card pipes it into the existing generator
+   (sets theme + stimulus) → teacher edits → Download PowerPoint.
 
 This is purely additive. The existing generate/export flow is unchanged except
 for receiving auto-filled inputs.
 
+### A1a. Topic categories & selection model
+- **Categories (12):** General cyber safety *(broad catch-all)*, Cyberbullying &
+  online conflict, AI/deepfakes & chatbots, Privacy & personal data, Scams/
+  phishing & fraud, Screen time & digital wellbeing, Misinformation & fake news,
+  Online predators & grooming, Gaming/in-app spending & loot boxes, Social media
+  trends & challenges, Digital footprint & online reputation, Image-based abuse /
+  sextortion *(surfaced for Senior band only)*.
+- **Selection model — multi-select → 10 total, blended.** The teacher ticks one
+  or more categories; the tool returns **10 issues total** spread across the
+  selected categories, most-buzz-first. Ticking only **General cyber safety**
+  casts the widest net (10 broad issues); ticking several specific categories
+  blends 10 across them. This single model covers both "give me 10 general" and
+  "source from this range of topics."
+- These 12 are the **discovery/search categories**, distinct from the existing 7
+  `THEMES` used by the generator's Focus-theme field. Each returned card also
+  carries a `theme` mapped to the closest existing `THEMES` value so the handoff
+  keeps the generator's `<select>` valid (see A3/A5).
+- **Month/Senior gating:** the "Image-based abuse / sextortion" category is only
+  offered when band = Senior.
+
 ### A2. Sourcing — the web-search call
-- New function `discoverIssues({ apiKey, band, year, theme })` calls
+- New function `discoverIssues({ apiKey, band, year, month, categories })` calls
   **`POST https://api.openai.com/v1/responses`** (the Responses API) with:
   - `tools: [{ type: "web_search", filters: { allowed_domains: TRUSTED_DOMAINS } }]`
   - A web-search-capable model (default chosen during planning; **independent of
     the model dropdown**, which drives the Chat Completions generate call).
-  - An instruction/prompt requesting current online-safety issues
-    **age-appropriate to the band**.
+  - An instruction/prompt requesting **10** current online-safety issues that
+    were most prominent **in the chosen month/year**, blended across the selected
+    **categories**, **age-appropriate to the band**, ordered most-buzz-first.
 - **`TRUSTED_DOMAINS`** (domains only, no `https://` prefix — per OpenAI spec):
   - Australian authorities: `esafety.gov.au`, `thinkuknow.org.au`, `accce.gov.au`
   - Global non-profits / education: `commonsense.org`,
@@ -49,13 +75,32 @@ for receiving auto-filled inputs.
 - The model is instructed to use **only freely accessible (non-paywalled) pages**
   and **only URLs actually found via search**.
 
+### A2a. Month scoping & "buzz" — feasibility note
+- Month scoping is driven by the **prompt** ("issues most discussed in
+  {Month YYYY}"), not a hard API date filter — the web_search tool has no strict
+  date parameter. Recall for a specific past month is therefore best-effort.
+- The dated, "buzzy event" signal comes mainly from the **news domains**
+  (`abc.net.au`, `theconversation.com`); the authority/education domains supply
+  more **evergreen teaching resources**. A card's *issue* may be news-driven
+  while its attached *resource* is an evergreen page from a trusted cyber-safety
+  org — this is intended.
+- **Known trade-off (flag for review):** restricting `allowed_domains` to the 10
+  trusted sources guarantees reputable links but may under-find events that only
+  trended on outlets outside the list. v1 keeps the single domain-restricted
+  search for safety/simplicity; if month-by-month recall proves thin, a later
+  iteration can add a broader unfiltered "event-spotting" pass that then attaches
+  a trusted resource (extra API call/cost). Not in v1 scope.
+- If a chosen month yields fewer than 10 valid (cited) issues, the tool shows
+  however many it found with a note, rather than padding with invented items.
+
 ### A3. Response shape & anti-hallucination guard
 - The model returns strict JSON: an array of issues, each:
   ```
   {
     "title": "string — the issue, short",
-    "whyNow": "string — one line on why it matters now",
-    "theme": "string — chosen from the existing THEMES list",
+    "whyNow": "string — one line on why it mattered this month",
+    "category": "string — one of the 12 discovery categories (A1a)",
+    "theme": "string — chosen from the existing THEMES list (for handoff)",
     "resourceType": "article | image | video",
     "resourceTitle": "string",
     "resourceUrl": "string — a real URL found via search",
@@ -63,6 +108,7 @@ for receiving auto-filled inputs.
     "blurb": "string — one-line description of the resource"
   }
   ```
+- Up to **10** items, ordered most-prominent-first.
 - Parse with the existing `parseJsonLoose` helper.
 - **Citation cross-check:** the Responses API returns real cited URLs in
   `message.content[0].annotations` (`url_citation`). `validateResourceUrls(cards,
@@ -70,15 +116,24 @@ for receiving auto-filled inputs.
   citation set. Every link shown is therefore one the search genuinely returned —
   no hallucinated links.
 
-### A4. UI — issue cards
-Each surviving issue renders as a card showing:
-- **Title** + one-line *why it matters now*.
-- A **source badge** (e.g. "eSafety") and a **resource-type icon** (📄 / 🖼 / 🎬).
+### A4. UI — controls & issue cards
+**Controls** (in the discovery block):
+- **Month picker** — defaults to the current month; can step back to earlier
+  months; future months disabled. (A native `month` input or a month+year pair.)
+- **Topic categories** — multi-select chips/checkboxes for the 12 categories
+  (A1a); the Senior-only category appears only when band = Senior.
+- **"Find current issues"** button (disabled until ≥1 category is selected).
+
+**Issue cards** — each surviving issue renders as a card showing:
+- **Title** + one-line *why it mattered that month*.
+- A **category tag**, a **source badge** (e.g. "eSafety"), and a
+  **resource-type icon** (📄 / 🖼 / 🎬).
 - **"Open ↗"** — opens `resourceUrl` in a new tab.
 - **"Use this issue →"** — handoff (see A5).
 
-A small note states discovery uses a web search (minor extra API cost). A spinner
-shows while searching. Card list appears within the input panel (or a collapsible
+The 10 cards are listed most-buzz-first. A small note states discovery uses a web
+search (minor extra API cost) and shows the month being searched. A spinner shows
+while searching. The card list appears within the input panel (or a collapsible
 sub-panel).
 
 ### A5. Handoff into the generator ("Use this issue →")
@@ -102,16 +157,19 @@ Reuses existing patterns (the `error` / `rawDump` alert area):
 - Missing API key → same guard as Generate.
 - Responses API HTTP error → surfaced like the existing OpenAI errors.
 - Zero issues after citation-filtering → "No current issues found from trusted
-  sources — try a different band or theme."
+  sources for {month} — try a different month or topic."
+- Fewer than 10 valid issues → show what was found, with a note (no padding).
 - Paywalled / JS-only article on fetch → existing fallback message.
 - JSON parse failure → existing raw-dump display.
 
 ### A7. Code shape
 Logic lives in small **pure helpers**, separate from the React component, so each
 is independently reasoned-about and verifiable:
-- `buildDiscoveryRequest({ band, year, theme })` → request body.
+- `buildDiscoveryRequest({ band, year, month, categories })` → request body
+  (includes the allowed-domains filter and the month/category prompt).
 - `parseDiscoveryResponse(rawJson)` → `{ cards, citations }`.
-- `validateResourceUrls(cards, citations)` → filtered cards.
+- `validateResourceUrls(cards, citations)` → filtered cards (≤10, order kept).
+- `availableCategories(band)` → the category list with Senior-only gating.
 
 No new dependencies; same in-browser React/Babel, no build step.
 
@@ -163,17 +221,21 @@ The app has no automated test harness today. Verification is **manual**, with th
 pure helpers (A7) kept side-effect-free so they *could* be unit-tested later.
 
 Manual checks:
-1. **Discovery** runs for each band (PYP / MYP / Senior); returns 4–6 cards.
-2. Every surfaced link **opens and is non-paywalled**; links match cited sources.
-3. Each handoff mode auto-fills correctly:
+1. **Discovery** runs for each band (PYP / MYP / Senior) with the current month
+   and a topic selection; returns up to 10 cards, most-buzz-first.
+2. Stepping back to a **previous month** and re-running returns issues relevant
+   to that month; selecting different **topic categories** changes the mix; the
+   Senior-only category appears only for Senior.
+3. Every surfaced link **opens and is non-paywalled**; links match cited sources.
+4. Each handoff mode auto-fills correctly:
    - article → text fetched into the box;
    - image → image appears as the stimulus;
    - video → link set, YouTube transcript fetched when available else clear
      prompt to paste.
-4. **Generate** then works unchanged on the auto-filled inputs.
-5. **Export** produces a Wesley-branded `.pptx`: purple/gold palette, Calibri,
+5. **Generate** then works unchanged on the auto-filled inputs.
+6. **Export** produces a Wesley-branded `.pptx`: purple/gold palette, Calibri,
    Wesley lion on every slide, opens cleanly in PowerPoint.
-6. App still loads as a single `index.html` (no build step, no missing assets).
+7. App still loads as a single `index.html` (no build step, no missing assets).
 
 ## Out of scope
 - No backend / server component.
