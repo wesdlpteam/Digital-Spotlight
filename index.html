@@ -218,29 +218,26 @@ const BAND_GUIDANCE = {
 };
 
 // Authentic Harvard Project Zero thinking routines (pz.harvard.edu/thinking-routines),
-// curated by band for a 5-minute discussion. The model picks ONE per Spotlight.
+// curated to be FAST and DISCUSSION-based (partner / small-group / whole-class talk)
+// so they fit a 5-minute conversation. The model picks ONE per Spotlight.
 const ROUTINES = {
   PYP: [
-    { name: "See–Think–Wonder", moves: "What do you see? What do you think about that? What does it make you wonder?" },
-    { name: "Zoom In", moves: "Reveal only part: what do you notice and guess? Zoom out: what new things do you see, and how does your thinking change?" },
-    { name: "Think–Puzzle–Explore", moves: "What do you think you know? What puzzles or questions do you have? How could we explore it?" },
-    { name: "Color–Symbol–Image", moves: "Pick a colour, a symbol, and an image that capture the big idea." },
-    { name: "I Used to Think… Now I Think…", moves: "How has your thinking changed? I used to think… now I think…" },
+    { name: "See–Think–Wonder", moves: "Quick talk in pairs then share: What do you see? What do you think is going on? What does it make you wonder?" },
+    { name: "Think–Pair–Share", moves: "Think for a moment, talk it over with a partner, then share with the class." },
+    { name: "Zoom In", moves: "Show only part — talk about what you notice and predict; reveal more and talk about how your thinking changed." },
+    { name: "The 3 Y's", moves: "Talk it through: Why might this matter to me? To people I know? To the world?" },
   ],
   MYP: [
-    { name: "Connect–Extend–Challenge", moves: "How does this connect to what you knew? What extends your thinking? What's challenging or puzzling?" },
-    { name: "3-2-1 Bridge", moves: "3 thoughts, 2 questions, 1 analogy beforehand; revisit afterward and bridge the change." },
-    { name: "Think–Pair–Share", moves: "Think alone, pair to compare, then share with the group." },
-    { name: "Claim–Support–Question", moves: "Make a claim, give supporting evidence, raise a question it leaves open." },
-    { name: "Headlines", moves: "Write a headline that captures the core or heart of the issue right now." },
-    { name: "What Makes You Say That?", moves: "What's going on here? What do you see that makes you say that?" },
+    { name: "Think–Pair–Share", moves: "Think briefly, talk it through with a partner, then share out to the group." },
+    { name: "Connect–Extend–Challenge", moves: "Discuss: How does this connect to what you knew? What extends your thinking? What's challenging or puzzling?" },
+    { name: "What Makes You Say That?", moves: "Rapid back-and-forth: What's going on here? What makes you say that?" },
+    { name: "Compass Points", moves: "Talk around the compass: what Excites you, what Worries you, what you Need to know, where you Stand." },
   ],
   Senior: [
-    { name: "Tug-of-War", moves: "Map the strongest pulls on each side of the dilemma, then weigh the competing 'tugs'." },
-    { name: "Circle of Viewpoints", moves: "List the viewpoints, then choose one: I am thinking of… from the point of view of… I wonder…" },
-    { name: "Take a Stand", moves: "Position yourself on a spectrum of opinion, justify with reasons, listen, and reconsider." },
-    { name: "Claim–Support–Question", moves: "Make a claim, marshal evidence, then surface the question it leaves unresolved." },
-    { name: "Step Inside", moves: "Inhabit a stakeholder's perspective: what do they perceive, feel, value, and risk?" },
+    { name: "Tug-of-War", moves: "Quick debate: name the strongest pulls on each side of the dilemma, then say where you stand and why." },
+    { name: "Take a Stand", moves: "Place yourself on a spectrum of opinion, argue your position aloud, listen to others, then reconsider." },
+    { name: "Circle of Viewpoints", moves: "Each person speaks from a different stakeholder's viewpoint: I think… from the point of view of… I wonder…" },
+    { name: "Step Inside", moves: "Speak aloud as a stakeholder: what do they perceive, feel, want, and risk?" },
   ],
 };
 const ROUTINE_SOURCE = "Harvard Project Zero Thinking Routines · pz.harvard.edu/thinking-routines";
@@ -380,7 +377,7 @@ async function generateSpotlight({ apiKey, model, mode, band, year, theme, title
 }
 Pick ONE routine from this Harvard Project Zero list for this band and use it as LOOSE INSPIRATION only — capture its spirit, but DON'T mechanically echo its exact wording. Write genuinely engaging, provocative discussion prompts that maximise intrigue and debate for the band:
 ${routineList}
-Rules: the sum of all step "minutes" MUST be 5 or less (this is a 5-minute discussion). Provide 2–4 steps. Keep it warm and student-centred, but prioritise prompts that spark real discussion over formulaic phrasing.`;
+Rules: this is a FAST 5-minute TALKING activity. Every step must be students DISCUSSING out loud (in pairs, small groups, or whole class) — never silent independent writing or solo work. Keep it to 2–3 short steps, each 1–2 minutes, and the step "minutes" MUST total 5 or less with time to spare. Prioritise quick, punchy prompts that get students talking immediately.`;
 
   const systemMsg = "You are an expert IB educator and digital-citizenship coach. You design short, 5-minute 'Digital Space Spotlight' discussion prompts about cyber safety and digital citizenship. Your tone is warm, curious and student-centred, aligned to the IB Learner Profile. You ALWAYS respond with strict JSON only.";
 
