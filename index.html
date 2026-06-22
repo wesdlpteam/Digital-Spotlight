@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Digital Space Spotlight Generator</title>
+
+<!-- React + Babel (in-browser JSX, no build step) -->
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<!-- PowerPoint export -->
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+<!-- QR codes -->
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<!-- PDF text extraction -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+<style>
+  :root {
+    --ink: #2b2536;
+    --muted: #6b6478;
+    --line: #e7e1ef;
+    --bg: #f6f2fb;
+    --panel: #ffffff;
+    --accent: #7c4dff;        /* warm violet */
+    --accent-2: #ff7043;      /* warm coral  */
+    --accent-soft: #efe7ff;
+    --good: #2e9e6b;
+    --warn: #d9772e;
+    --bad: #d64545;
+    --radius: 14px;
+    --shadow: 0 6px 24px rgba(60,40,90,.10);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    background: linear-gradient(160deg, #f6f2fb 0%, #fdf3ef 100%);
+    min-height: 100vh;
+  }
+  header.app {
+    padding: 18px 26px;
+    display: flex; align-items: center; gap: 14px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(255,255,255,.7);
+    backdrop-filter: blur(6px);
+    position: sticky; top: 0; z-index: 5;
+  }
+  header.app .logo {
+    width: 40px; height: 40px; border-radius: 11px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    display: grid; place-items: center; color: #fff; font-size: 20px;
+    box-shadow: var(--shadow);
+  }
+  header.app h1 { font-size: 19px; margin: 0; }
+  header.app p { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    gap: 22px;
+    padding: 22px 26px 60px;
+    max-width: 1500px; margin: 0 auto;
+  }
+  @media (max-width: 980px) { .layout { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+  .panel.input { padding: 18px; align-self: start; position: sticky; top: 88px; }
+  @media (max-width: 980px) { .panel.input { position: static; } }
+
+  .group { margin-bottom: 16px; }
+  .group > label.cap {
+    display: block; font-size: 11.5px; letter-spacing: .04em; text-transform: uppercase;
+    color: var(--muted); font-weight: 700; margin-bottom: 6px;
+  }
+  input[type=text], input[type=password], textarea, select {
+    width: 100%; padding: 9px 11px; border: 1px solid var(--line); border-radius: 10px;
+    font: inherit; color: var(--ink); background: #fff; outline: none;
+  }
+  input:focus, textarea:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  textarea { resize: vertical; min-height: 88px; line-height: 1.45; }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 5px; line-height: 1.4; }
+
+  .modes { display: flex; gap: 6px; background: var(--bg); padding: 5px; border-radius: 12px; }
+  .modes button {
+    flex: 1; padding: 9px 6px; border: 0; border-radius: 9px; background: transparent;
+    font: inherit; font-weight: 600; color: var(--muted); cursor: pointer; transition: .15s;
+  }
+  .modes button.active { background: #fff; color: var(--accent); box-shadow: var(--shadow); }
+
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .filebox {
+    border: 1.5px dashed var(--line); border-radius: 12px; padding: 14px; text-align: center;
+    background: var(--bg); cursor: pointer; transition: .15s;
+  }
+  .filebox:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .filebox .big { font-size: 26px; }
+  .filebox .small { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .thumb { max-width: 100%; max-height: 160px; border-radius: 10px; margin-top: 8px; box-shadow: var(--shadow); }
+
+  .btn {
+    width: 100%; padding: 12px; border: 0; border-radius: 12px; font: inherit; font-weight: 700;
+    cursor: pointer; transition: .15s; display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .btn.primary { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; box-shadow: var(--shadow); }
+  .btn.primary:hover { filter: brightness(1.04); }
+  .btn.primary:disabled { opacity: .55; cursor: not-allowed; filter: none; }
+  .btn.ghost { background: #fff; border: 1px solid var(--line); color: var(--ink); }
+  .btn.ghost:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.ghost:disabled { opacity: .5; cursor: not-allowed; }
+
+  .alert { padding: 11px 13px; border-radius: 11px; font-size: 13px; margin-top: 12px; line-height: 1.45; }
+  .alert.bad { background: #fdecec; color: #9a2a2a; border: 1px solid #f3c9c9; }
+  .alert.info { background: var(--accent-soft); color: #4a2db0; border: 1px solid #ddd0ff; }
+  .alert pre { white-space: pre-wrap; word-break: break-word; margin: 6px 0 0; font-size: 11.5px; }
+
+  /* Preview slides */
+  .slides { display: flex; flex-direction: column; gap: 18px; }
+  .slide {
+    background: #fff; border: 1px solid var(--line); border-radius: var(--radius);
+    box-shadow: var(--shadow); overflow: hidden;
+  }
+  .slide .bar { height: 6px; background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
+  .slide .body { padding: 18px 20px; }
+  .slide .kicker { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); font-weight: 800; }
+  .slide h3 { margin: 4px 0 2px; font-size: 16px; }
+  .editable {
+    border: 1px solid transparent; border-radius: 8px; padding: 6px 8px; margin: -2px -8px 6px;
+    width: calc(100% + 16px); font: inherit; color: var(--ink); background: transparent; display: block;
+  }
+  .editable:hover { background: #faf8ff; }
+  .editable:focus { background: #fff; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); outline: none; }
+  textarea.editable { resize: vertical; line-height: 1.5; }
+  .titlebig { font-size: 22px; font-weight: 800; }
+  .meta-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+  .chip { background: var(--accent-soft); color: #4a2db0; padding: 4px 11px; border-radius: 999px; font-size: 12.5px; font-weight: 600; }
+  .chip.coral { background: #ffe6dc; color: #c5471f; }
+
+  .step { display: grid; grid-template-columns: 56px 1fr auto; gap: 8px; align-items: start; margin-bottom: 8px; }
+  .step .mins { display: flex; align-items: center; gap: 3px; }
+  .step .mins input { width: 38px; text-align: center; padding: 6px 4px; }
+  .step .mins span { font-size: 11px; color: var(--muted); }
+  .step .name { font-weight: 700; }
+  .iconbtn { border: 1px solid var(--line); background: #fff; border-radius: 8px; width: 28px; height: 28px; cursor: pointer; color: var(--muted); font-size: 14px; }
+  .iconbtn:hover { border-color: var(--bad); color: var(--bad); }
+  .addbtn { border: 1px dashed var(--line); background: #fff; border-radius: 9px; padding: 7px 10px; font: inherit; font-size: 12.5px; color: var(--accent); cursor: pointer; font-weight: 600; }
+  .addbtn:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .total { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+  .total.over { color: var(--bad); font-weight: 700; }
+
+  .stim-link { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  .stim-link img.qr { width: 120px; height: 120px; border: 1px solid var(--line); border-radius: 10px; padding: 6px; background: #fff; }
+  .stim-link a { color: var(--accent); font-weight: 600; word-break: break-all; }
+  .stim-img { text-align: center; }
+  .stim-img img { max-width: 100%; max-height: 280px; border-radius: 10px; box-shadow: var(--shadow); }
+
+  .ql { margin: 0; padding: 0; list-style: none; }
+  .ql li { display: flex; gap: 8px; align-items: start; margin-bottom: 6px; }
+  .ql li .num { background: var(--accent); color: #fff; min-width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center; font-size: 12px; font-weight: 700; margin-top: 4px; }
+  .action-box { background: #fff7f3; border: 1px solid #ffd9c9; border-radius: 11px; padding: 10px 12px; margin-top: 10px; }
+  .action-box .cap { font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--accent-2); font-weight: 800; }
+  .lp-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+
+  .empty { text-align: center; color: var(--muted); padding: 70px 30px; }
+  .empty .big { font-size: 46px; margin-bottom: 10px; }
+  .toolbar { display: flex; gap: 10px; margin-bottom: 16px; }
+  .toolbar .btn { width: auto; flex: 1; }
+  .spinner { width: 16px; height: 16px; border: 2.5px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const { useState, useRef, useMemo } = React;
+
+/* ----------------------------- constants ----------------------------- */
+
+const BANDS = {
+  PYP: { label: "PYP (Prep–Year 6)", years: ["Prep","Year 1","Year 2","Year 3","Year 4","Year 5","Year 6"] },
+  MYP: { label: "MYP (Years 7–10)", years: ["Year 7","Year 8","Year 9","Year 10"] },
+  Senior: { label: "Senior (Years 11–12)", years: ["Year 11","Year 12"] },
+};
+
+const THEMES = [
+  "Privacy","Kindness online","Misinformation","Digital footprint",
+  "Screen balance","AI ethics","Online reputation",
+];
+
+const BAND_GUIDANCE = {
+  PYP: "Audience: IB PYP (Prep–Year 6). Use concrete, simple, inquiry-based language. Short sentences, warm and curious. Centre noticing and wondering. Choose a thinking routine from: See–Think–Wonder, or Connect–Extend–Challenge.",
+  MYP: "Audience: IB MYP (Years 7–10). Use analytical language with real scenarios and consequences. Choose a thinking routine from: 3-2-1 Bridge, Think–Pair–Share, or a chain-of-thought 'What happens next? Who is affected?' routine.",
+  Senior: "Audience: IB Senior (Years 11–12). Use critical and ethical reasoning, nuance, and real-world stakes. Choose a thinking routine from: Tug-of-War, or Circle of Viewpoints (for ethics debate).",
+};
+
+const MODE_FRAMING = { image: "Look closely, then discuss.", article: "Read, then discuss.", video: "Watch, then discuss." };
+const MODE_VERB = { image: "Look", article: "Read", video: "Watch" };
+
+/* ----------------------------- helpers ----------------------------- */
+
+function readFileAsDataURL(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
+
+async function extractPdfText(file) {
+  const buf = await file.arrayBuffer();
+  const pdfjs = window.pdfjsLib;
+  pdfjs.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  const pdf = await pdfjs.getDocument({ data: buf }).promise;
+  let text = "";
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    text += content.items.map(it => it.str).join(" ") + "\n";
+  }
+  return text.trim();
+}
+
+// Pull the first valid JSON object out of a string, defensively.
+function parseJsonLoose(raw) {
+  try { return JSON.parse(raw); } catch (_) {}
+  const start = raw.indexOf("{");
+  const end = raw.lastIndexOf("}");
+  if (start !== -1 && end > start) {
+    return JSON.parse(raw.slice(start, end + 1)); // may throw -> caller catches
+  }
+  throw new Error("No JSON object found in model output.");
+}
+
+/* --------------------------- OpenAI call --------------------------- */
+
+async function generateSpotlight({ apiKey, model, mode, band, year, theme, title, imageDataUrl, sourceText }) {
+  const yearStr = year ? ` Specifically pitch to ${year}.` : "";
+  const titleInstruction = title
+    ? `The teacher provided this title: "${title}". Use it (lightly polished if needed).`
+    : `No title was provided — invent a short, inviting title (max ~8 words).`;
+
+  const schema = `Return STRICT JSON only (no markdown, no preamble, no code fences) with EXACTLY this shape:
+{
+  "title": "string — the spotlight title",
+  "framing": "string — one short line telling students what to do, e.g. '${MODE_FRAMING[mode]}'",
+  "routineName": "string — the name of the thinking routine you chose",
+  "routineIntro": "string — one warm sentence introducing the routine to the class",
+  "steps": [
+    { "name": "string — short step label", "minutes": 1, "prompt": "string — what the teacher says/asks at this step" }
+  ],
+  "guidingQuestions": ["3 to 4 guiding questions pitched to the band"],
+  "studentAction": "string — one concrete action or takeaway a student leaves with",
+  "learnerProfile": ["1 to 3 IB Learner Profile attributes that fit, e.g. 'Thinker', 'Principled', 'Caring'"]
+}
+Rules: the sum of all step "minutes" MUST be 5 or less (this is a 5-minute discussion). Provide 2–4 steps. Keep language warm, curious, student-centred and IB-aligned.`;
+
+  const systemMsg = "You are an expert IB educator and digital-citizenship coach. You design short, 5-minute 'Digital Space Spotlight' discussion prompts about cyber safety and digital citizenship. Your tone is warm, curious and student-centred, aligned to the IB Learner Profile. You ALWAYS respond with strict JSON only.";
+
+  const textParts = [
+    `Create a 5-minute "Digital Space Spotlight" discussion prompt.`,
+    BAND_GUIDANCE[band] + yearStr,
+    `Focus theme: ${theme}.`,
+    titleInstruction,
+    `Stimulus mode: ${mode}.`,
+  ];
+
+  const userContent = [];
+
+  if (mode === "image") {
+    textParts.push("The stimulus is the attached image. Look at its ACTUAL content and build the whole spotlight from what you genuinely see in it. Tie the discussion to the focus theme.");
+    userContent.push({ type: "text", text: textParts.join("\n") + "\n\n" + schema });
+    userContent.push({ type: "image_url", image_url: { url: imageDataUrl } });
+  } else {
+    const trimmed = (sourceText || "").slice(0, 12000);
+    const noun = mode === "video" ? "video transcript" : "article text";
+    textParts.push(`The stimulus is the following ${noun}. Build the spotlight from its real content, tied to the focus theme:\n\n"""\n${trimmed}\n"""`);
+    userContent.push({ type: "text", text: textParts.join("\n") + "\n\n" + schema });
+  }
+
+  const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + apiKey },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: "system", content: systemMsg },
+        { role: "user", content: userContent },
+      ],
+      response_format: { type: "json_object" },
+      max_completion_tokens: 2000,
+    }),
+  });
+
+  if (!resp.ok) {
+    let detail = "";
+    try { detail = JSON.stringify((await resp.json()).error || {}, null, 2); }
+    catch (_) { detail = await resp.text().catch(() => ""); }
+    throw new Error(`OpenAI API error (${resp.status}).\n${detail}`);
+  }
+
+  const data = await resp.json();
+  const raw = data?.choices?.[0]?.message?.content || "";
+  if (!raw.trim()) throw new Error("The model returned an empty response.");
+  try {
+    return { parsed: parseJsonLoose(raw), raw };
+  } catch (perr) {
+    const e = new Error("Could not parse the model's JSON: " + perr.message);
+    e._raw = raw;
+    throw e;
+  }
+}
+
+/* ------------------------------ App ------------------------------ */
+
+function App() {
+  // config
+  const [apiKey, setApiKey] = useState("");
+  const [model, setModel] = useState("gpt-5.4");
+
+  // inputs
+  const [mode, setMode] = useState("image");
+  const [imageDataUrl, setImageDataUrl] = useState("");
+  const [imageName, setImageName] = useState("");
+  const [articleText, setArticleText] = useState("");
+  const [pdfName, setPdfName] = useState("");
+  const [transcript, setTranscript] = useState("");
+  const [title, setTitle] = useState("");
+  const [link, setLink] = useState("");
+  const [band, setBand] = useState("PYP");
+  const [year, setYear] = useState("");
+  const [theme, setTheme] = useState(THEMES[0]);
+
+  // generation
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [rawDump, setRawDump] = useState("");
+  const [spot, setSpot] = useState(null); // editable spotlight object
+
+  const imgInput = useRef(null);
+  const pdfInput = useRef(null);
+
+  /* ------- file handlers ------- */
+  async function onImage(e) {
+    const f = e.target.files?.[0]; if (!f) return;
+    try { setImageDataUrl(await readFileAsDataURL(f)); setImageName(f.name); }
+    catch (_) { setError("Could not read that image."); }
+  }
+  async function onPdf(e) {
+    const f = e.target.files?.[0]; if (!f) return;
+    setPdfName(f.name + " (extracting…)");
+    try { const t = await extractPdfText(f); setArticleText(t); setPdfName(f.name + ` (${t.length.toLocaleString()} chars)`); }
+    catch (err) { setError("Could not extract text from that PDF: " + err.message); setPdfName(""); }
+  }
+
+  /* ------- validation ------- */
+  function inputReady() {
+    if (mode === "image") return !!imageDataUrl;
+    if (mode === "article") return articleText.trim().length > 20;
+    if (mode === "video") return transcript.trim().length > 20;
+    return false;
+  }
+
+  /* ------- generate ------- */
+  async function generate() {
+    setError(""); setRawDump("");
+    if (!apiKey.trim()) { setError("Please paste your OpenAI API key first."); return; }
+    if (!inputReady()) { setError("Please add the stimulus (image, article text/PDF, or transcript)."); return; }
+
+    setLoading(true);
+    try {
+      const sourceText = mode === "video" ? transcript : articleText;
+      const { parsed, raw } = await generateSpotlight({
+        apiKey: apiKey.trim(), model, mode, band, year, theme,
+        title: title.trim(), imageDataUrl, sourceText,
+      });
+
+      // Build the editable spotlight, merging model output with user-chosen facts.
+      const steps = Array.isArray(parsed.steps) && parsed.steps.length
+        ? parsed.steps.map(s => ({ name: String(s.name || "Step"), minutes: Number(s.minutes) || 1, prompt: String(s.prompt || "") }))
+        : [{ name: "Discuss", minutes: 5, prompt: "" }];
+
+      setSpot({
+        title: String(parsed.title || title || "Digital Space Spotlight"),
+        framing: String(parsed.framing || MODE_FRAMING[mode]),
+        routineName: String(parsed.routineName || "See–Think–Wonder"),
+        routineIntro: String(parsed.routineIntro || ""),
+        steps,
+        guidingQuestions: Array.isArray(parsed.guidingQuestions) && parsed.guidingQuestions.length
+          ? parsed.guidingQuestions.map(String) : ["", "", ""],
+        studentAction: String(parsed.studentAction || ""),
+        learnerProfile: Array.isArray(parsed.learnerProfile) ? parsed.learnerProfile.map(String) : [],
+      });
+      setRawDump(raw);
+    } catch (err) {
+      setError(err.message || String(err));
+      if (err._raw) setRawDump(err._raw);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  /* ------- editing helpers ------- */
+  const patch = (obj) => setSpot(s => ({ ...s, ...obj }));
+  const patchStep = (i, obj) => setSpot(s => { const steps = s.steps.slice(); steps[i] = { ...steps[i], ...obj }; return { ...s, steps }; });
+  const addStep = () => setSpot(s => ({ ...s, steps: [...s.steps, { name: "New step", minutes: 1, prompt: "" }] }));
+  const delStep = (i) => setSpot(s => ({ ...s, steps: s.steps.filter((_, j) => j !== i) }));
+  const patchQ = (i, v) => setSpot(s => { const q = s.guidingQuestions.slice(); q[i] = v; return { ...s, guidingQuestions: q }; });
+  const addQ = () => setSpot(s => ({ ...s, guidingQuestions: [...s.guidingQuestions, ""] }));
+  const delQ = (i) => setSpot(s => ({ ...s, guidingQuestions: s.guidingQuestions.filter((_, j) => j !== i) }));
+
+  const totalMins = useMemo(() => spot ? spot.steps.reduce((a, s) => a + (Number(s.minutes) || 0), 0) : 0, [spot]);
+
+  const bandLabel = BANDS[band].label;
+
+  /* ------- export ------- */
+  async function download() {
+    if (!spot) return;
+    try {
+      const pptx = new PptxGenJS();
+      pptx.defineLayout({ name: "WIDE", width: 13.33, height: 7.5 });
+      pptx.layout = "WIDE";
+      const VIOLET = "7C4DFF", CORAL = "FF7043", INK = "2B2536", MUTED = "6B6478", CREAM = "FBF8FF";
+
+      const accentBar = (slide) => slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 13.33, h: 0.22, fill: { color: VIOLET } });
+      const footer = (slide, n) => slide.addText(`Digital Space Spotlight · 5-minute discussion · ${n}/4`, { x: 0.5, y: 7.0, w: 12.3, h: 0.3, fontSize: 9, color: MUTED, align: "left" });
+
+      /* Slide 1 — Title */
+      let s1 = pptx.addSlide(); s1.background = { color: CREAM }; accentBar(s1);
+      s1.addText("DIGITAL SPACE SPOTLIGHT", { x: 0.8, y: 1.0, w: 11.7, h: 0.5, fontSize: 16, bold: true, color: VIOLET, charSpacing: 2 });
+      s1.addText(spot.title, { x: 0.8, y: 1.7, w: 11.7, h: 1.8, fontSize: 40, bold: true, color: INK, valign: "top" });
+      s1.addText([
+        { text: bandLabel + "    ", options: { color: VIOLET, bold: true } },
+        { text: theme, options: { color: CORAL, bold: true } },
+      ], { x: 0.8, y: 3.7, w: 11.7, h: 0.5, fontSize: 18 });
+      s1.addText("5-minute discussion", { x: 0.8, y: 4.4, w: 11.7, h: 0.5, fontSize: 16, italic: true, color: MUTED });
+      footer(s1, 1);
+
+      /* Slide 2 — Stimulus */
+      let s2 = pptx.addSlide(); s2.background = { color: "FFFFFF" }; accentBar(s2);
+      s2.addText("STIMULUS", { x: 0.8, y: 0.7, w: 11.7, h: 0.4, fontSize: 14, bold: true, color: VIOLET, charSpacing: 2 });
+      s2.addText(spot.framing, { x: 0.8, y: 1.2, w: 11.7, h: 0.6, fontSize: 22, bold: true, color: INK });
+
+      if (mode === "image" && imageDataUrl) {
+        s2.addImage({ data: imageDataUrl, x: 1.2, y: 2.1, w: 10.9, h: 4.5, sizing: { type: "contain", w: 10.9, h: 4.5 } });
+      } else if (link.trim()) {
+        const url = link.trim();
+        let qrData = "";
+        try { qrData = await QRCode.toDataURL(url, { margin: 1, width: 480 }); } catch (_) {}
+        if (qrData) s2.addImage({ data: qrData, x: 1.2, y: 2.4, w: 3.0, h: 3.0 });
+        s2.addText([{ text: `${MODE_VERB[mode]} here: `, options: { color: INK } }, { text: url, options: { color: VIOLET, underline: true, hyperlink: { url } } }],
+          { x: 4.6, y: 3.4, w: 7.8, h: 1.2, fontSize: 18, valign: "middle" });
+      } else {
+        s2.addText("(No link provided — share the stimulus with students directly.)", { x: 0.8, y: 3.0, w: 11.7, h: 0.6, fontSize: 16, italic: true, color: MUTED });
+      }
+      footer(s2, 2);
+
+      /* Slide 3 — Discussion scaffold */
+      let s3 = pptx.addSlide(); s3.background = { color: CREAM }; accentBar(s3);
+      s3.addText("DISCUSSION SCAFFOLD", { x: 0.8, y: 0.7, w: 11.7, h: 0.4, fontSize: 14, bold: true, color: VIOLET, charSpacing: 2 });
+      s3.addText(spot.routineName, { x: 0.8, y: 1.15, w: 11.7, h: 0.6, fontSize: 26, bold: true, color: INK });
+      if (spot.routineIntro) s3.addText(spot.routineIntro, { x: 0.8, y: 1.8, w: 11.7, h: 0.5, fontSize: 15, italic: true, color: MUTED });
+      let y = 2.55;
+      spot.steps.forEach((st) => {
+        s3.addText([
+          { text: `${st.minutes} min   `, options: { bold: true, color: CORAL } },
+          { text: st.name, options: { bold: true, color: INK } },
+          { text: st.prompt ? `\n${st.prompt}` : "", options: { color: INK } },
+        ], { x: 0.9, y, w: 11.5, h: 1.0, fontSize: 15, valign: "top" });
+        y += 1.05;
+      });
+      footer(s3, 3);
+
+      /* Slide 4 — Teacher notes */
+      let s4 = pptx.addSlide(); s4.background = { color: "FFFFFF" }; accentBar(s4);
+      s4.addText("TEACHER NOTES", { x: 0.8, y: 0.7, w: 11.7, h: 0.4, fontSize: 14, bold: true, color: VIOLET, charSpacing: 2 });
+      s4.addText("Guiding questions", { x: 0.8, y: 1.2, w: 11.7, h: 0.4, fontSize: 18, bold: true, color: INK });
+      const qBullets = spot.guidingQuestions.filter(q => q.trim()).map(q => ({ text: q, options: { bullet: { code: "2022" }, color: INK, paraSpaceAfter: 8 } }));
+      s4.addText(qBullets.length ? qBullets : [{ text: "—", options: { color: MUTED } }], { x: 0.9, y: 1.7, w: 11.5, h: 3.2, fontSize: 16, valign: "top" });
+      s4.addShape(pptx.ShapeType.roundRect, { x: 0.8, y: 5.1, w: 11.7, h: 1.4, fill: { color: "FFF3EE" }, line: { color: "FFD9C9" }, rectRadius: 0.1 });
+      s4.addText([
+        { text: "STUDENT ACTION / TAKEAWAY\n", options: { bold: true, color: CORAL, fontSize: 12 } },
+        { text: spot.studentAction || "—", options: { color: INK, fontSize: 16 } },
+      ], { x: 1.0, y: 5.25, w: 11.3, h: 1.1, valign: "top" });
+      if (spot.learnerProfile.filter(Boolean).length)
+        s4.addText("IB Learner Profile: " + spot.learnerProfile.filter(Boolean).join(", "), { x: 0.8, y: 6.6, w: 11.7, h: 0.3, fontSize: 12, italic: true, color: VIOLET });
+      footer(s4, 4);
+
+      const safe = (spot.title || "spotlight").replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "-").slice(0, 50) || "spotlight";
+      await pptx.writeFile({ fileName: `Digital-Space-Spotlight_${safe}.pptx` });
+    } catch (err) {
+      setError("PowerPoint export failed: " + (err.message || String(err)));
+    }
+  }
+
+  /* ------------------------------ render ------------------------------ */
+  return (
+    <React.Fragment>
+      <header className="app">
+        <div className="logo">✦</div>
+        <div>
+          <h1>Digital Space Spotlight</h1>
+          <p>5-minute cyber-safety &amp; digital-citizenship discussion prompts → PowerPoint</p>
+        </div>
+      </header>
+
+      <div className="layout">
+        {/* ----------------- INPUT PANEL ----------------- */}
+        <div className="panel input">
+          <div className="group">
+            <label className="cap">OpenAI API key</label>
+            <input type="password" value={apiKey} placeholder="sk-…" onChange={e => setApiKey(e.target.value)} />
+            <div className="hint">Kept in memory only — never saved or stored.</div>
+          </div>
+
+          <div className="group">
+            <label className="cap">Model</label>
+            <select value={model} onChange={e => setModel(e.target.value)}>
+              <option value="gpt-5.4">gpt-5.4</option>
+              <option value="gpt-5.5">gpt-5.5</option>
+              <option value="gpt-5.4-mini">gpt-5.4-mini</option>
+            </select>
+          </div>
+
+          <div className="group">
+            <label className="cap">Stimulus mode</label>
+            <div className="modes">
+              {["image", "article", "video"].map(m => (
+                <button key={m} className={mode === m ? "active" : ""} onClick={() => setMode(m)}>
+                  {m === "image" ? "🖼 Image" : m === "article" ? "📄 Article" : "🎬 Video"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {mode === "image" && (
+            <div className="group">
+              <label className="cap">Upload image</label>
+              <div className="filebox" onClick={() => imgInput.current.click()}>
+                {imageDataUrl
+                  ? <React.Fragment><img className="thumb" src={imageDataUrl} alt="" /><div className="small">{imageName} — click to replace</div></React.Fragment>
+                  : <React.Fragment><div className="big">🖼</div><div className="small">Click to upload an image</div></React.Fragment>}
+              </div>
+              <input ref={imgInput} type="file" accept="image/*" hidden onChange={onImage} />
+              <div className="hint">The model sees the actual image and builds the Spotlight from its real content.</div>
+            </div>
+          )}
+
+          {mode === "article" && (
+            <div className="group">
+              <label className="cap">Article — upload PDF or paste text</label>
+              <div className="filebox" onClick={() => pdfInput.current.click()}>
+                <div className="big">📄</div>
+                <div className="small">{pdfName || "Click to upload a PDF"}</div>
+              </div>
+              <input ref={pdfInput} type="file" accept="application/pdf" hidden onChange={onPdf} />
+              <textarea style={{ marginTop: 10 }} value={articleText} placeholder="…or paste the article text here" onChange={e => setArticleText(e.target.value)} />
+              <div className="hint">Pasted <b>URLs aren't fetched</b> (paywalls/CORS block it) — upload the PDF or paste the text.</div>
+            </div>
+          )}
+
+          {mode === "video" && (
+            <div className="group">
+              <label className="cap">Video transcript <span style={{ color: "var(--bad)" }}>(required)</span></label>
+              <textarea value={transcript} placeholder="Paste the video transcript here" onChange={e => setTranscript(e.target.value)} />
+              <div className="hint">The tool <b>can't watch the video</b> — paste the transcript so the model can read it.</div>
+            </div>
+          )}
+
+          {(mode === "article" || mode === "video") && (
+            <div className="group">
+              <label className="cap">Link (optional — becomes a QR code)</label>
+              <input type="text" value={link} placeholder="https://…" onChange={e => setLink(e.target.value)} />
+            </div>
+          )}
+
+          <div className="group">
+            <label className="cap">Title (optional)</label>
+            <input type="text" value={title} placeholder="Leave blank to auto-generate" onChange={e => setTitle(e.target.value)} />
+          </div>
+
+          <div className="group">
+            <label className="cap">Band &amp; year</label>
+            <div className="row2">
+              <select value={band} onChange={e => { setBand(e.target.value); setYear(""); }}>
+                {Object.keys(BANDS).map(b => <option key={b} value={b}>{BANDS[b].label}</option>)}
+              </select>
+              <select value={year} onChange={e => setYear(e.target.value)}>
+                <option value="">Whole band</option>
+                {BANDS[band].years.map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="group">
+            <label className="cap">Focus theme</label>
+            <select value={theme} onChange={e => setTheme(e.target.value)}>
+              {THEMES.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+
+          <button className="btn primary" disabled={loading} onClick={generate}>
+            {loading ? <React.Fragment><span className="spinner"></span> Generating…</React.Fragment> : (spot ? "↻ Regenerate" : "✦ Generate Spotlight")}
+          </button>
+
+          {error && <div className="alert bad"><b>Something went wrong.</b><pre>{error}</pre>{rawDump && <React.Fragment><b>Raw model output:</b><pre>{rawDump}</pre></React.Fragment>}</div>}
+        </div>
+
+        {/* ----------------- PREVIEW PANEL ----------------- */}
+        <div>
+          {!spot && !loading && (
+            <div className="panel"><div className="empty">
+              <div className="big">✦</div>
+              <h2 style={{ margin: "0 0 6px" }}>Your Spotlight preview appears here</h2>
+              <p>Add a stimulus on the left and hit <b>Generate</b>. Every field below will be editable before you download.</p>
+            </div></div>
+          )}
+
+          {spot && (
+            <React.Fragment>
+              <div className="toolbar">
+                <button className="btn ghost" disabled={loading} onClick={generate}>↻ Regenerate</button>
+                <button className="btn primary" onClick={download}>⬇ Download PowerPoint</button>
+              </div>
+
+              <div className="slides">
+                {/* Slide 1 — Title */}
+                <div className="slide"><div className="bar"></div><div className="body">
+                  <div className="kicker">Slide 1 · Title</div>
+                  <textarea className="editable titlebig" rows={1} value={spot.title} onChange={e => patch({ title: e.target.value })} />
+                  <div className="meta-chips">
+                    <span className="chip">{bandLabel}{year ? " · " + year : ""}</span>
+                    <span className="chip coral">{theme}</span>
+                  </div>
+                  <div style={{ color: "var(--muted)", fontStyle: "italic" }}>5-minute discussion</div>
+                </div></div>
+
+                {/* Slide 2 — Stimulus */}
+                <div className="slide"><div className="bar"></div><div className="body">
+                  <div className="kicker">Slide 2 · Stimulus</div>
+                  <textarea className="editable" rows={1} value={spot.framing} onChange={e => patch({ framing: e.target.value })} />
+                  {mode === "image" && imageDataUrl && <div className="stim-img"><img src={imageDataUrl} alt="" /></div>}
+                  {mode !== "image" && link.trim() && <StimLink url={link.trim()} verb={MODE_VERB[mode]} />}
+                  {mode !== "image" && !link.trim() && <div className="hint">No link added — add one on the left to include a clickable link + QR code.</div>}
+                </div></div>
+
+                {/* Slide 3 — Scaffold */}
+                <div className="slide"><div className="bar"></div><div className="body">
+                  <div className="kicker">Slide 3 · Discussion scaffold</div>
+                  <textarea className="editable" rows={1} style={{ fontWeight: 700, fontSize: 16 }} value={spot.routineName} onChange={e => patch({ routineName: e.target.value })} />
+                  <textarea className="editable" rows={1} style={{ fontStyle: "italic", color: "var(--muted)" }} value={spot.routineIntro} onChange={e => patch({ routineIntro: e.target.value })} />
+                  {spot.steps.map((st, i) => (
+                    <div className="step" key={i}>
+                      <div className="mins"><input type="number" min="0" max="5" value={st.minutes} onChange={e => patchStep(i, { minutes: Number(e.target.value) })} /><span>min</span></div>
+                      <div>
+                        <input className="editable name" value={st.name} onChange={e => patchStep(i, { name: e.target.value })} />
+                        <textarea className="editable" rows={2} value={st.prompt} onChange={e => patchStep(i, { prompt: e.target.value })} />
+                      </div>
+                      <button className="iconbtn" title="Remove step" onClick={() => delStep(i)}>✕</button>
+                    </div>
+                  ))}
+                  <button className="addbtn" onClick={addStep}>+ Add step</button>
+                  <div className={"total" + (totalMins > 5 ? " over" : "")}>Total: {totalMins} min {totalMins > 5 ? "— over 5 minutes!" : "/ 5 min"}</div>
+                </div></div>
+
+                {/* Slide 4 — Teacher notes */}
+                <div className="slide"><div className="bar"></div><div className="body">
+                  <div className="kicker">Slide 4 · Teacher notes</div>
+                  <h3>Guiding questions</h3>
+                  <ul className="ql">
+                    {spot.guidingQuestions.map((q, i) => (
+                      <li key={i}>
+                        <span className="num">{i + 1}</span>
+                        <textarea className="editable" rows={1} value={q} onChange={e => patchQ(i, e.target.value)} />
+                        <button className="iconbtn" title="Remove" onClick={() => delQ(i)}>✕</button>
+                      </li>
+                    ))}
+                  </ul>
+                  <button className="addbtn" onClick={addQ}>+ Add question</button>
+                  <div className="action-box">
+                    <div className="cap">Student action / takeaway</div>
+                    <textarea className="editable" rows={2} value={spot.studentAction} onChange={e => patch({ studentAction: e.target.value })} />
+                  </div>
+                  <div className="lp-chips">
+                    {spot.learnerProfile.filter(Boolean).map((lp, i) => <span key={i} className="chip">LP · {lp}</span>)}
+                  </div>
+                </div></div>
+              </div>
+            </React.Fragment>
+          )}
+        </div>
+      </div>
+    </React.Fragment>
+  );
+}
+
+/* QR preview component */
+function StimLink({ url, verb }) {
+  const [qr, setQr] = useState("");
+  React.useEffect(() => {
+    let live = true;
+    QRCode.toDataURL(url, { margin: 1, width: 240 }).then(d => { if (live) setQr(d); }).catch(() => {});
+    return () => { live = false; };
+  }, [url]);
+  return (
+    <div className="stim-link">
+      {qr && <img className="qr" src={qr} alt="QR code" />}
+      <div><div style={{ marginBottom: 4 }}>{verb} here:</div><a href={url} target="_blank" rel="noreferrer">{url}</a></div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
