@@ -362,6 +362,152 @@ function stripMd(s) {
     .trim();
 }
 
+/* --------------------- Discovery: constants + pure helpers --------------------- */
+
+const DISCOVERY_CATEGORIES = [
+  { id: "general",       label: "General cyber safety" },
+  { id: "cyberbullying", label: "Cyberbullying & online conflict" },
+  { id: "ai",            label: "AI, deepfakes & chatbots" },
+  { id: "privacy",       label: "Privacy & personal data" },
+  { id: "scams",         label: "Scams, phishing & fraud" },
+  { id: "screentime",    label: "Screen time & digital wellbeing" },
+  { id: "misinfo",       label: "Misinformation & fake news" },
+  { id: "predators",     label: "Online predators & grooming" },
+  { id: "gaming",        label: "Gaming, in-app spending & loot boxes" },
+  { id: "trends",        label: "Social media trends & challenges" },
+  { id: "footprint",     label: "Digital footprint & online reputation" },
+  { id: "imageabuse",    label: "Image-based abuse / sextortion", seniorOnly: true },
+];
+
+const RESOURCE_DOMAINS = [
+  "esafety.gov.au", "thinkuknow.org.au", "accce.gov.au",
+  "commonsense.org", "beinternetawesome.withgoogle.com", "childnet.com",
+  "internetmatters.org", "saferinternet.org.uk",
+  "abc.net.au", "theconversation.com",
+];
+
+function availableCategories(band) {
+  return DISCOVERY_CATEGORIES.filter(c => !c.seniorOnly || band === "Senior");
+}
+
+// "2026-06" -> "June 2026"
+function monthLabel(ym) {
+  const [y, m] = String(ym || "").split("-").map(Number);
+  if (!y || !m) return String(ym || "");
+  return new Date(y, m - 1, 1).toLocaleString("en-AU", { month: "long", year: "numeric" });
+}
+
+function audienceStr(band, yearLevels) {
+  const label = (BANDS[band] && BANDS[band].label) || band;
+  return (yearLevels && yearLevels.length) ? `${yearLevels.join(", ")} (${label})` : label;
+}
+
+// Phase 1: broad event-spotting (no domain filter).
+function buildEventRequest({ model, band, yearLevels, month, categories }) {
+  const cats = categories.map(c => c.label).join(", ");
+  const when = monthLabel(month);
+  const prompt = [
+    `You are an expert in student online safety and digital citizenship.`,
+    `Use web search to find the 10 technology / online-safety issues that were MOST DISCUSSED and got the most public attention during ${when}, that are relevant and age-appropriate for these students: ${audienceStr(band, yearLevels)}.`,
+    `Blend them across these topic categories: ${cats}.`,
+    `Order them most-discussed first.`,
+    `Return STRICT JSON only (no markdown, no code fences) of EXACTLY this shape:`,
+    `{ "issues": [ { "title": "short issue title", "whyNow": "one line on why it mattered in ${when}", "category": "one of: ${cats}", "theme": "the closest match from: ${THEMES.join(", ")}", "searchHint": "3-6 keywords to find a teaching resource about this issue" } ] }`,
+    `Use only information you actually found via web search. Return up to 10 issues.`,
+  ].join("\n");
+  return { model, tools: [{ type: "web_search" }], input: prompt };
+}
+
+// Phase 2: one batched call; prefer trusted cyber-safety/edu sites, news fallback.
+function buildResourceRequest({ model, issues, band, yearLevels }) {
+  const list = issues.map((it, i) => `${i + 1}. ${it.title} — ${it.searchHint || it.category || ""}`).join("\n");
+  const prompt = [
+    `For each student online-safety issue below, use web search to find ONE free, openly accessible teaching resource (article, image/infographic, or video).`,
+    `Audience: ${audienceStr(band, yearLevels)}.`,
+    `STRONGLY PREFER resources published by well-known cyber-safety / digital-citizenship organisations (eSafety Commissioner, ThinkUKnow, Common Sense, Be Internet Awesome, Childnet, Internet Matters, UK Safer Internet Centre). If none exists for an issue, use a reputable FREE (non-paywalled) news article instead.`,
+    `Every resource MUST be free to access (no paywall, no login).`,
+    `Issues:\n${list}`,
+    `Return STRICT JSON only (no markdown, no code fences) of EXACTLY this shape:`,
+    `{ "resources": [ { "index": 1, "resourceType": "article" | "image" | "video", "resourceTitle": "title", "resourceUrl": "the real URL you found", "resourceOrigin": "trusted" if from a cyber-safety/education organisation else "news", "source": "short source label e.g. eSafety", "blurb": "one line describing the resource" } ] }`,
+    `Include one object per issue, matched by its number in "index". Use only URLs you actually found via web search.`,
+  ].join("\n");
+  return { model, tools: [{ type: "web_search", filters: { allowed_domains: RESOURCE_DOMAINS } }], input: prompt };
+}
+
+// Responses API: pull concatenated assistant text + url_citation annotations.
+function extractResponseText(data) {
+  let text = "", annotations = [];
+  if (data && typeof data.output_text === "string") text = data.output_text;
+  const out = (data && Array.isArray(data.output)) ? data.output : [];
+  for (const item of out) {
+    if (item && item.type === "message" && Array.isArray(item.content)) {
+      for (const c of item.content) {
+        if (c && typeof c.text === "string") { if (!text) text += c.text; }
+        if (c && Array.isArray(c.annotations)) annotations = annotations.concat(c.annotations);
+      }
+    }
+  }
+  return { text, annotations };
+}
+
+function normUrl(u) {
+  try { const x = new URL(u); return (x.host + x.pathname).replace(/\/+$/, "").toLowerCase(); }
+  catch (_) { return String(u || "").replace(/^https?:\/\//, "").replace(/\/+$/, "").toLowerCase(); }
+}
+
+function citationSet(annotations) {
+  const s = new Set();
+  (annotations || []).forEach(a => {
+    const u = a && (a.url || (a.url_citation && a.url_citation.url));
+    if (u) s.add(normUrl(u));
+  });
+  return s;
+}
+
+function urlInCitations(url, set) {
+  if (!url) return false;
+  const n = normUrl(url);
+  if (set.has(n)) return true;
+  for (const c of set) { if (c && (c.includes(n) || n.includes(c))) return true; }
+  return false;
+}
+
+// Join phase-1 issues with phase-2 resources by 1-based index; sanitise.
+function mergeIssuesAndResources(issues, resources) {
+  const byIndex = {};
+  (resources || []).forEach(r => { if (r && r.index != null) byIndex[Number(r.index)] = r; });
+  return (issues || []).slice(0, 10).map((it, i) => {
+    const r = byIndex[i + 1] || {};
+    const url = String(r.resourceUrl || "").trim();
+    return {
+      title: stripMd(it.title || ""),
+      whyNow: stripMd(it.whyNow || ""),
+      category: stripMd(it.category || ""),
+      theme: THEMES.includes(it.theme) ? it.theme : THEMES[0],
+      resourceType: ["article", "image", "video"].includes(r.resourceType) ? r.resourceType : "article",
+      resourceTitle: stripMd(r.resourceTitle || ""),
+      resourceUrl: url,
+      resourceOrigin: r.resourceOrigin === "trusted" ? "trusted" : (url ? "news" : ""),
+      source: stripMd(r.source || ""),
+      blurb: stripMd(r.blurb || ""),
+    };
+  });
+}
+
+// Drop a card's resource (but keep the card) if its URL was not really cited.
+function validateResourceUrls(cards, cset) {
+  return (cards || []).map(c =>
+    (c.resourceUrl && !urlInCitations(c.resourceUrl, cset))
+      ? { ...c, resourceUrl: "", resourceOrigin: "" }
+      : c
+  );
+}
+
+// Expose pure helpers for console verification (harmless in production).
+window.DSS = { DISCOVERY_CATEGORIES, RESOURCE_DOMAINS, availableCategories, monthLabel,
+  audienceStr, buildEventRequest, buildResourceRequest, extractResponseText,
+  citationSet, urlInCitations, mergeIssuesAndResources, validateResourceUrls };
+
 /* --------------------------- OpenAI call --------------------------- */
 
 async function generateSpotlight({ apiKey, model, mode, band, year, theme, title, imageDataUrl, sourceText }) {
