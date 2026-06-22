@@ -6,20 +6,21 @@ A single-page tool that creates 5-minute **Digital Space Spotlight** discussion 
 
 ## What it does
 
+- **Discover current issues** — search reputable sources for the month's most-discussed online-safety issues by band, year level, and topic, each with a free resource (preferring well-known cyber-safety sites such as eSafety, ThinkUKnow, Common Sense); click one to load it straight into the generator.
 - **Three stimulus modes:**
   - **Image** — upload an image; it's sent to the model as a real image so it builds the Spotlight from what's actually in the picture.
   - **Article** — upload a PDF (text extracted in-browser) or paste the article text.
   - **Video** — paste the transcript (the tool can't watch the video itself); optional title/link.
 - **Adapts to the band** — PYP (Prep–Y6) concrete & inquiry-based, MYP (Y7–10) analytical, Senior (Y11–12) critical/ethical — and rotates Visible Thinking routines (See–Think–Wonder, Connect–Extend–Challenge, 3-2-1 Bridge, Think–Pair–Share, Tug-of-War, Circle of Viewpoints).
 - **Four editable slides:** Title · Stimulus · Discussion scaffold (timed to ≤5 min) · Teacher notes (guiding questions + a student action).
-- **Download PowerPoint** — a real, editable `.pptx` with the embedded image, or a clickable link + QR code when a link is given.
+- **Download PowerPoint** — a real, editable `.pptx` in the **Wesley College** branded theme (purple & gold, Calibri, the Wesley crest on every slide), with the embedded image, or a clickable link + QR code when a link is given.
 
 ## How to use
 
 1. Open the live link (or download `index.html` and double-click it).
 2. Paste your **OpenAI API key** and choose a model.
-3. Pick a stimulus mode, add the stimulus, set band + theme.
-4. **Generate**, edit any field in the preview, then **Download PowerPoint**.
+3. Either **Discover current issues** (pick band, year levels, month, topics) and click an issue to auto-fill, or pick a stimulus mode and add the stimulus manually; set band + focus theme.
+4. **Generate**, edit any field in the preview, then **Download PowerPoint** (Wesley-branded).
 
 ## Privacy
 
