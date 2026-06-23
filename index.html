@@ -753,6 +753,7 @@ function App() {
   const [discoverRaw, setDiscoverRaw] = useState("");
   const [showDiscoverModal, setShowDiscoverModal] = useState(false);
   const [notice, setNotice] = useState(""); // soft, non-error handoff messages
+  const [preparing, setPreparing] = useState(false); // handoff stimulus loading
 
   // generation
   const [loading, setLoading] = useState(false);
@@ -813,6 +814,7 @@ function App() {
 
   /* ------- generate ------- */
   async function generate() {
+    if (preparing) return; // a discovered stimulus is still loading
     setError(""); setRawDump("");
     if (!apiKey.trim()) { setError("Please paste your OpenAI API key first."); return; }
     if (!inputReady()) { setError("Please add the stimulus (image, article text/PDF, or transcript)."); return; }
@@ -875,50 +877,58 @@ function App() {
   }
 
   async function useIssue(card) {
-    setError(""); setNotice("");
-    setTitle(card.title || "");
-    setTheme(THEMES.includes(card.theme) ? card.theme : THEMES[0]);
-    // single targeted year level -> set it; otherwise whole band
-    if (discoverYears.length === 1 && BANDS[band].years.includes(discoverYears[0])) setYear(discoverYears[0]);
-    else setYear("");
-
-    // A short brief built from the issue itself — always a valid stimulus, so a
-    // generation never dead-ends when the richer resource can't auto-load.
-    const seed = [card.title, card.whyNow, card.blurb].filter(Boolean).join(". ");
-    const imgQuery = card.category || card.title || theme;
-    // When falling back to the issue brief, also attach a relevant free image so
-    // the stimulus slide isn't bland.
-    const useBrief = async (msg) => {
-      setMode("article"); setImageDataUrl(""); setImageName(""); setArticleText(seed); setNotice(msg);
-      setArticleImageUrl(await findRelevantImage(imgQuery));
-    };
-
-    const type = ["article", "image", "video"].includes(card.resourceType) ? card.resourceType : "article";
-    if (!card.resourceUrl) {
-      await useBrief(`Loaded “${card.title}” as the stimulus from the issue summary (no free resource was attached). Edit or replace it on the left, then Generate.`);
-    } else if (type === "image") {
-      setMode("image"); setLink("");
-      const d = await urlToDataUrl(card.resourceUrl);
-      if (d) { setImageDataUrl(d); setImageName(card.resourceTitle || "resource image"); }
-      else await useBrief("Couldn't auto-load that image, so I loaded the issue summary as the stimulus instead. Use “Open ↗” to grab the image manually, or just Generate.");
-    } else if (type === "video") {
-      setMode("video"); setLink(card.resourceUrl); setTranscript("");
-      let gotTranscript = false;
-      if (/youtube\.com|youtu\.be/i.test(card.resourceUrl)) {
-        try {
-          const r = await fetch("https://r.jina.ai/" + card.resourceUrl);
-          if (r.ok) { const t = cleanArticleMarkdown(await r.text()); if (t.length > 80) { setTranscript(t); gotTranscript = true; } }
-        } catch (_) { /* leave blank; teacher pastes */ }
-      }
-      if (!gotTranscript) setNotice("Video link loaded (it becomes a QR code). Paste the transcript so the model can read the video — or switch to Article mode to Generate from the issue summary.");
-    } else {
-      setMode("article"); setImageDataUrl(""); setImageName("");
-      const { text, image } = await fetchArticleFromLink(card.resourceUrl);
-      if (!text) { setError(""); setArticleText(seed); setNotice("Couldn't auto-load the full article, so I loaded the issue summary as the stimulus. The link is on the left — click “Fetch text” to retry, or just Generate."); }
-      if (!image) setArticleImageUrl(await findRelevantImage(imgQuery)); // article had no picture — supply one
-    }
+    // Close the modal IMMEDIATELY and block Generate while the stimulus loads
+    // (the fetches below are async — Generate must wait for them to finish).
     setShowDiscoverModal(false);
+    setError(""); setNotice("");
+    setPreparing(true);
     if (genBtnRef.current) genBtnRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    try {
+      setTitle(card.title || "");
+      setTheme(THEMES.includes(card.theme) ? card.theme : THEMES[0]);
+      // single targeted year level -> set it; otherwise whole band
+      if (discoverYears.length === 1 && BANDS[band].years.includes(discoverYears[0])) setYear(discoverYears[0]);
+      else setYear("");
+
+      // A short brief built from the issue itself — always a valid stimulus, so a
+      // generation never dead-ends when the richer resource can't auto-load.
+      const seed = [card.title, card.whyNow, card.blurb].filter(Boolean).join(". ");
+      const imgQuery = card.category || card.title || theme;
+      // When falling back to the issue brief, also attach a relevant free image so
+      // the stimulus slide isn't bland.
+      const useBrief = async (msg) => {
+        setMode("article"); setImageDataUrl(""); setImageName(""); setArticleText(seed); setNotice(msg);
+        setArticleImageUrl(await findRelevantImage(imgQuery));
+      };
+
+      const type = ["article", "image", "video"].includes(card.resourceType) ? card.resourceType : "article";
+      if (!card.resourceUrl) {
+        await useBrief(`Loaded “${card.title}” as the stimulus from the issue summary (no free resource was attached). Edit or replace it on the left, then Generate.`);
+      } else if (type === "image") {
+        setMode("image"); setLink("");
+        let d = await urlToDataUrl(card.resourceUrl);
+        if (!d) { const alt = await findRelevantImage(imgQuery); if (alt) d = await urlToDataUrl(alt); } // fall back to a relevant free image
+        if (d) { setImageDataUrl(d); setImageName(card.resourceTitle || "resource image"); }
+        else await useBrief("Couldn't load an image for this one, so I loaded the issue summary instead — Generate, or add your own image on the left.");
+      } else if (type === "video") {
+        setMode("video"); setLink(card.resourceUrl); setTranscript("");
+        let gotTranscript = false;
+        if (/youtube\.com|youtu\.be/i.test(card.resourceUrl)) {
+          try {
+            const r = await fetch("https://r.jina.ai/" + card.resourceUrl);
+            if (r.ok) { const t = cleanArticleMarkdown(await r.text()); if (t.length > 80) { setTranscript(t); gotTranscript = true; } }
+          } catch (_) { /* leave blank; teacher pastes */ }
+        }
+        if (!gotTranscript) setNotice("Video link loaded (it becomes a QR code). Paste the transcript so the model can read the video — or switch to Article mode to Generate from the issue summary.");
+      } else {
+        setMode("article"); setImageDataUrl(""); setImageName("");
+        const { text, image } = await fetchArticleFromLink(card.resourceUrl);
+        if (!text) { setError(""); setArticleText(seed); setNotice("Couldn't auto-load the full article, so I loaded the issue summary as the stimulus. The link is on the left — click “Fetch text” to retry, or just Generate."); }
+        if (!image) setArticleImageUrl(await findRelevantImage(imgQuery)); // article had no picture — supply one
+      }
+    } finally {
+      setPreparing(false);
+    }
   }
 
   function toggleArr(arr, v) { return arr.includes(v) ? arr.filter(x => x !== v) : [...arr, v]; }
@@ -1226,8 +1236,10 @@ function App() {
             </select>
           </div>
 
-          <button className="btn primary" ref={genBtnRef} disabled={loading} onClick={generate}>
-            {loading ? <React.Fragment><span className="spinner"></span> Generating…</React.Fragment> : (spot ? "↻ Regenerate" : "✦ Generate Spotlight")}
+          <button className="btn primary" ref={genBtnRef} disabled={loading || preparing} onClick={generate}>
+            {loading ? <React.Fragment><span className="spinner"></span> Generating…</React.Fragment>
+              : preparing ? <React.Fragment><span className="spinner"></span> Preparing stimulus…</React.Fragment>
+              : (spot ? "↻ Regenerate" : "✦ Generate Spotlight")}
           </button>
 
           {error && <div className="alert bad"><b>Something went wrong.</b><pre>{error}</pre>{rawDump && <React.Fragment><b>Raw model output:</b><pre>{rawDump}</pre></React.Fragment>}</div>}
