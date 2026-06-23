@@ -1,0 +1,124 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-23T00:00:00.000Z",
+  "title": "Design System: Digital Space Spotlight Generator",
+  "extensions": {
+    "colorMeta": {
+      "primary": { "role": "primary", "displayName": "Wesley Purple", "canonical": "#4F2759", "tonalRamp": ["#1C0E20", "#2C1632", "#3D1D45", "#4F2759", "#6E4078", "#92729A", "#C0AEC6", "#EFE7FF"] },
+      "secondary": { "role": "secondary", "displayName": "Wesley Gold", "canonical": "#C59F40", "tonalRamp": ["#241B0A", "#3A2D10", "#5B461A", "#7E6224", "#A2802F", "#C59F40", "#DCC079", "#F3E7C2"] },
+      "ink": { "role": "neutral", "displayName": "Ink", "canonical": "#2B2536", "tonalRamp": ["#15121B", "#2B2536", "#3F3850", "#564E69", "#6B6478", "#9A93A5", "#C9C4D2", "#F0EDF4"] },
+      "surface-bg": { "role": "neutral", "displayName": "Soft Lilac Canvas", "canonical": "#F6F2FB", "tonalRamp": ["#2B2536", "#4A4256", "#6B6478", "#9A93A5", "#C9C4D2", "#E7E1EF", "#F6F2FB", "#FFFFFF"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Slide title only — the largest, most confident type because the slide is the hero." },
+      "headline": { "displayName": "Headline", "purpose": "App header title; quiet brand presence." },
+      "title": { "displayName": "Title", "purpose": "Slide section headings." },
+      "body": { "displayName": "Body", "purpose": "All running text, inputs, editable fields; hints at 12px." },
+      "label": { "displayName": "Label", "purpose": "Functional form-group caps only — never a decorative eyebrow." }
+    },
+    "shadows": [
+      { "name": "ambient-lift", "value": "0 6px 24px rgba(60,40,90,0.10)", "purpose": "The single resting elevation — panels, slides, primary buttons, thumbnails. Purple-tinted so even the shadow stays in family." },
+      { "name": "modal-lift", "value": "0 20px 60px rgba(40,25,70,0.35)", "purpose": "Deeper lift, only for the dialog card floating above the blurred scrim." }
+    ],
+    "motion": [
+      { "name": "state-transition", "value": "0.15s ease", "purpose": "Default transition on hover/focus/active for buttons, tabs, dropzones — fast, state-only, no choreography." },
+      { "name": "spin", "value": "0.7s linear infinite", "purpose": "Loading spinner rotation inside the primary button." }
+    ],
+    "breakpoints": [
+      { "name": "stack", "value": "980px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The Generate / Download action. Solid Wesley Purple, full-width, soft lift. (Retires the legacy violet-coral gradient.)",
+      "html": "<button class=\"ds-btn-primary\">Generate Spotlight</button>",
+      "css": ".ds-btn-primary { width: 100%; padding: 12px; border: 0; border-radius: 12px; font: inherit; font-weight: 700; color: #fff; background: #4F2759; box-shadow: 0 6px 24px rgba(60,40,90,0.10); cursor: pointer; transition: background 0.15s, filter 0.15s; display: flex; align-items: center; justify-content: center; gap: 8px; } .ds-btn-primary:hover { background: #3D1D45; } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 3px #EFE7FF, 0 6px 24px rgba(60,40,90,0.10); } .ds-btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Secondary actions (download, forget). White fill, hairline border, ink text shifting to purple on hover.",
+      "html": "<button class=\"ds-btn-ghost\">Forget API key</button>",
+      "css": ".ds-btn-ghost { width: 100%; padding: 12px; border: 1px solid #E7E1EF; border-radius: 12px; font: inherit; font-weight: 700; color: #2B2536; background: #fff; cursor: pointer; transition: border-color 0.15s, color 0.15s; } .ds-btn-ghost:hover { border-color: #4F2759; color: #4F2759; } .ds-btn-ghost:focus-visible { outline: none; border-color: #4F2759; box-shadow: 0 0 0 3px #EFE7FF; } .ds-btn-ghost:disabled { opacity: 0.5; cursor: not-allowed; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Standard field. White fill, hairline border, calm purple focus glow.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Paste the article text…\" />",
+      "css": ".ds-input { width: 100%; padding: 9px 11px; border: 1px solid #E7E1EF; border-radius: 10px; font: inherit; color: #2B2536; background: #fff; outline: none; transition: border-color 0.15s, box-shadow 0.15s; } .ds-input::placeholder { color: #6B6478; } .ds-input:focus { border-color: #4F2759; box-shadow: 0 0 0 3px #EFE7FF; }"
+    },
+    {
+      "name": "Mode Toggle",
+      "kind": "nav",
+      "refersTo": "input",
+      "description": "Segmented control in a lilac trough; active tab is a white pill with soft lift and purple text.",
+      "html": "<div class=\"ds-modes\"><button class=\"active\">Image</button><button>Article</button><button>Video</button></div>",
+      "css": ".ds-modes { display: flex; gap: 6px; background: #F6F2FB; padding: 5px; border-radius: 12px; } .ds-modes button { flex: 1; padding: 9px 6px; border: 0; border-radius: 9px; background: transparent; font: inherit; font-weight: 600; color: #6B6478; cursor: pointer; transition: 0.15s; } .ds-modes button:hover { color: #4F2759; } .ds-modes button.active { background: #fff; color: #4F2759; box-shadow: 0 6px 24px rgba(60,40,90,0.10); }"
+    },
+    {
+      "name": "Metadata Chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Pill carrying band / year / theme / routine on the title slide. Wesley Purple Soft on Wesley Purple text.",
+      "html": "<span class=\"ds-chip\">MYP (Years 7–10)</span>",
+      "css": ".ds-chip { display: inline-block; background: #EFE7FF; color: #4F2759; padding: 4px 11px; border-radius: 999px; font: inherit; font-size: 12.5px; font-weight: 600; }"
+    },
+    {
+      "name": "Spotlight Slide",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "The signature component: a white editable slide card with a solid Wesley Purple accent bar (migrated from the legacy gradient), kicker-free heading, and inline-editable title.",
+      "html": "<article class=\"ds-slide\"><div class=\"ds-slide-bar\"></div><div class=\"ds-slide-body\"><h3 class=\"ds-slide-title\">What is this image really asking us to notice?</h3></div></article>",
+      "css": ".ds-slide { background: #fff; border: 1px solid #E7E1EF; border-radius: 14px; box-shadow: 0 6px 24px rgba(60,40,90,0.10); overflow: hidden; } .ds-slide-bar { height: 6px; background: #4F2759; } .ds-slide-body { padding: 18px 20px; } .ds-slide-title { margin: 0; font-size: 22px; font-weight: 800; line-height: 1.2; color: #2B2536; border-radius: 8px; padding: 6px 8px; transition: background 0.15s; } .ds-slide-title:hover { background: #FAF8FF; } .ds-slide-title:focus { background: #fff; outline: none; box-shadow: 0 0 0 3px #EFE7FF; }"
+    },
+    {
+      "name": "Info Alert",
+      "kind": "custom",
+      "refersTo": "panel",
+      "description": "Calm status note using the soft-purple tint; the danger variant flips to a muted red wash.",
+      "html": "<div class=\"ds-alert-info\">Your API key is saved only in this browser.</div>",
+      "css": ".ds-alert-info { padding: 11px 13px; border-radius: 11px; font-size: 13px; line-height: 1.45; background: #EFE7FF; color: #3D1D45; border: 1px solid #DDD0FF; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Quiet Staffroom",
+    "overview": "A tool a teacher reaches for between classes, built to recede. Soft-lilac and white surfaces, one familiar humanist sans, and the only thing that earns visual weight is the teacher's own content. Because the output is AI-generated and student-facing, the system signals safety and control over cleverness. The canonical brand is Wesley Purple (#4F2759) + Wesley Gold (#C59F40) — the export palette; the live bright violet (#7C4DFF) and coral (#FF7043) with gradient treatments are legacy drift on a path to retirement. It rejects consumer-AI flash, the generic SaaS dashboard, gimmicky edtech, and the opposite failure of the cramped grey utility form.",
+    "keyCharacteristics": [
+      "Single humanist sans (Segoe UI / system stack), one family across every role.",
+      "Soft-lilac canvas, white panels, gentle ambient lift — never flat-grey, never glassy.",
+      "One deep accent (Wesley Purple) doing the work; gold reserved for rare emphasis and the export.",
+      "Content is the hero: the four editable slides get the strongest contrast and the most room.",
+      "Trust signals everywhere: inline edit affordances, honest loading/error states, a clear Forget for the API key."
+    ],
+    "rules": [
+      { "name": "The One Voice Rule", "body": "Wesley Purple is the only interactive accent. Selection, focus, primary action, and links all speak in it. Gold is emphasis, not interaction; coral is legacy.", "section": "colors" },
+      { "name": "The Wesley Voice Rule", "body": "The canonical brand is #4F2759 purple + #C59F40 gold — the export palette. The in-app bright violet (#7C4DFF) and coral (#FF7043) are legacy drift; new work uses the canonical pair and existing uses migrate toward it.", "section": "colors" },
+      { "name": "The Weight-Not-Face Rule", "body": "Hierarchy is built from weight (400 to 800) and size, never from a second font. One family, many weights.", "section": "typography" },
+      { "name": "The No-Eyebrow Rule", "body": "Uppercase tracked micro-labels are permitted only as functional form captions. The slide kicker is a decorative eyebrow tell and is being retired.", "section": "typography" },
+      { "name": "The One-Shadow Rule", "body": "There is exactly one resting elevation. Surfaces either sit flat or wear the Ambient Lift. The modal is the single exception.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do use Wesley Purple #4F2759 as the single interactive accent and reserve Gold #C59F40 for rare emphasis.",
+      "Do build hierarchy from weight and size in one sans family; let the teacher's slide content hold the strongest contrast.",
+      "Do keep one resting elevation (Ambient Lift 0 6px 24px rgba(60,40,90,0.10)); flat or lifted, nothing in between.",
+      "Do verify Muted (#6B6478) text hits at least 4.5:1 on the lilac canvas; bump small or critical text toward Ink.",
+      "Do keep trust signals visible: inline edit affordances, honest loading/error states, a clear Forget API key control.",
+      "Do make every interactive component show default, hover, focus-visible, active, and disabled for the keyboard-first audience."
+    ],
+    "donts": [
+      "Don't ship consumer-AI flash — no glowing gradients, sparkle motifs, or AI theatrics. Retire the gradient primary button and gradient slide bar for solid Wesley Purple.",
+      "Don't drift to the generic SaaS dashboard — no metric-card grids, no console density.",
+      "Don't go gimmicky edtech — no mascots, badges, gamification, or over-rounded playful everything.",
+      "Don't swing to the cramped grey utility form; restraint is carried by space and soft lilac, not by draining colour.",
+      "Don't scaffold with decorative uppercase tracked eyebrows — the slide kicker is a tell.",
+      "Don't introduce a second interactive hue; the legacy bright violet and coral are drift, not a palette.",
+      "Don't use border-left/border-right greater than 1px as a coloured stripe (rework the .resp-note 2px edge)."
+    ]
+  }
+}
