@@ -944,7 +944,7 @@ function App() {
   function inputReady() {
     if (mode === "image") return !!imageDataUrl;
     if (mode === "article") return articleText.trim().length > 20;
-    if (mode === "video") return transcript.trim().length > 20;
+    if (mode === "video") return videoFrames.length > 0 || transcript.trim().length > 20 || videoDesc.trim().length > 20;
     return false;
   }
 
@@ -1279,19 +1279,37 @@ function App() {
           )}
 
           {mode === "video" && (
-            <div className="group">
-              <label className="cap" htmlFor="f-transcript">Video transcript <span style={{ color: "var(--bad)" }}>(required)</span></label>
-              <textarea id="f-transcript" value={transcript} placeholder="Paste the video transcript here" onChange={e => setTranscript(e.target.value)} />
-              <div className="hint">The tool <b>can't watch the video</b> — paste the transcript so the model can read it.</div>
-            </div>
-          )}
+  <React.Fragment>
+    <div className="group">
+      <label className="cap" htmlFor="f-video">Upload video</label>
+      <button type="button" className="filebox" aria-label={videoFile ? `Replace video ${videoFile.name}` : "Upload a video"} onClick={() => vidInput.current.click()}>
+        {videoPoster
+          ? <React.Fragment><img className="thumb" src={videoPoster} alt={"First frame of " + (videoFile ? videoFile.name : "the video")} /><div className="small">{videoFile ? videoFile.name : ""} — click to replace</div></React.Fragment>
+          : extractingVideo
+            ? <React.Fragment><div className="big"><span className="spinner" style={{ borderTopColor: "var(--accent)", borderColor: "var(--accent-soft)" }}></span></div><div className="small">Reading video…</div></React.Fragment>
+            : <React.Fragment><div className="big"><Icon d={I.video} size={26} stroke /></div><div className="small">Click or press Enter to upload a video</div></React.Fragment>}
+      </button>
+      <input ref={vidInput} id="f-video" type="file" accept="video/*" hidden onChange={onVideo} />
+      {videoNote && <div className="alert info" style={{ marginTop: 8 }}>{videoNote}</div>}
+      <div className="hint">Still frames are read from the clip so the model can "see" it. Embedded video plays in <b>desktop</b> PowerPoint (PowerPoint-on-the-web may not play it).</div>
+    </div>
 
-          {mode === "video" && (
-            <div className="group">
-              <label className="cap" htmlFor="f-vlink">Video link (optional — becomes a QR code)</label>
-              <input id="f-vlink" type="text" value={link} placeholder="https://…" onChange={e => setLink(e.target.value)} />
-            </div>
-          )}
+    <div className="group">
+      <label className="cap" htmlFor="f-transcript">Transcript <span style={{ color: "var(--muted)", fontWeight: 600 }}>(optional)</span></label>
+      <textarea id="f-transcript" value={transcript} placeholder="Paste the transcript if you have it (captures spoken content)" onChange={e => setTranscript(e.target.value)} />
+    </div>
+
+    <div className="group">
+      <label className="cap" htmlFor="f-vdesc">Or describe what the video is about</label>
+      <textarea id="f-vdesc" value={videoDesc} placeholder="No transcript? Describe the clip in a sentence or two and the model will build the lesson from that + the frames." onChange={e => setVideoDesc(e.target.value)} />
+    </div>
+
+    <div className="group">
+      <label className="cap" htmlFor="f-vlink">Video link (optional — becomes a QR code)</label>
+      <input id="f-vlink" type="text" value={link} placeholder="https://…" onChange={e => setLink(e.target.value)} />
+    </div>
+  </React.Fragment>
+)}
 
           <div className="group">
             <label className="cap" htmlFor="f-title">Title (optional)</label>
