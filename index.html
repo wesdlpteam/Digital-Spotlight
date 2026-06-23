@@ -253,6 +253,7 @@ const ROUTINES = {
     { name: "Headlines", moves: "In pairs, agree the headline that captures what matters most here; share a few and discuss what was left out." },
     { name: "Think–Puzzle–Explore", moves: "Talk it through: what do you think you know, what puzzles you, and how could you explore it further?" },
     { name: "See, Think, Me, We", moves: "In pairs then share: what do you See, what do you Think, how does it connect to Me (you personally), and what does it mean for We (all of us and the wider world)?" },
+    { name: "Sentence–Phrase–Word", moves: "Each pick a Sentence that felt important, a Phrase that grabbed you, and a Word that captured the core — share them and discuss what your choices reveal." },
   ],
   Senior: [
     { name: "Tug-of-War", moves: "Quick debate: name the strongest pulls on each side of the dilemma, then say where you stand and why." },
@@ -264,6 +265,7 @@ const ROUTINES = {
     { name: "Imagine If…", moves: "Treat this technology or system as redesignable: how could it be more effective, more ethical, or fairer? Argue the trade-offs." },
     { name: "Compass Points", moves: "Talk around the compass: Excitements, Worries, what you Need to know, and where you Stand on the issue." },
     { name: "See, Think, Me, We", moves: "Discuss in turn: See (close observation), Think (interpretation), Me (your personal stake), We (what it means for society and our shared digital world)." },
+    { name: "Sentence–Phrase–Word", moves: "Each choose a Sentence that captured a core idea, a Phrase that struck you, and a Word that resonated — share and debate what the group's choices say about what matters." },
   ],
 };
 const ROUTINE_SOURCE = "Harvard Project Zero Thinking Routines · pz.harvard.edu/thinking-routines";
@@ -524,13 +526,19 @@ function mergeIssuesAndResources(issues, resources) {
   });
 }
 
-// Drop a card's resource (but keep the card) if its URL was not really cited.
-function validateResourceUrls(cards, cset) {
-  return (cards || []).map(c =>
-    (c.resourceUrl && !urlInCitations(c.resourceUrl, cset))
-      ? { ...c, resourceUrl: "", resourceOrigin: "" }
-      : c
-  );
+function hostOf(u) { try { return new URL(u).host.toLowerCase(); } catch (_) { return ""; } }
+
+// Drop a card's resource (but keep the card) unless its URL is either really
+// cited OR on one of our trusted domains (phase 2 is already domain-restricted,
+// so a trusted-domain link is safe to keep even if the citation didn't echo it).
+function validateResourceUrls(cards, cset, trustedDomains) {
+  const trusted = trustedDomains || [];
+  return (cards || []).map(c => {
+    if (!c.resourceUrl) return c;
+    const h = hostOf(c.resourceUrl);
+    const ok = urlInCitations(c.resourceUrl, cset) || trusted.some(d => h === d || h.endsWith("." + d));
+    return ok ? c : { ...c, resourceUrl: "", resourceOrigin: "" };
+  });
 }
 
 // Expose pure helpers for console verification (harmless in production).
@@ -592,7 +600,7 @@ async function discoverIssues({ apiKey, model, band, yearLevels, month, categori
   catch (_) { resources = []; } // issues still shown without resources
 
   const cset = citationSet(rsOut.annotations);
-  const cards = validateResourceUrls(mergeIssuesAndResources(issues, resources), cset);
+  const cards = validateResourceUrls(mergeIssuesAndResources(issues, resources), cset, RESOURCE_DOMAINS);
   return { cards, raw: evOut.text + "\n\n--- resources ---\n\n" + rsOut.text };
 }
 
@@ -607,11 +615,11 @@ async function generateSpotlight({ apiKey, model, mode, band, year, theme, title
   const routineList = ROUTINES[band].map(r => `- ${r.name}: ${r.moves}`).join("\n");
   const summaryRule = mode === "image"
     ? `"summary": "" (empty string — the image is the stimulus, no summary needed),`
-    : `"summary": "string — EXACTLY 5 sentences. You have FULL creative licence: make it grab ${band} students instantly and bait discussion. Lead with the most surprising, relatable, or unsettling angle; use vivid concrete detail; speak to their world; end on a provocative note. Stay accurate to the ${mode === "video" ? "video" : "article"} — punchy, not bland, never a dry recap.",`;
+    : `"summary": "string — EXACTLY 5 sentences. You have FULL creative licence: make it grab ${band} students instantly and bait discussion. Lead with the most surprising, relatable, or unsettling angle; use vivid concrete detail; speak to their world; end on a provocative note. Make the situation CONCRETE — clearly establish WHAT happened and the specifics students need to follow it; if the ${mode === "video" ? "video" : "article"} is vague on an important detail, add brief, careful clarifying context so students aren't confused, but NEVER invent quotes, names, numbers, or events. Punchy, not bland, never a dry recap.",`;
 
   const schema = `Return STRICT JSON only (no markdown, no preamble, no code fences) with EXACTLY this shape:
 {
-  "hook": "string — a BOLD, provocative hook (max ~16 words): a spicy claim, surprising stat, or 'wait, what?' question that creates real intrigue and makes students want to lean in or argue. Edgy and debate-worthy, never a safe yes/no question or bland phrasing. Pitch the provocation to the band (still age-appropriate for PYP; sharper and more ethical/controversial for Senior).",
+  "hook": "string — a BOLD, POLARISING hook (max ~16 words) that splits the room: a provocative claim or sharp dilemma students will immediately want to take sides on. Force a genuine tension (one side vs the other) so half the class wants to agree and half wants to push back — never a safe, balanced, or yes/no question, never bland. Pitch the provocation to the band (still age-appropriate for PYP; sharper and more ethical/controversial for Senior).",
   "title": "string — the spotlight title",
   ${summaryRule}
   "framing": "string — one short line telling students what to do, e.g. '${MODE_FRAMING[mode]}'",
@@ -922,9 +930,13 @@ function App() {
         s.background = { color: kind === "title" ? T.titleBg : T.contentBg };
         s.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: W, h: 0.18, fill: { color: accent } });
         if (kind === "title") {
-          s.addImage({ data: WESLEY_LOGO_GOLD, x: W - 2.3, y: 0.45, w: 1.7, h: 1.7, sizing: { type: "contain", w: 1.7, h: 1.7 } });
+          // Gold crest is 870x499 (aspect 1.743) — size to that ratio so it isn't squished.
+          const lw = 2.1, lh = lw / 1.743;
+          s.addImage({ data: WESLEY_LOGO_GOLD, x: W - 0.6 - lw, y: 0.45, w: lw, h: lh });
         } else {
-          s.addImage({ data: WESLEY_LOGO_HORIZ, x: W - 3.0, y: H - 0.62, w: 2.4, h: 0.5, sizing: { type: "contain", w: 2.4, h: 0.5 } });
+          // Horizontal lockup is 554x111 (aspect 4.991).
+          const lw = 2.3, lh = lw / 4.991;
+          s.addImage({ data: WESLEY_LOGO_HORIZ, x: W - 0.6 - lw, y: H - 0.46 - lh, w: lw, h: lh });
         }
         const footColor = kind === "title" ? "C9B7D6" : muted;
         s.addText(`Digital Space Spotlight · 5-minute discussion · ${n}/${total}`, { x: 0.6, y: H - 0.42, w: W - 3.4, h: 0.3, fontSize: 9, color: footColor, fontFace: bFont });
