@@ -351,6 +351,29 @@ async function urlToDataUrl(url) {
   } catch (_) { return ""; }
 }
 
+// Find one relevant, free (CC-licensed) image for a topic via the Wikimedia
+// Commons API (keyless, CORS-enabled with origin=*). Returns a raster image URL,
+// or "" on any failure — so a missing image never breaks the flow.
+async function findRelevantImage(query) {
+  const q = String(query || "").replace(/[^a-zA-Z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+  if (!q) return "";
+  try {
+    const api = "https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrlimit=6&gsrsearch="
+      + encodeURIComponent(q) + "&prop=imageinfo&iiprop=url&iiurlwidth=1000&format=json&origin=*";
+    const resp = await fetch(api);
+    if (!resp.ok) return "";
+    const data = await resp.json();
+    const pages = (data.query && data.query.pages) ? Object.values(data.query.pages) : [];
+    pages.sort((a, b) => (a.index || 0) - (b.index || 0)); // keep search relevance order
+    for (const p of pages) {
+      const info = p && p.imageinfo && p.imageinfo[0];
+      const u = info && (info.thumburl || info.url);
+      if (u && /\.(jpe?g|png|webp)(\?|$)/i.test(u)) return u; // raster only (skip svg/icons)
+    }
+    return "";
+  } catch (_) { return ""; }
+}
+
 async function extractPdfText(file) {
   const buf = await file.arrayBuffer();
   const pdfjs = window.pdfjsLib;
@@ -759,7 +782,7 @@ function App() {
   async function fetchArticleFromLink(overrideUrl) {
     const url = (typeof overrideUrl === "string" ? overrideUrl : link).trim();
     setError("");
-    if (!/^https?:\/\//i.test(url)) { setError("Enter a full article link starting with http(s):// first."); return ""; }
+    if (!/^https?:\/\//i.test(url)) { setError("Enter a full article link starting with http(s):// first."); return { text: "", image: "" }; }
     setLink(url);
     setFetchingArticle(true);
     try {
@@ -768,12 +791,13 @@ function App() {
       const rawMd = await resp.text();
       const text = cleanArticleMarkdown(rawMd);
       if (text.length < 40) throw new Error("Got too little text back — the page may be paywalled or JS-only.");
+      const image = extractLeadImage(rawMd); // the article's lead image (before stripping)
       setArticleText(text);
-      setArticleImageUrl(extractLeadImage(rawMd)); // grab the article's lead image (before stripping)
-      return text;
+      setArticleImageUrl(image);
+      return { text, image };
     } catch (err) {
       setError("Couldn't fetch that link (" + (err.message || err) + "). Paste the article text instead.");
-      return "";
+      return { text: "", image: "" };
     } finally {
       setFetchingArticle(false);
     }
@@ -861,16 +885,22 @@ function App() {
     // A short brief built from the issue itself — always a valid stimulus, so a
     // generation never dead-ends when the richer resource can't auto-load.
     const seed = [card.title, card.whyNow, card.blurb].filter(Boolean).join(". ");
-    const useBrief = (msg) => { setMode("article"); setImageDataUrl(""); setImageName(""); setArticleText(seed); setNotice(msg); };
+    const imgQuery = card.category || card.title || theme;
+    // When falling back to the issue brief, also attach a relevant free image so
+    // the stimulus slide isn't bland.
+    const useBrief = async (msg) => {
+      setMode("article"); setImageDataUrl(""); setImageName(""); setArticleText(seed); setNotice(msg);
+      setArticleImageUrl(await findRelevantImage(imgQuery));
+    };
 
     const type = ["article", "image", "video"].includes(card.resourceType) ? card.resourceType : "article";
     if (!card.resourceUrl) {
-      useBrief(`Loaded “${card.title}” as the stimulus from the issue summary (no free resource was attached). Edit or replace it on the left, then Generate.`);
+      await useBrief(`Loaded “${card.title}” as the stimulus from the issue summary (no free resource was attached). Edit or replace it on the left, then Generate.`);
     } else if (type === "image") {
       setMode("image"); setLink("");
       const d = await urlToDataUrl(card.resourceUrl);
       if (d) { setImageDataUrl(d); setImageName(card.resourceTitle || "resource image"); }
-      else useBrief("Couldn't auto-load that image, so I loaded the issue summary as the stimulus instead. Use “Open ↗” to grab the image manually, or just Generate.");
+      else await useBrief("Couldn't auto-load that image, so I loaded the issue summary as the stimulus instead. Use “Open ↗” to grab the image manually, or just Generate.");
     } else if (type === "video") {
       setMode("video"); setLink(card.resourceUrl); setTranscript("");
       let gotTranscript = false;
@@ -883,8 +913,9 @@ function App() {
       if (!gotTranscript) setNotice("Video link loaded (it becomes a QR code). Paste the transcript so the model can read the video — or switch to Article mode to Generate from the issue summary.");
     } else {
       setMode("article"); setImageDataUrl(""); setImageName("");
-      const text = await fetchArticleFromLink(card.resourceUrl);
+      const { text, image } = await fetchArticleFromLink(card.resourceUrl);
       if (!text) { setError(""); setArticleText(seed); setNotice("Couldn't auto-load the full article, so I loaded the issue summary as the stimulus. The link is on the left — click “Fetch text” to retry, or just Generate."); }
+      if (!image) setArticleImageUrl(await findRelevantImage(imgQuery)); // article had no picture — supply one
     }
     setShowDiscoverModal(false);
     if (genBtnRef.current) genBtnRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
