@@ -308,6 +308,58 @@ function formatBytes(n) {
   return (n / (1024 * 1024)).toFixed(1) + " MB";
 }
 
+// Resolve once the video has finished seeking to time t (seconds).
+function seekTo(video, t) {
+  return new Promise((resolve, reject) => {
+    const onSeeked = () => { cleanup(); resolve(); };
+    const onErr = () => { cleanup(); reject(new Error("seek failed")); };
+    const cleanup = () => {
+      video.removeEventListener("seeked", onSeeked);
+      video.removeEventListener("error", onErr);
+    };
+    video.addEventListener("seeked", onSeeked);
+    video.addEventListener("error", onErr);
+    video.currentTime = Math.min(Math.max(t, 0), video.duration || t);
+  });
+}
+
+// Sample `count` evenly-spaced still frames from a video File, fully in-browser.
+// Returns JPEG data URLs. Never rejects: if the browser can't decode the format,
+// resolves with frames:[] so the caller can fall back to a description + embed.
+function extractVideoFrames(file, count = 4) {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const video = document.createElement("video");
+    video.muted = true;
+    video.preload = "metadata";
+    video.src = url;
+    const finish = (frames, meta) => {
+      URL.revokeObjectURL(url);
+      resolve({ frames, poster: frames[0] || "", ...meta });
+    };
+    const fail = () => finish([], { duration: 0, width: 0, height: 0 });
+    video.onerror = fail;
+    video.onloadedmetadata = async () => {
+      const duration = video.duration, vw = video.videoWidth, vh = video.videoHeight;
+      if (!duration || !isFinite(duration) || !vw || !vh) return fail();
+      const scale = Math.min(1, 1024 / Math.max(vw, vh));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(vw * scale);
+      canvas.height = Math.round(vh * scale);
+      const ctx = canvas.getContext("2d");
+      const frames = [];
+      try {
+        for (let i = 1; i <= count; i++) {
+          await seekTo(video, duration * i / (count + 1));
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          frames.push(canvas.toDataURL("image/jpeg", 0.8));
+        }
+      } catch (_) { /* keep whatever frames we captured */ }
+      finish(frames, { duration, width: vw, height: vh });
+    };
+  });
+}
+
 function readFileAsDataURL(file) {
   return new Promise((res, rej) => {
     const r = new FileReader();
