@@ -879,7 +879,6 @@ function App() {
   const [videoDataUrl, setVideoDataUrl] = useState("");   // base64 for embedding
   const [videoFrames, setVideoFrames] = useState([]);     // JPEG data URLs for the model
   const [videoPoster, setVideoPoster] = useState("");     // first frame
-  const [videoMeta, setVideoMeta] = useState(null);       // { duration, size }
   const [videoDesc, setVideoDesc] = useState("");         // fallback description
   const [extractingVideo, setExtractingVideo] = useState(false);
   const [videoNote, setVideoNote] = useState("");         // soft inline status under the dropzone
@@ -906,16 +905,14 @@ function App() {
     setError(""); setVideoNote("");
     setVideoFile(f);
     setVideoFrames([]); setVideoPoster(""); setVideoDataUrl("");
-    setVideoMeta({ duration: 0, size: f.size });
     setExtractingVideo(true);
     try {
       // Read base64 for embedding only when within the cutoff (avoids huge reads).
       if (f.size <= VIDEO_EMBED_MAX_BYTES) {
         try { setVideoDataUrl(await readFileAsDataURL(f)); } catch (_) {}
       }
-      const { frames, poster, duration } = await extractVideoFrames(f, 4);
+      const { frames, poster } = await extractVideoFrames(f, 4);
       setVideoFrames(frames); setVideoPoster(poster);
-      setVideoMeta({ duration, size: f.size });
       if (!frames.length) {
         setVideoNote("Couldn't read frames from this video format — add a transcript or description below. The video will still embed in the PowerPoint.");
       } else if (f.size > VIDEO_EMBED_MAX_BYTES) {
