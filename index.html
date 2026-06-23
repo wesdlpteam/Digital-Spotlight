@@ -475,7 +475,7 @@ function buildResourceRequest({ model, issues, band, yearLevels, types }) {
   const prompt = [
     `For each student online-safety issue below, use web search to find ONE free, openly accessible teaching resource. The resource MUST be ${typeWord}.`,
     `Audience: ${audienceStr(band, yearLevels)}.`,
-    `STRONGLY PREFER resources published by well-known cyber-safety / digital-citizenship organisations (eSafety Commissioner, ThinkUKnow, Common Sense, Be Internet Awesome, Childnet, Internet Matters, UK Safer Internet Centre). If none exists for an issue, use a reputable FREE (non-paywalled) source instead.`,
+    `Check the Australian eSafety Commissioner (esafety.gov.au) FIRST for every issue — it has an extensive free library of classroom resources, guides, videos and infographics for students, so use it whenever it has something relevant. Next, other well-known cyber-safety / digital-citizenship organisations (ThinkUKnow, Common Sense, Be Internet Awesome, Childnet, Internet Matters, UK Safer Internet Centre). Only if none of these has a suitable free resource, fall back to a reputable FREE (non-paywalled) news source.`,
     `Choose links that are RELIABLY ACCESSIBLE and easy to open in a browser. For article resources, prefer clean, readable guide/article pages and AVOID paywalled, login-required, JavaScript-only, or PDF-only pages. For images, give a direct image/infographic page. For videos, prefer a YouTube link (so a transcript can be pulled).`,
     `Every resource MUST be free to access (no paywall, no login).`,
     `Issues:\n${list}`,
