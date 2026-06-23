@@ -171,6 +171,11 @@
   .stim-link a { color: var(--accent); font-weight: 600; word-break: break-all; }
   .stim-img { text-align: center; }
   .stim-img img { max-width: 100%; max-height: 280px; border-radius: 10px; box-shadow: var(--shadow); }
+  .stim-img { position: relative; }
+  .vbadge { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    width: 46px; height: 46px; border-radius: 999px; background: rgba(79,39,89,.82);
+    color: #fff; display: grid; place-items: center; box-shadow: var(--shadow); pointer-events: none; }
+  .vbadge svg { width: 20px; height: 20px; margin-left: 2px; }
 
   .resp-note { margin-top: 6px; padding: 7px 10px; background: #faf8ff; border-radius: 9px; }
   .resp-cap { font-size: 10.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--accent); font-weight: 700; display: block; margin-bottom: 2px; }
@@ -820,6 +825,7 @@ const I = {
   refresh: "M20 12a8 8 0 1 1-2.3-5.6M20 4v4h-4",
   download: "M12 3v11m0 0l4-4m-4 4l-4-4M5 19h14",
   close: "M6 6l12 12M18 6L6 18",
+  play: "M8 5v14l11-7z",
 };
 
 /* ------------------------------ App ------------------------------ */
@@ -1408,6 +1414,12 @@ function App() {
                     </React.Fragment>
                   )}
                   {mode === "image" && imageDataUrl && <div className="stim-img"><img src={imageDataUrl} alt="Stimulus image for this Spotlight" /></div>}
+                  {mode === "video" && videoPoster && (
+                    <div className="stim-img">
+                      <img src={videoPoster} alt={"First frame of " + (videoFile ? videoFile.name : "the video")} />
+                      <span className="vbadge"><Icon d={I.play} size={20} /></span>
+                    </div>
+                  )}
                   {mode === "article" && articleImageUrl && (
                     <div className="stim-img" style={{ position: "relative" }}>
                       <img src={articleImageUrl} alt="Lead image from the article" />
