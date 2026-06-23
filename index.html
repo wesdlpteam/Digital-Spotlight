@@ -1387,6 +1387,11 @@ function App() {
                     {c.source && <span style={{ fontSize: 11.5, color: "var(--muted)" }}>{c.source}</span>}
                   </div>
                   {c.blurb && <div style={{ fontSize: 12.5, color: "var(--ink)", marginBottom: 8 }}>{c.blurb}</div>}
+                  {c.resourceType === "image" && c.resourceUrl && (
+                    <img src={c.resourceUrl} alt={c.resourceTitle || "preview"} loading="lazy"
+                      style={{ display: "block", width: "100%", maxHeight: 180, objectFit: "contain", borderRadius: 8, border: "1px solid var(--line)", background: "#faf8ff", marginBottom: 8 }}
+                      onError={e => { e.target.style.display = "none"; }} />
+                  )}
                   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                     {c.resourceUrl
                       ? <a href={c.resourceUrl} target="_blank" rel="noreferrer" style={{ fontSize: 12.5, color: "var(--accent)", fontWeight: 600 }}>Open ↗</a>
