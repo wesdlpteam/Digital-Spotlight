@@ -716,13 +716,13 @@ async function generateSpotlight({ apiKey, model, mode, band, year, theme, title
     : `No title was provided — invent a short, inviting title (max ~8 words).`;
 
   const routineList = ROUTINES[band].map(r => `- ${r.name}: ${r.moves}`).join("\n");
-  const summaryRule = mode === "image"
-    ? `"summary": "" (empty string — the image is the stimulus, no summary needed),`
-    : `"summary": "string — EXACTLY 5 sentences. You have FULL creative licence: make it grab ${band} students instantly and bait discussion. Lead with the most surprising, relatable, or unsettling angle; use vivid concrete detail; speak to their world; end on a provocative note. Make the situation CONCRETE — clearly establish WHAT happened and the specifics students need to follow it; if the ${mode === "video" ? "video" : "article"} is vague on an important detail, add brief, careful clarifying context so students aren't confused, but NEVER invent quotes, names, numbers, or events. Punchy, not bland, never a dry recap.",`;
+  const summaryRule = (mode === "image" || mode === "video")
+    ? `"summary": "" (empty string — the ${mode} is the stimulus, students view it directly, so no summary is needed),`
+    : `"summary": "string — EXACTLY 5 sentences. You have FULL creative licence: make it grab ${band} students instantly and bait discussion. Lead with the most surprising, relatable, or unsettling angle; use vivid concrete detail; speak to their world; end on a provocative note. Make the situation CONCRETE — clearly establish WHAT happened and the specifics students need to follow it; if the article is vague on an important detail, add brief, careful clarifying context so students aren't confused, but NEVER invent quotes, names, numbers, or events. Punchy, not bland, never a dry recap.",`;
 
   const schema = `Return STRICT JSON only (no markdown, no preamble, no code fences) with EXACTLY this shape:
 {
-  "hook": "string — a BOLD, POLARISING hook (max ~16 words) that splits the room: a provocative claim or sharp dilemma students will immediately want to take sides on. Force a genuine tension (one side vs the other) so half the class wants to agree and half wants to push back — never a safe, balanced, or yes/no question, never bland. Pitch the provocation to the band (still age-appropriate for PYP; sharper and more ethical/controversial for Senior).",
+  "hook": "string — a SHORT, catchy title for the slide: punchy and intriguing, MAX 6 words, NOT a full sentence or question and NOT a long statement. Think headline, not paragraph. Pitch it to the band. The real provocation belongs in the discussion steps, so keep this just a memorable, curiosity-sparking title.",
   "title": "string — the spotlight title",
   ${summaryRule}
   "framing": "string — one short line telling students what to do, e.g. '${MODE_FRAMING[mode]}'",
@@ -803,6 +803,43 @@ Rules: this is a FAST 5-minute TALKING activity. Every step must be students DIS
   }
 }
 
+// Ask the model for ONE short focus-theme phrase based on the current stimulus.
+// Sends the same content kinds generate() would (text + any image/frames) but asks
+// only for a 2-4 word theme. Returns a cleaned phrase, or "" on empty.
+async function suggestThemeFromStimulus({ apiKey, model, mode, imageDataUrl, frames = [], sourceText = "" }) {
+  const sys = "You are an IB digital-citizenship coach. You name the single best FOCUS THEME for a 5-minute cyber-safety / digital-citizenship discussion built on the given stimulus. Reply with ONLY the theme: 2-4 words, Title Case, no quotes, no punctuation, no explanation.";
+  const ask = "Suggest ONE focus theme (2-4 words) for a cyber-safety / digital-citizenship discussion based on this stimulus.";
+  const userContent = [];
+  if (mode === "image" && imageDataUrl) {
+    userContent.push({ type: "text", text: ask + " The stimulus is the attached image." });
+    userContent.push({ type: "image_url", image_url: { url: imageDataUrl } });
+  } else if (mode === "video" && frames.length) {
+    userContent.push({ type: "text", text: ask + " The stimulus is a short video; still frames are attached." + (sourceText ? `\nContext:\n"""\n${sourceText.slice(0, 4000)}\n"""` : "") });
+    frames.forEach(fr => userContent.push({ type: "image_url", image_url: { url: fr } }));
+  } else {
+    userContent.push({ type: "text", text: ask + `\nStimulus:\n"""\n${(sourceText || "").slice(0, 8000)}\n"""` });
+  }
+  const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + apiKey },
+    body: JSON.stringify({
+      model,
+      messages: [{ role: "system", content: sys }, { role: "user", content: userContent }],
+      max_completion_tokens: 30,
+    }),
+  });
+  if (!resp.ok) {
+    let detail = "";
+    try { detail = JSON.stringify((await resp.json()).error || {}, null, 2); }
+    catch (_) { detail = await resp.text().catch(() => ""); }
+    throw new Error(`OpenAI API error (${resp.status}).\n${detail}`);
+  }
+  const data = await resp.json();
+  const raw = (data?.choices?.[0]?.message?.content || "").trim();
+  // Keep the first line, strip wrapping quotes / trailing punctuation, cap length.
+  return raw.split("\n")[0].replace(/^["'`]+|["'`.]+$/g, "").trim().slice(0, 60);
+}
+
 /* ------------------------------ Icons ------------------------------ */
 /* Inline SVG, currentColor-driven, so they inherit text colour and stay crisp
    on every OS (emoji rendered inconsistently and the sparkle read as AI flash). */
@@ -869,6 +906,7 @@ function App() {
 
   // generation
   const [loading, setLoading] = useState(false);
+  const [suggestingTheme, setSuggestingTheme] = useState(false);
   const [fetchingArticle, setFetchingArticle] = useState(false);
   const [error, setError] = useState("");
   const [rawDump, setRawDump] = useState("");
@@ -879,6 +917,7 @@ function App() {
   const [videoDataUrl, setVideoDataUrl] = useState("");   // base64 for embedding
   const [videoFrames, setVideoFrames] = useState([]);     // JPEG data URLs for the model
   const [videoPoster, setVideoPoster] = useState("");     // first frame
+  const [videoAspect, setVideoAspect] = useState(0);      // width/height, 0 = unknown
   const [videoDesc, setVideoDesc] = useState("");         // fallback description
   const [extractingVideo, setExtractingVideo] = useState(false);
   const [videoNote, setVideoNote] = useState("");         // soft inline status under the dropzone
@@ -904,15 +943,16 @@ function App() {
     const f = e.target.files?.[0]; if (!f) return;
     setError(""); setVideoNote("");
     setVideoFile(f);
-    setVideoFrames([]); setVideoPoster(""); setVideoDataUrl("");
+    setVideoFrames([]); setVideoPoster(""); setVideoDataUrl(""); setVideoAspect(0);
     setExtractingVideo(true);
     try {
       // Read base64 for embedding only when within the cutoff (avoids huge reads).
       if (f.size <= VIDEO_EMBED_MAX_BYTES) {
         try { setVideoDataUrl(await readFileAsDataURL(f)); } catch (_) {}
       }
-      const { frames, poster } = await extractVideoFrames(f, 4);
+      const { frames, poster, width, height } = await extractVideoFrames(f, 4);
       setVideoFrames(frames); setVideoPoster(poster);
+      setVideoAspect(width && height ? width / height : 0);
       if (!frames.length) {
         setVideoNote("Couldn't read frames from this video format — add a transcript or description below. The video will still embed in the PowerPoint.");
       } else if (f.size > VIDEO_EMBED_MAX_BYTES) {
@@ -956,6 +996,28 @@ function App() {
     if (mode === "article") return articleText.trim().length > 20;
     if (mode === "video") return videoFrames.length > 0 || transcript.trim().length > 20 || videoDesc.trim().length > 20;
     return false;
+  }
+
+  /* ------- suggest a focus theme from the current stimulus ------- */
+  async function suggestTheme() {
+    setError("");
+    if (!apiKey.trim()) { setError("Please paste your OpenAI API key first."); return; }
+    if (!inputReady()) { setError("Add a stimulus first, then Suggest a theme."); return; }
+    setSuggestingTheme(true);
+    try {
+      const sourceText = mode === "video" ? (transcript.trim() || videoDesc.trim())
+        : mode === "article" ? articleText : "";
+      const t = await suggestThemeFromStimulus({
+        apiKey: apiKey.trim(), model, mode, imageDataUrl,
+        frames: mode === "video" ? videoFrames : [], sourceText,
+      });
+      if (t) setTheme(t);
+      else setError("The model didn't return a theme — try again or type one.");
+    } catch (err) {
+      setError("Couldn't suggest a theme: " + (err.message || String(err)));
+    } finally {
+      setSuggestingTheme(false);
+    }
   }
 
   /* ------- generate ------- */
@@ -1140,9 +1202,9 @@ function App() {
       else if (mode === "article" && articleImageUrl) stimImg = await urlToDataUrl(articleImageUrl);
       else if (mode === "video" && videoPoster && !embedVideo) stimImg = videoPoster; // first frame when not embedding
 
-      /* Slide 1 — HOOK (now also carries band/theme, replacing the old Title slide) */
+      /* Slide 1 — TITLE (catchy headline; also carries band/theme) */
       const s1 = newSlide("title");
-      kicker(s1, "Hook", accent2);
+      kicker(s1, "Title", accent2);
       s1.addText(tCase(spot.hook || spot.title), { x: 0.9, y: 1.6, w: W - 2.6, h: 3.8, fontSize: 44, bold: true, color: "FFFFFF", valign: "middle", fontFace: tFont });
       s1.addText(`${bandLabel}${year ? " · " + year : ""}   ·   ${theme}   ·   5-minute discussion`, { x: 0.9, y: 5.7, w: W - 1.8, h: 0.4, fontSize: 14, color: "E7DCEF", fontFace: bFont });
 
@@ -1153,18 +1215,31 @@ function App() {
       const hasSummary = !!(spot.summary && spot.summary.trim());
       if (mode === "image" && stimImg) {
         s3.addImage({ data: stimImg, x: 1.2, y: 1.9, w: 10.9, h: 4.7, sizing: { type: "contain", w: 10.9, h: 4.7 } });
+      } else if (mode === "video" && (embedVideo || stimImg)) {
+        // The video IS the stimulus: show the clip (embed) or its first frame (large-file
+        // fallback), centred and sized to its real aspect ratio so it never stretches. No summary.
+        const boxW = 11.0, boxH = 4.4, boxY = 1.9;
+        const ar = (videoAspect && isFinite(videoAspect) && videoAspect > 0) ? videoAspect : (16 / 9);
+        let w = +Math.min(boxW, boxH * ar).toFixed(2);
+        let h = +(w / ar).toFixed(2);
+        const x = +((W - w) / 2).toFixed(2);
+        if (embedVideo) s3.addMedia({ type: "video", data: videoDataUrl, x, y: boxY, w, h });
+        else s3.addImage({ data: stimImg, x, y: boxY, w, h, sizing: { type: "contain", w, h } });
+        if (link.trim()) {
+          const url = link.trim();
+          const qr = makeQrDataUrl(url);
+          const ly = boxY + h + 0.25;
+          if (qr) s3.addImage({ data: qr, x: 0.8, y: ly, w: 1.1, h: 1.1 });
+          s3.addText([{ text: `${MODE_VERB[mode]}: `, options: { color: ink, bold: true } }, { text: url, options: { color: accent, underline: true, hyperlink: { url } } }],
+            { x: qr ? 2.1 : 0.8, y: ly, w: W - (qr ? 2.9 : 1.6), h: 1.1, fontSize: 11, valign: "middle", fontFace: bFont });
+        }
       } else {
-        const rightMedia = !!(stimImg || link.trim() || embedVideo);
+        const rightMedia = !!(stimImg || link.trim());
         const sumW = rightMedia ? 6.9 : W - 1.6;
         if (hasSummary) s3.addText(spot.summary, { x: 0.8, y: 1.9, w: sumW, h: 4.6, fontSize: 15, color: ink, valign: "top", fontFace: bFont, lineSpacingMultiple: 1.15 });
         else if (!rightMedia) s3.addText("(Share the stimulus with students directly.)", { x: 0.8, y: 2.0, w: W - 1.6, h: 0.6, fontSize: 15, italic: true, color: muted, fontFace: bFont });
         const rx = 8.0, rw = 4.5;
         let ry = 1.9;
-        if (embedVideo) {
-          const vw2 = rw, vh2 = +(rw * 9 / 16).toFixed(2);
-          s3.addMedia({ type: "video", data: videoDataUrl, x: rx, y: ry, w: vw2, h: vh2 });
-          ry += vh2 + 0.2;
-        }
         if (stimImg) { s3.addImage({ data: stimImg, x: rx, y: ry, w: rw, h: 3.2, sizing: { type: "contain", w: rw, h: 3.2 } }); ry += 3.4; }
         if (link.trim()) {
           const url = link.trim();
@@ -1350,9 +1425,14 @@ function App() {
 
           <div className="group">
             <label className="cap" htmlFor="f-theme">Focus theme</label>
-            <select id="f-theme" value={theme} onChange={e => setTheme(e.target.value)}>
-              {THEMES.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
+            <div style={{ display: "flex", gap: 6 }}>
+              <input id="f-theme" type="text" list="theme-presets" value={theme} placeholder="Type a theme, or pick / Suggest one" onChange={e => setTheme(e.target.value)} />
+              <datalist id="theme-presets">{THEMES.map(t => <option key={t} value={t} />)}</datalist>
+              <button type="button" className="btn ghost" style={{ width: "auto", padding: "9px 12px", whiteSpace: "nowrap" }} disabled={suggestingTheme || !inputReady()} title="Suggest a theme from your stimulus" onClick={suggestTheme}>
+                {suggestingTheme ? <React.Fragment><span className="spinner" style={{ borderTopColor: "var(--accent)", borderColor: "var(--accent-soft)" }}></span> Suggesting…</React.Fragment> : "Suggest"}
+              </button>
+            </div>
+            <div className="hint">Type any theme, choose a preset, or <b>Suggest</b> one from your stimulus.</div>
           </div>
 
           <button className="btn primary" ref={genBtnRef} disabled={loading || preparing} onClick={generate}>
@@ -1399,8 +1479,8 @@ function App() {
               <div className="slides">
                 {/* Slide 1 — Hook */}
                 <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
-                  <div className="kicker" style={kickStyle}>Slide 1 · Hook <span style={{ color: "var(--muted)", fontWeight: 600 }}>· provokes thinking first · band &amp; theme shown here</span></div>
-                  <textarea className="editable titlebig" rows={2} value={spot.hook} placeholder="A provoking question, statement, or headline…" onChange={e => patch({ hook: e.target.value })} />
+                  <div className="kicker" style={kickStyle}>Slide 1 · Title <span style={{ color: "var(--muted)", fontWeight: 600 }}>· a short, catchy headline · band &amp; theme shown here</span></div>
+                  <textarea className="editable titlebig" rows={1} value={spot.hook} placeholder="A short, catchy title…" onChange={e => patch({ hook: e.target.value })} />
                   <div className="meta-chips">
                     <span className="chip">{bandLabel}{year ? " · " + year : ""}</span>
                     <span className="chip gold">{theme}</span>
@@ -1411,7 +1491,7 @@ function App() {
                 <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
                   <div className="kicker" style={kickStyle}>Slide 2 · Stimulus</div>
                   <textarea className="editable" rows={1} value={spot.framing} onChange={e => patch({ framing: e.target.value })} />
-                  {mode !== "image" && (
+                  {mode !== "image" && mode !== "video" && (
                     <React.Fragment>
                       <div className="cap" style={{ marginTop: 6 }}>5-sentence summary</div>
                       <textarea className="editable" rows={5} value={spot.summary} placeholder="A 5-sentence summary for students…" onChange={e => patch({ summary: e.target.value })} />
@@ -1431,7 +1511,7 @@ function App() {
                     </div>
                   )}
                   {mode !== "image" && link.trim() && <StimLink url={link.trim()} verb={MODE_VERB[mode]} />}
-                  {mode !== "image" && !link.trim() && !articleImageUrl && <div className="hint">Tip: add a link on the left for a clickable link + QR code, or fetch an article to pull in its lead image.</div>}
+                  {mode === "article" && !link.trim() && !articleImageUrl && <div className="hint">Tip: add a link on the left for a clickable link + QR code, or fetch an article to pull in its lead image.</div>}
                 </div></div>
 
                 {/* Slide 3 — Scaffold */}
