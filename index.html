@@ -240,7 +240,7 @@ const BANDS = {
 };
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v1.1.2 · 2026-06-24";
+const APP_VERSION = "v1.1.3 · 2026-06-24";
 
 const THEMES = [
   "Privacy","Kindness online","Misinformation","Digital footprint",
@@ -735,7 +735,8 @@ async function generateSpotlight({ apiKey, model, mode, band, year, theme, title
   "title": "string — the spotlight title",
   ${summaryRule}
   "framing": "string — one short line telling students what to do, e.g. '${MODE_FRAMING[mode]}'",
-  "routineName": "string — the EXACT name of the ONE thinking routine you chose from the list below",
+  "routineRationale": "string — FIRST, before naming the routine: 1-2 sentences analysing THIS specific stimulus — its core tension and the kind of thinking it most rewards (close observation? predicting? taking an ethical stance? stepping into a stakeholder's shoes? testing a claim?) — and which routine from the list below best fits, and why. This is your private reasoning to choose well; it is not shown to students.",
+  "routineName": "string — the EXACT name of the ONE thinking routine from the list below that your rationale concluded is the BEST fit for this stimulus",
   "routineIntro": "string — one warm sentence introducing the routine to the class",
   "steps": [
     { "name": "string — short step label", "minutes": 1, "prompt": "string — a punchy, provocative discussion prompt the teacher poses at this step", "responses": "string — 2 or 3 SHORT examples of what students at this band might actually say in response, so the teacher can anticipate the discussion (e.g. 'Some may say…; others might argue…')" }
@@ -745,7 +746,7 @@ async function generateSpotlight({ apiKey, model, mode, band, year, theme, title
   "learnerProfile": ["1 to 3 IB Learner Profile attributes that fit, e.g. 'Thinker', 'Principled', 'Caring'"]
 }
 Write every field in PLAIN TEXT — no markdown, no asterisks, no #, no backticks.
-Pick ONE routine from this Harvard Project Zero list for this band and use it as LOOSE INSPIRATION only — capture its spirit, but DON'T mechanically echo its exact wording. Write genuinely engaging, provocative discussion prompts that maximise intrigue and debate for the band:
+Choose the SINGLE MOST EFFECTIVE routine from this Harvard Project Zero list for THIS specific stimulus — do the analysis in "routineRationale" first, then commit to it in "routineName". Different stimuli reward different thinking: an image or close-up rewards observation routines; a clear ethical dilemma rewards stance or stakeholder-viewpoint routines; a surprising claim or statistic rewards prediction or claim-testing routines; an open-ended scenario rewards wondering or connecting routines. Match the routine to where the real intrigue in this stimulus lives. Do NOT default to a familiar or generically-applicable routine (e.g. Compass Points) unless your rationale shows it is genuinely the best fit here. Once chosen, use the routine as LOOSE INSPIRATION only — capture its spirit, but DON'T mechanically echo its exact wording. Write genuinely engaging, provocative discussion prompts that maximise intrigue and debate for the band:
 ${routineList}
 Rules: this is a FAST 5-minute TALKING activity. Every step must be students DISCUSSING out loud (in pairs, small groups, or whole class) — never silent independent writing or solo work. Keep it to 2–3 short steps, each 1–2 minutes, and the step "minutes" MUST total 5 or less with time to spare. Prioritise quick, punchy prompts that get students talking immediately.`;
 
@@ -874,6 +875,19 @@ const I = {
   play: "M8 5v14l11-7z",
 };
 
+// Determinate circular progress ring (white, for use on the primary button).
+const ProgressRing = ({ value, size = 18 }) => {
+  const r = (size - 3) / 2, c = 2 * Math.PI * r;
+  const off = c * (1 - Math.max(0, Math.min(100, value)) / 100);
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: "rotate(-90deg)" }} aria-hidden="true" focusable="false">
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,.35)" strokeWidth="2.5" />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"
+        strokeDasharray={c} strokeDashoffset={off} style={{ transition: "stroke-dashoffset .25s linear" }} />
+    </svg>
+  );
+};
+
 /* ------------------------------ App ------------------------------ */
 
 const KEY_STORE = "dss_openai_key";
@@ -915,6 +929,7 @@ function App() {
 
   // generation
   const [loading, setLoading] = useState(false);
+  const [genProgress, setGenProgress] = useState(0); // 0-100, eased estimate while generating
   const [suggestingTheme, setSuggestingTheme] = useState(false);
   const [fetchingArticle, setFetchingArticle] = useState(false);
   const [error, setError] = useState("");
@@ -1037,6 +1052,11 @@ function App() {
     if (!inputReady()) { setError("Please add the stimulus (image, article text/PDF, or transcript)."); return; }
 
     setLoading(true);
+    // Estimated progress: ease toward ~92% while the single request is in flight,
+    // then snap to 100% when it lands. (The call isn't streamed, so this is a
+    // reassurance estimate, not a literal measurement.)
+    setGenProgress(3);
+    const progTick = setInterval(() => setGenProgress(p => (p < 92 ? p + (92 - p) * 0.06 : p)), 250);
     try {
       const sourceText = mode === "video" ? (transcript.trim() || videoDesc.trim()) : articleText;
       const frames = mode === "video" ? videoFrames : [];
@@ -1065,11 +1085,14 @@ function App() {
         learnerProfile: Array.isArray(parsed.learnerProfile) ? parsed.learnerProfile.map(stripMd) : [],
       });
       setRawDump(raw);
+      setGenProgress(100);
     } catch (err) {
       setError(err.message || String(err));
       if (err._raw) setRawDump(err._raw);
     } finally {
+      clearInterval(progTick);
       setLoading(false);
+      setTimeout(() => setGenProgress(0), 500);
     }
   }
 
@@ -1462,7 +1485,7 @@ function App() {
           </div>
 
           <button className="btn primary" ref={genBtnRef} disabled={loading || preparing} onClick={generate}>
-            {loading ? <React.Fragment><span className="spinner"></span> Generating…</React.Fragment>
+            {loading ? <React.Fragment><ProgressRing value={genProgress} /> Generating… {Math.round(genProgress)}%</React.Fragment>
               : preparing ? <React.Fragment><span className="spinner"></span> Preparing stimulus…</React.Fragment>
               : spot ? <React.Fragment><Icon d={I.refresh} size={16} stroke /> Regenerate</React.Fragment>
               : <React.Fragment><Icon d={I.generate} size={16} /> Generate Spotlight</React.Fragment>}
