@@ -6,7 +6,6 @@ A single-page tool that creates 5-minute **Digital Space Spotlight** discussion 
 
 ## What it does
 
-- **Discover current issues** — search reputable sources for the month's most-discussed online-safety issues by band, year level, and topic, each with a free resource (preferring well-known cyber-safety sites such as eSafety, ThinkUKnow, Common Sense); click one to load it straight into the generator.
 - **Three stimulus modes:**
   - **Image** — upload an image; it's sent to the model as a real image so it builds the Spotlight from what's actually in the picture.
   - **Article** — upload a PDF (text extracted in-browser) or paste the article text.
@@ -19,7 +18,7 @@ A single-page tool that creates 5-minute **Digital Space Spotlight** discussion 
 
 1. Open the live link (or download `index.html` and double-click it).
 2. Paste your **OpenAI API key** and choose a model.
-3. Either **Discover current issues** (pick band, year levels, month, topics) and click an issue to auto-fill, or pick a stimulus mode and add the stimulus manually; set band + focus theme.
+3. Pick a stimulus mode, add the stimulus (upload an image, paste/upload an article or link, or paste a transcript), set band + focus theme.
 4. **Generate**, edit any field in the preview, then **Download PowerPoint** (Wesley-branded).
 
 ## Privacy
