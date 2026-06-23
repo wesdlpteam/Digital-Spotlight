@@ -704,7 +704,7 @@ async function discoverIssues({ apiKey, model, band, yearLevels, month, categori
 
 /* --------------------------- OpenAI call --------------------------- */
 
-async function generateSpotlight({ apiKey, model, mode, band, year, theme, title, imageDataUrl, sourceText }) {
+async function generateSpotlight({ apiKey, model, mode, band, year, theme, title, imageDataUrl, sourceText, frames = [], sourceKind = "" }) {
   const yearStr = year ? ` Specifically pitch to ${year}.` : "";
   const titleInstruction = title
     ? `The teacher provided this title: "${title}". Use it (lightly polished if needed).`
@@ -751,9 +751,16 @@ Rules: this is a FAST 5-minute TALKING activity. Every step must be students DIS
     textParts.push("The stimulus is the attached image. Look at its ACTUAL content and build the whole spotlight from what you genuinely see in it. Tie the discussion to the focus theme.");
     userContent.push({ type: "text", text: textParts.join("\n") + "\n\n" + schema });
     userContent.push({ type: "image_url", image_url: { url: imageDataUrl } });
+  } else if (mode === "video" && frames.length) {
+    const trimmed = (sourceText || "").slice(0, 12000);
+    let vt = "The stimulus is a short video. Attached are still frames sampled across it — treat them as the video's actual content and build the whole spotlight from what you see, tied to the focus theme.";
+    if (trimmed) vt += `\nAdditional context${sourceKind ? " (" + sourceKind + ")" : ""}:\n"""\n${trimmed}\n"""`;
+    textParts.push(vt);
+    userContent.push({ type: "text", text: textParts.join("\n") + "\n\n" + schema });
+    frames.forEach(fr => userContent.push({ type: "image_url", image_url: { url: fr } }));
   } else {
     const trimmed = (sourceText || "").slice(0, 12000);
-    const noun = mode === "video" ? "video transcript" : "article text";
+    const noun = mode === "video" ? "video (described below)" : "article text";
     textParts.push(`The stimulus is the following ${noun}. Build the spotlight from its real content, tied to the focus theme:\n\n"""\n${trimmed}\n"""`);
     userContent.push({ type: "text", text: textParts.join("\n") + "\n\n" + schema });
   }
@@ -957,10 +964,12 @@ function App() {
 
     setLoading(true);
     try {
-      const sourceText = mode === "video" ? transcript : articleText;
+      const sourceText = mode === "video" ? (transcript.trim() || videoDesc.trim()) : articleText;
+      const frames = mode === "video" ? videoFrames : [];
+      const sourceKind = mode === "video" ? (transcript.trim() ? "transcript" : videoDesc.trim() ? "teacher description" : "") : "";
       const { parsed, raw } = await generateSpotlight({
         apiKey: apiKey.trim(), model, mode, band, year, theme,
-        title: title.trim(), imageDataUrl, sourceText,
+        title: title.trim(), imageDataUrl, sourceText, frames, sourceKind,
       });
 
       // Build the editable spotlight, merging model output with user-chosen facts.
