@@ -861,8 +861,19 @@ function App() {
   const [rawDump, setRawDump] = useState("");
   const [spot, setSpot] = useState(null); // editable spotlight object
 
+  // video upload
+  const [videoFile, setVideoFile] = useState(null);
+  const [videoDataUrl, setVideoDataUrl] = useState("");   // base64 for embedding
+  const [videoFrames, setVideoFrames] = useState([]);     // JPEG data URLs for the model
+  const [videoPoster, setVideoPoster] = useState("");     // first frame
+  const [videoMeta, setVideoMeta] = useState(null);       // { duration, size }
+  const [videoDesc, setVideoDesc] = useState("");         // fallback description
+  const [extractingVideo, setExtractingVideo] = useState(false);
+  const [videoNote, setVideoNote] = useState("");         // soft inline status under the dropzone
+
   const imgInput = useRef(null);
   const pdfInput = useRef(null);
+  const vidInput = useRef(null);
   const genBtnRef = useRef(null);
 
   /* ------- file handlers ------- */
@@ -876,6 +887,32 @@ function App() {
     setPdfName(f.name + " (extracting…)");
     try { const t = await extractPdfText(f); setArticleText(t); setPdfName(f.name + ` (${t.length.toLocaleString()} chars)`); }
     catch (err) { setError("Could not extract text from that PDF: " + err.message); setPdfName(""); }
+  }
+  async function onVideo(e) {
+    const f = e.target.files?.[0]; if (!f) return;
+    setError(""); setVideoNote("");
+    setVideoFile(f);
+    setVideoFrames([]); setVideoPoster(""); setVideoDataUrl("");
+    setVideoMeta({ duration: 0, size: f.size });
+    setExtractingVideo(true);
+    try {
+      // Read base64 for embedding only when within the cutoff (avoids huge reads).
+      if (f.size <= VIDEO_EMBED_MAX_BYTES) {
+        try { setVideoDataUrl(await readFileAsDataURL(f)); } catch (_) {}
+      }
+      const { frames, poster, duration } = await extractVideoFrames(f, 4);
+      setVideoFrames(frames); setVideoPoster(poster);
+      setVideoMeta({ duration, size: f.size });
+      if (!frames.length) {
+        setVideoNote("Couldn't read frames from this video format — add a transcript or description below. The video will still embed in the PowerPoint.");
+      } else if (f.size > VIDEO_EMBED_MAX_BYTES) {
+        setVideoNote(`Large file (${formatBytes(f.size)}) — too big to embed, so the deck will use the first frame + a link. Add a link below for a QR code.`);
+      } else {
+        setVideoNote(`Ready (${formatBytes(f.size)}) — this clip will embed and play in the PowerPoint.`);
+      }
+    } finally {
+      setExtractingVideo(false);
+    }
   }
   // Pull readable article text from a public link via the r.jina.ai reader
   // (it allows browser/CORS requests). Hard paywalls may still fail.
