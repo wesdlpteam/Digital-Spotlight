@@ -1076,63 +1076,6 @@ function App() {
       <div className="layout">
         {/* ----------------- INPUT PANEL ----------------- */}
         <div className="panel input">
-          <div className="group" style={{ borderBottom: "1px solid var(--line)", paddingBottom: 14 }}>
-            <label className="cap">① Discover current issues</label>
-
-            <div style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 4 }}>Band</div>
-            <select value={band} onChange={e => { setBand(e.target.value); setYear(""); setDiscoverYears([]); setDiscoverCats([]); }}>
-              {Object.keys(BANDS).map(b => <option key={b} value={b}>{BANDS[b].label}</option>)}
-            </select>
-
-            <div style={{ fontSize: 12.5, color: "var(--muted)", margin: "10px 0 6px" }}>Target year levels ({BANDS[band].label})</div>
-            <div className="lp-chips" style={{ marginTop: 0 }}>
-              {BANDS[band].years.map(y => (
-                <button key={y} type="button" className="chip"
-                  style={{ cursor: "pointer", border: "1px solid var(--line)", background: discoverYears.includes(y) ? "var(--accent)" : "#fff", color: discoverYears.includes(y) ? "#fff" : "var(--ink)" }}
-                  onClick={() => setDiscoverYears(a => toggleArr(a, y))}>{y}</button>
-              ))}
-            </div>
-            <div className="hint">Leave all unticked to target the whole band.</div>
-
-            <div className="row2" style={{ marginTop: 10 }}>
-              <div>
-                <div style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 4 }}>Month</div>
-                <input type="month" max={curMonth} value={discoverMonth} onChange={e => setDiscoverMonth(e.target.value)} />
-              </div>
-            </div>
-
-            <div style={{ fontSize: 12.5, color: "var(--muted)", margin: "10px 0 4px" }}>Topics</div>
-            <div className="lp-chips" style={{ marginTop: 0 }}>
-              {availableCategories(band).map(c => (
-                <button key={c.id} type="button"
-                  style={{ cursor: "pointer", borderRadius: 999, padding: "4px 11px", fontSize: 12.5, fontWeight: 600, border: "1px solid var(--line)", background: discoverCats.includes(c.id) ? "var(--accent)" : "#fff", color: discoverCats.includes(c.id) ? "#fff" : "var(--ink)" }}
-                  onClick={() => setDiscoverCats(a => toggleArr(a, c.id))}>{c.label}</button>
-              ))}
-            </div>
-
-            <div style={{ fontSize: 12.5, color: "var(--muted)", margin: "10px 0 4px" }}>Resource type</div>
-            <div className="lp-chips" style={{ marginTop: 0 }}>
-              {[["article", "📄 Articles"], ["image", "🖼 Images"], ["video", "🎬 Videos"]].map(([t, lbl]) => (
-                <button key={t} type="button"
-                  style={{ cursor: "pointer", borderRadius: 999, padding: "4px 11px", fontSize: 12.5, fontWeight: 600, border: "1px solid var(--line)", background: discoverTypes.includes(t) ? "var(--accent)" : "#fff", color: discoverTypes.includes(t) ? "#fff" : "var(--ink)" }}
-                  onClick={() => setDiscoverTypes(a => toggleArr(a, t))}>{lbl}</button>
-              ))}
-            </div>
-
-            <button className="btn primary" style={{ marginTop: 12 }} disabled={discovering} onClick={runDiscovery}>
-              {discovering ? <React.Fragment><span className="spinner"></span> Searching {monthLabel(discoverMonth)}…</React.Fragment> : "🔎 Find current issues"}
-            </button>
-            <div className="hint">Uses a web search across reputable sources (a little extra API cost). Resources prefer well-known cyber-safety sites.</div>
-
-            {discoverError && <div className="alert bad"><pre>{discoverError}</pre>{discoverRaw && <React.Fragment><b>Raw model output:</b><pre>{discoverRaw}</pre></React.Fragment>}</div>}
-            {discoverCards.length > 0 && !showDiscoverModal && (
-              <button className="btn ghost" style={{ marginTop: 10 }} onClick={() => setShowDiscoverModal(true)}>
-                📋 View {discoverCards.length} issue{discoverCards.length > 1 ? "s" : ""} for {monthLabel(discoverMonth)}
-              </button>
-            )}
-            {notice && <div className="alert info" style={{ marginTop: 10 }}><pre>{notice}</pre></div>}
-          </div>
-
           <div className="group">
             <label className="cap">OpenAI API key</label>
             <div style={{ display: "flex", gap: 6 }}>
@@ -1364,46 +1307,6 @@ function App() {
           )}
         </div>
       </div>
-
-      {showDiscoverModal && discoverCards.length > 0 && (
-        <div className="modal-overlay" onClick={() => setShowDiscoverModal(false)}>
-          <div className="modal-card" onClick={e => e.stopPropagation()}>
-            <div className="modal-head">
-              <div>
-                <h3 style={{ margin: 0 }}>Current issues · {monthLabel(discoverMonth)}</h3>
-                <div style={{ fontSize: 12, color: "var(--muted)" }}>{discoverCards.length} found · most-discussed first · {BANDS[band].label}</div>
-              </div>
-              <button className="iconbtn" title="Close" onClick={() => setShowDiscoverModal(false)}>✕</button>
-            </div>
-            <div className="modal-body">
-              {discoverCards.map((c, i) => (
-                <div key={i} className="issue-card">
-                  <div style={{ fontWeight: 700, fontSize: 14 }}>{c.title}</div>
-                  {c.whyNow && <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 2 }}>{c.whyNow}</div>}
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", margin: "8px 0" }}>
-                    <span className="chip" style={{ fontSize: 11 }}>{c.category}</span>
-                    <span style={{ fontSize: 16 }} title={c.resourceType}>{c.resourceType === "image" ? "🖼" : c.resourceType === "video" ? "🎬" : "📄"}</span>
-                    {c.resourceOrigin && <span className={"chip" + (c.resourceOrigin === "news" ? " coral" : "")} style={{ fontSize: 11 }}>{c.resourceOrigin === "trusted" ? "Trusted org" : "News"}</span>}
-                    {c.source && <span style={{ fontSize: 11.5, color: "var(--muted)" }}>{c.source}</span>}
-                  </div>
-                  {c.blurb && <div style={{ fontSize: 12.5, color: "var(--ink)", marginBottom: 8 }}>{c.blurb}</div>}
-                  {c.resourceType === "image" && c.resourceUrl && (
-                    <img src={c.resourceUrl} alt={c.resourceTitle || "preview"} loading="lazy"
-                      style={{ display: "block", width: "100%", maxHeight: 180, objectFit: "contain", borderRadius: 8, border: "1px solid var(--line)", background: "#faf8ff", marginBottom: 8 }}
-                      onError={e => { e.target.style.display = "none"; }} />
-                  )}
-                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    {c.resourceUrl
-                      ? <a href={c.resourceUrl} target="_blank" rel="noreferrer" style={{ fontSize: 12.5, color: "var(--accent)", fontWeight: 600 }}>Open ↗</a>
-                      : <span style={{ fontSize: 12, color: "var(--muted)" }}>no auto-resource</span>}
-                    <button className="btn primary" style={{ width: "auto", marginLeft: "auto", padding: "8px 14px" }} onClick={() => useIssue(c)}>Use this issue →</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
     </React.Fragment>
   );
 }
