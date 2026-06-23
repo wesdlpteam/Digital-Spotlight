@@ -1157,7 +1157,7 @@ function App() {
       if (mode === "image" && stimImg) {
         s3.addImage({ data: stimImg, x: 1.2, y: 1.9, w: 10.9, h: 4.7, sizing: { type: "contain", w: 10.9, h: 4.7 } });
       } else {
-        const rightMedia = !!(stimImg || link.trim());
+        const rightMedia = !!(stimImg || link.trim() || embedVideo);
         const sumW = rightMedia ? 6.9 : W - 1.6;
         if (hasSummary) s3.addText(spot.summary, { x: 0.8, y: 1.9, w: sumW, h: 4.6, fontSize: 15, color: ink, valign: "top", fontFace: bFont, lineSpacingMultiple: 1.15 });
         else if (!rightMedia) s3.addText("(Share the stimulus with students directly.)", { x: 0.8, y: 2.0, w: W - 1.6, h: 0.6, fontSize: 15, italic: true, color: muted, fontFace: bFont });
