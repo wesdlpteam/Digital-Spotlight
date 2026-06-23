@@ -154,6 +154,11 @@
   .chip { background: var(--accent-soft); color: var(--accent); padding: 4px 11px; border-radius: 999px; font-size: 12.5px; font-weight: 600; }
   .chip.gold { background: #f7eccc; color: var(--accent-2-ink); }
 
+  .theme-picks { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+  .theme-picks .pick { border: 1px solid var(--line); background: #fff; color: var(--muted); border-radius: 999px; padding: 3px 10px; font: inherit; font-size: 12px; cursor: pointer; transition: .15s; }
+  .theme-picks .pick:hover { border-color: var(--accent); color: var(--accent); }
+  .theme-picks .pick.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+
   .step { display: grid; grid-template-columns: 56px 1fr auto; gap: 8px; align-items: start; margin-bottom: 8px; }
   .step .mins { display: flex; align-items: center; gap: 3px; }
   .step .mins input { width: 38px; text-align: center; padding: 6px 4px; }
@@ -825,7 +830,7 @@ async function suggestThemeFromStimulus({ apiKey, model, mode, imageDataUrl, fra
     body: JSON.stringify({
       model,
       messages: [{ role: "system", content: sys }, { role: "user", content: userContent }],
-      max_completion_tokens: 30,
+      max_completion_tokens: 800,
     }),
   });
   if (!resp.ok) {
@@ -1426,13 +1431,15 @@ function App() {
           <div className="group">
             <label className="cap" htmlFor="f-theme">Focus theme</label>
             <div style={{ display: "flex", gap: 6 }}>
-              <input id="f-theme" type="text" list="theme-presets" value={theme} placeholder="Type a theme, or pick / Suggest one" onChange={e => setTheme(e.target.value)} />
-              <datalist id="theme-presets">{THEMES.map(t => <option key={t} value={t} />)}</datalist>
+              <input id="f-theme" type="text" value={theme} placeholder="Type a theme, tap a preset, or Suggest" onChange={e => setTheme(e.target.value)} />
               <button type="button" className="btn ghost" style={{ width: "auto", padding: "9px 12px", whiteSpace: "nowrap" }} disabled={suggestingTheme || !inputReady()} title="Suggest a theme from your stimulus" onClick={suggestTheme}>
                 {suggestingTheme ? <React.Fragment><span className="spinner" style={{ borderTopColor: "var(--accent)", borderColor: "var(--accent-soft)" }}></span> Suggesting…</React.Fragment> : "Suggest"}
               </button>
             </div>
-            <div className="hint">Type any theme, choose a preset, or <b>Suggest</b> one from your stimulus.</div>
+            <div className="theme-picks">
+              {THEMES.map(t => <button key={t} type="button" className={"pick" + (theme === t ? " on" : "")} onClick={() => setTheme(t)}>{t}</button>)}
+            </div>
+            <div className="hint">Type any theme, tap a preset above, or <b>Suggest</b> one from your stimulus.</div>
           </div>
 
           <button className="btn primary" ref={genBtnRef} disabled={loading || preparing} onClick={generate}>
