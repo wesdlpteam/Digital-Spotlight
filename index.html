@@ -240,7 +240,7 @@ const BANDS = {
 };
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v1.1.1 · 2026-06-24";
+const APP_VERSION = "v1.1.2 · 2026-06-24";
 
 const THEMES = [
   "Privacy","Kindness online","Misinformation","Digital footprint",
@@ -1213,7 +1213,6 @@ function App() {
 
       /* Slide 1 — TITLE (catchy headline; also carries band/theme) */
       const s1 = newSlide("title");
-      kicker(s1, "Title", accent2);
       s1.addText(tCase(spot.hook || spot.title), { x: 0.9, y: 1.6, w: W - 2.6, h: 3.8, fontSize: 44, bold: true, color: "FFFFFF", valign: "middle", fontFace: tFont });
       s1.addText(`${bandLabel}${year ? " · " + year : ""}   ·   ${theme}   ·   5-minute discussion`, { x: 0.9, y: 5.7, w: W - 1.8, h: 0.4, fontSize: 14, color: "E7DCEF", fontFace: bFont });
 
@@ -1224,23 +1223,38 @@ function App() {
       const hasSummary = !!(spot.summary && spot.summary.trim());
       if (mode === "image" && stimImg) {
         s3.addImage({ data: stimImg, x: 1.2, y: 1.9, w: 10.9, h: 4.7, sizing: { type: "contain", w: 10.9, h: 4.7 } });
-      } else if (mode === "video" && (embedVideo || stimImg)) {
-        // The video IS the stimulus: show the clip (embed) or its first frame (large-file
-        // fallback), centred and sized to its real aspect ratio so it never stretches. No summary.
-        const boxW = 11.0, boxH = 4.4, boxY = 1.9;
+      } else if (mode === "video" && (videoPoster || embedVideo)) {
+        // Show the first frame LARGE so the slide is recognisable, then (when the clip is
+        // embedded) a smaller player below it that plays on click. PowerPoint can't show a
+        // custom poster on an embedded video, so the small player stays a generic thumbnail.
         const ar = (videoAspect && isFinite(videoAspect) && videoAspect > 0) ? videoAspect : (16 / 9);
-        let w = +Math.min(boxW, boxH * ar).toFixed(2);
-        let h = +(w / ar).toFixed(2);
-        const x = +((W - w) / 2).toFixed(2);
-        if (embedVideo) s3.addMedia({ type: "video", data: videoDataUrl, x, y: boxY, w, h });
-        else s3.addImage({ data: stimImg, x, y: boxY, w, h, sizing: { type: "contain", w, h } });
-        if (link.trim()) {
+        let y = 1.75;
+        if (videoPoster) {
+          const pBoxW = 9.0, pBoxH = embedVideo ? 2.8 : 3.8;
+          const pw = +Math.min(pBoxW, pBoxH * ar).toFixed(2);
+          const ph = +(pw / ar).toFixed(2);
+          s3.addImage({ data: videoPoster, x: +((W - pw) / 2).toFixed(2), y, w: pw, h: ph, sizing: { type: "contain", w: pw, h: ph } });
+          y += ph + 0.2;
+        }
+        if (embedVideo) {
+          s3.addText("▶ Click to play the clip in PowerPoint", { x: 0, y, w: W, h: 0.3, align: "center", fontSize: 11, italic: true, color: muted, fontFace: bFont });
+          y += 0.32;
+          const vBoxH = 1.4;
+          const vw = +Math.min(4.0, vBoxH * ar).toFixed(2);
+          const vh = +(vw / ar).toFixed(2);
+          s3.addMedia({ type: "video", data: videoDataUrl, x: +((W - vw) / 2).toFixed(2), y, w: vw, h: vh });
+          y += vh + 0.15;
+          if (link.trim()) {
+            const url = link.trim();
+            s3.addText([{ text: `${MODE_VERB[mode]}: `, options: { color: ink, bold: true } }, { text: url, options: { color: accent, underline: true, hyperlink: { url } } }],
+              { x: 0.8, y, w: W - 1.6, h: 0.35, align: "center", fontSize: 11, valign: "middle", fontFace: bFont });
+          }
+        } else if (link.trim()) {
           const url = link.trim();
           const qr = makeQrDataUrl(url);
-          const ly = boxY + h + 0.25;
-          if (qr) s3.addImage({ data: qr, x: 0.8, y: ly, w: 1.1, h: 1.1 });
+          if (qr) s3.addImage({ data: qr, x: 0.8, y, w: 1.1, h: 1.1 });
           s3.addText([{ text: `${MODE_VERB[mode]}: `, options: { color: ink, bold: true } }, { text: url, options: { color: accent, underline: true, hyperlink: { url } } }],
-            { x: qr ? 2.1 : 0.8, y: ly, w: W - (qr ? 2.9 : 1.6), h: 1.1, fontSize: 11, valign: "middle", fontFace: bFont });
+            { x: qr ? 2.1 : 0.8, y, w: W - (qr ? 2.9 : 1.6), h: 1.1, fontSize: 11, valign: "middle", fontFace: bFont });
         }
       } else {
         const rightMedia = !!(stimImg || link.trim());
