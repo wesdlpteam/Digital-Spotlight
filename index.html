@@ -20,12 +20,14 @@
 <style>
   :root {
     --ink: #2b2536;
-    --muted: #6b6478;
+    --muted: #574f63;         /* darkened for AA at small sizes */
     --line: #e7e1ef;
     --bg: #f6f2fb;
     --panel: #ffffff;
-    --accent: #7c4dff;        /* warm violet */
-    --accent-2: #ff7043;      /* warm coral  */
+    --accent: #4f2759;        /* Wesley Purple (canonical brand) */
+    --accent-deep: #3d1d45;   /* hover / pressed purple */
+    --accent-2: #c59f40;      /* Wesley Gold (secondary) */
+    --accent-2-ink: #7a5f1e;  /* readable gold for text on light */
     --accent-soft: #efe7ff;
     --good: #2e9e6b;
     --warn: #d9772e;
@@ -38,7 +40,7 @@
     margin: 0;
     font-family: "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
     color: var(--ink);
-    background: linear-gradient(160deg, #f6f2fb 0%, #fdf3ef 100%);
+    background: linear-gradient(160deg, #f6f2fb 0%, #fbf7fd 100%);
     min-height: 100vh;
   }
   header.app {
@@ -51,10 +53,11 @@
   }
   header.app .logo {
     width: 40px; height: 40px; border-radius: 11px;
-    background: linear-gradient(135deg, var(--accent), var(--accent-2));
-    display: grid; place-items: center; color: #fff; font-size: 20px;
+    background: var(--accent);
+    display: grid; place-items: center; color: #fff;
     box-shadow: var(--shadow);
   }
+  header.app .logo svg { width: 22px; height: 22px; }
   header.app h1 { font-size: 19px; margin: 0; }
   header.app p { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); }
 
@@ -86,6 +89,7 @@
     font: inherit; color: var(--ink); background: #fff; outline: none;
   }
   input:focus, textarea:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
   textarea { resize: vertical; min-height: 88px; line-height: 1.45; }
   .hint { font-size: 12px; color: var(--muted); margin-top: 5px; line-height: 1.4; }
 
@@ -99,6 +103,7 @@
   .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
   .filebox {
+    width: 100%; display: block; font: inherit; color: inherit;
     border: 1.5px dashed var(--line); border-radius: 12px; padding: 14px; text-align: center;
     background: var(--bg); cursor: pointer; transition: .15s;
   }
@@ -111,12 +116,16 @@
     width: 100%; padding: 12px; border: 0; border-radius: 12px; font: inherit; font-weight: 700;
     cursor: pointer; transition: .15s; display: flex; align-items: center; justify-content: center; gap: 8px;
   }
-  .btn.primary { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; box-shadow: var(--shadow); }
-  .btn.primary:hover { filter: brightness(1.04); }
-  .btn.primary:disabled { opacity: .55; cursor: not-allowed; filter: none; }
+  .btn.primary { background: var(--accent); color: #fff; box-shadow: var(--shadow); }
+  .btn.primary:hover { background: var(--accent-deep); }
+  .btn.primary:disabled { opacity: .55; cursor: not-allowed; }
   .btn.ghost { background: #fff; border: 1px solid var(--line); color: var(--ink); }
   .btn.ghost:hover { border-color: var(--accent); color: var(--accent); }
   .btn.ghost:disabled { opacity: .5; cursor: not-allowed; }
+  .btn:focus-visible, .iconbtn:focus-visible, .addbtn:focus-visible,
+  .modes button:focus-visible, .filebox:focus-visible {
+    outline: none; box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow);
+  }
 
   .alert { padding: 11px 13px; border-radius: 11px; font-size: 13px; margin-top: 12px; line-height: 1.45; }
   .alert.bad { background: #fdecec; color: #9a2a2a; border: 1px solid #f3c9c9; }
@@ -129,7 +138,7 @@
     background: #fff; border: 1px solid var(--line); border-radius: var(--radius);
     box-shadow: var(--shadow); overflow: hidden;
   }
-  .slide .bar { height: 6px; background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
+  .slide .bar { height: 6px; background: var(--accent); }
   .slide .body { padding: 18px 20px; }
   .slide .kicker { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); font-weight: 800; }
   .slide h3 { margin: 4px 0 2px; font-size: 16px; }
@@ -142,8 +151,8 @@
   textarea.editable { resize: vertical; line-height: 1.5; }
   .titlebig { font-size: 22px; font-weight: 800; }
   .meta-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
-  .chip { background: var(--accent-soft); color: #4a2db0; padding: 4px 11px; border-radius: 999px; font-size: 12.5px; font-weight: 600; }
-  .chip.coral { background: #ffe6dc; color: #c5471f; }
+  .chip { background: var(--accent-soft); color: var(--accent); padding: 4px 11px; border-radius: 999px; font-size: 12.5px; font-weight: 600; }
+  .chip.gold { background: #f7eccc; color: var(--accent-2-ink); }
 
   .step { display: grid; grid-template-columns: 56px 1fr auto; gap: 8px; align-items: start; margin-bottom: 8px; }
   .step .mins { display: flex; align-items: center; gap: 3px; }
@@ -163,14 +172,14 @@
   .stim-img { text-align: center; }
   .stim-img img { max-width: 100%; max-height: 280px; border-radius: 10px; box-shadow: var(--shadow); }
 
-  .resp-note { margin-top: 6px; padding-left: 9px; border-left: 2px solid var(--accent-soft); }
+  .resp-note { margin-top: 6px; padding: 7px 10px; background: #faf8ff; border-radius: 9px; }
   .resp-cap { font-size: 10.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--accent); font-weight: 700; display: block; margin-bottom: 2px; }
 
   .ql { margin: 0; padding: 0; list-style: none; }
   .ql li { display: flex; gap: 8px; align-items: start; margin-bottom: 6px; }
   .ql li .num { background: var(--accent); color: #fff; min-width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center; font-size: 12px; font-weight: 700; margin-top: 4px; }
-  .action-box { background: #fff7f3; border: 1px solid #ffd9c9; border-radius: 11px; padding: 10px 12px; margin-top: 10px; }
-  .action-box .cap { font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--accent-2); font-weight: 800; }
+  .action-box { background: #fbf6ea; border: 1px solid #ecdcb0; border-radius: 11px; padding: 10px 12px; margin-top: 10px; }
+  .action-box .cap { font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--accent-2-ink); font-weight: 800; }
   .lp-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 
   .empty { text-align: center; color: var(--muted); padding: 70px 30px; }
@@ -186,14 +195,16 @@
   .thumb-meta { font-size: 8px; position: absolute; bottom: 10px; left: 12px; right: 12px; }
   .spinner { width: 16px; height: 16px; border: 2.5px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; }
 
-  /* Discovery modal */
-  .modal-overlay { position: fixed; inset: 0; background: rgba(30,20,45,.45); backdrop-filter: blur(2px); display: grid; place-items: center; z-index: 50; padding: 20px; }
-  .modal-card { background: #fff; border-radius: 16px; box-shadow: 0 20px 60px rgba(40,25,70,.35); width: min(680px, 100%); max-height: 86vh; display: flex; flex-direction: column; overflow: hidden; }
-  .modal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--line); }
-  .modal-body { padding: 16px 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-  .issue-card { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; background: #fff; transition: .15s; }
-  .issue-card:hover { border-color: var(--accent); box-shadow: var(--shadow); }
   @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: .001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: .001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 </style>
 </head>
 <body>
@@ -716,6 +727,30 @@ Rules: this is a FAST 5-minute TALKING activity. Every step must be students DIS
   }
 }
 
+/* ------------------------------ Icons ------------------------------ */
+/* Inline SVG, currentColor-driven, so they inherit text colour and stay crisp
+   on every OS (emoji rendered inconsistently and the sparkle read as AI flash). */
+const Icon = ({ d, size = 18, stroke = false, label }) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden={label ? undefined : "true"}
+       role={label ? "img" : undefined} aria-label={label} focusable="false"
+       fill={stroke ? "none" : "currentColor"}
+       stroke={stroke ? "currentColor" : "none"} strokeWidth={stroke ? 1.8 : 0}
+       strokeLinecap="round" strokeLinejoin="round">
+    <path d={d} />
+  </svg>
+);
+const I = {
+  // Wesley shield mark for the app logo
+  shield: "M12 2.5l7 2.6v5.2c0 4.6-3 8.3-7 9.7-4-1.4-7-5.1-7-9.7V5.1l7-2.6z",
+  image: "M3 5h18v14H3zM3 16l5-5 4 4 3-3 6 6",
+  doc: "M6 2h8l4 4v16H6zM14 2v4h4",
+  video: "M3 6h13v12H3zM21 8v8l-5-4z",
+  generate: "M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z",
+  refresh: "M20 12a8 8 0 1 1-2.3-5.6M20 4v4h-4",
+  download: "M12 3v11m0 0l4-4m-4 4l-4-4M5 19h14",
+  close: "M6 6l12 12M18 6L6 18",
+};
+
 /* ------------------------------ App ------------------------------ */
 
 const KEY_STORE = "dss_openai_key";
@@ -946,7 +981,7 @@ function App() {
 
   const bandLabel = BANDS[band].label;
   const T = THEME_DESIGNS[design];
-  const barStyle = { background: `linear-gradient(90deg, ${hx(T.accent)}, ${hx(T.accent2)})` };
+  const barStyle = { background: hx(T.accent) };
   const kickStyle = { color: hx(T.accent) };
 
   /* ------- export ------- */
@@ -1066,7 +1101,7 @@ function App() {
   return (
     <React.Fragment>
       <header className="app">
-        <div className="logo">✦</div>
+        <div className="logo"><Icon d={I.shield} size={22} /></div>
         <div>
           <h1>Digital Space Spotlight</h1>
           <p>5-minute cyber-safety &amp; digital-citizenship discussion prompts → PowerPoint</p>
@@ -1077,17 +1112,17 @@ function App() {
         {/* ----------------- INPUT PANEL ----------------- */}
         <div className="panel input">
           <div className="group">
-            <label className="cap">OpenAI API key</label>
+            <label className="cap" htmlFor="f-apikey">OpenAI API key</label>
             <div style={{ display: "flex", gap: 6 }}>
-              <input type="password" value={apiKey} placeholder="sk-…" onChange={e => saveApiKey(e.target.value)} />
+              <input id="f-apikey" type="password" value={apiKey} placeholder="sk-…" onChange={e => saveApiKey(e.target.value)} />
               {apiKey && <button className="btn ghost" style={{ width: "auto", padding: "9px 12px", whiteSpace: "nowrap" }} title="Remove the saved key from this browser" onClick={() => saveApiKey("")}>Forget</button>}
             </div>
             <div className="hint">Saved in <b>this browser only</b> (localStorage) so you don't re-enter it. Use <b>Forget</b> on a shared computer.</div>
           </div>
 
           <div className="group">
-            <label className="cap">Model</label>
-            <select value={model} onChange={e => setModel(e.target.value)}>
+            <label className="cap" htmlFor="f-model">Model</label>
+            <select id="f-model" value={model} onChange={e => setModel(e.target.value)}>
               <option value="gpt-5.4">gpt-5.4</option>
               <option value="gpt-5.5">gpt-5.5</option>
               <option value="gpt-5.4-mini">gpt-5.4-mini</option>
@@ -1095,11 +1130,14 @@ function App() {
           </div>
 
           <div className="group">
-            <label className="cap">Stimulus mode</label>
-            <div className="modes">
+            <label className="cap" id="lbl-mode">Stimulus mode</label>
+            <div className="modes" role="group" aria-labelledby="lbl-mode">
               {["image", "article", "video"].map(m => (
-                <button key={m} className={mode === m ? "active" : ""} onClick={() => setMode(m)}>
-                  {m === "image" ? "🖼 Image" : m === "article" ? "📄 Article" : "🎬 Video"}
+                <button key={m} type="button" className={mode === m ? "active" : ""} aria-pressed={mode === m} onClick={() => setMode(m)}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <Icon d={m === "image" ? I.image : m === "article" ? I.doc : I.video} size={16} stroke />
+                    {m === "image" ? "Image" : m === "article" ? "Article" : "Video"}
+                  </span>
                 </button>
               ))}
             </div>
@@ -1107,65 +1145,65 @@ function App() {
 
           {mode === "image" && (
             <div className="group">
-              <label className="cap">Upload image</label>
-              <div className="filebox" onClick={() => imgInput.current.click()}>
+              <label className="cap" htmlFor="f-image">Upload image</label>
+              <button type="button" className="filebox" aria-label={imageDataUrl ? `Replace uploaded image ${imageName}` : "Upload an image"} onClick={() => imgInput.current.click()}>
                 {imageDataUrl
-                  ? <React.Fragment><img className="thumb" src={imageDataUrl} alt="" /><div className="small">{imageName} — click to replace</div></React.Fragment>
-                  : <React.Fragment><div className="big">🖼</div><div className="small">Click to upload an image</div></React.Fragment>}
-              </div>
-              <input ref={imgInput} type="file" accept="image/*" hidden onChange={onImage} />
+                  ? <React.Fragment><img className="thumb" src={imageDataUrl} alt={"Uploaded stimulus: " + imageName} /><div className="small">{imageName} — click to replace</div></React.Fragment>
+                  : <React.Fragment><div className="big"><Icon d={I.image} size={26} stroke /></div><div className="small">Click or press Enter to upload an image</div></React.Fragment>}
+              </button>
+              <input ref={imgInput} id="f-image" type="file" accept="image/*" hidden onChange={onImage} />
               <div className="hint">The model sees the actual image and builds the Spotlight from its real content.</div>
             </div>
           )}
 
           {mode === "article" && (
             <div className="group">
-              <label className="cap">Article — upload PDF or paste text</label>
-              <div className="filebox" onClick={() => pdfInput.current.click()}>
-                <div className="big">📄</div>
-                <div className="small">{pdfName || "Click to upload a PDF"}</div>
-              </div>
-              <input ref={pdfInput} type="file" accept="application/pdf" hidden onChange={onPdf} />
+              <label className="cap" htmlFor="f-pdf">Article — upload PDF or paste text</label>
+              <button type="button" className="filebox" aria-label={pdfName ? `Replace PDF ${pdfName}` : "Upload a PDF"} onClick={() => pdfInput.current.click()}>
+                <div className="big"><Icon d={I.doc} size={26} stroke /></div>
+                <div className="small">{pdfName || "Click or press Enter to upload a PDF"}</div>
+              </button>
+              <input ref={pdfInput} id="f-pdf" type="file" accept="application/pdf" hidden onChange={onPdf} />
 
               <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
-                <input type="text" value={link} placeholder="…or paste an article link (https://…)" onChange={e => setLink(e.target.value)} />
-                <button className="btn ghost" style={{ width: "auto", padding: "9px 12px", whiteSpace: "nowrap" }} disabled={fetchingArticle} onClick={fetchArticleFromLink}>
+                <input type="text" aria-label="Article link" value={link} placeholder="…or paste an article link (https://…)" onChange={e => setLink(e.target.value)} />
+                <button type="button" className="btn ghost" style={{ width: "auto", padding: "9px 12px", whiteSpace: "nowrap" }} disabled={fetchingArticle} onClick={fetchArticleFromLink}>
                   {fetchingArticle ? "Fetching…" : "Fetch text"}
                 </button>
               </div>
 
-              <textarea style={{ marginTop: 8 }} value={articleText} placeholder="…the fetched or pasted article text appears here (edit freely)" onChange={e => setArticleText(e.target.value)} />
+              <textarea style={{ marginTop: 8 }} aria-label="Article text" value={articleText} placeholder="…the fetched or pasted article text appears here (edit freely)" onChange={e => setArticleText(e.target.value)} />
               <div className="hint"><b>Fetch text</b> pulls the article via a public reader service — works for open news sites (the link also becomes the QR code). Hard paywalls may fail; upload the PDF or paste the text instead.</div>
             </div>
           )}
 
           {mode === "video" && (
             <div className="group">
-              <label className="cap">Video transcript <span style={{ color: "var(--bad)" }}>(required)</span></label>
-              <textarea value={transcript} placeholder="Paste the video transcript here" onChange={e => setTranscript(e.target.value)} />
+              <label className="cap" htmlFor="f-transcript">Video transcript <span style={{ color: "var(--bad)" }}>(required)</span></label>
+              <textarea id="f-transcript" value={transcript} placeholder="Paste the video transcript here" onChange={e => setTranscript(e.target.value)} />
               <div className="hint">The tool <b>can't watch the video</b> — paste the transcript so the model can read it.</div>
             </div>
           )}
 
           {mode === "video" && (
             <div className="group">
-              <label className="cap">Video link (optional — becomes a QR code)</label>
-              <input type="text" value={link} placeholder="https://…" onChange={e => setLink(e.target.value)} />
+              <label className="cap" htmlFor="f-vlink">Video link (optional — becomes a QR code)</label>
+              <input id="f-vlink" type="text" value={link} placeholder="https://…" onChange={e => setLink(e.target.value)} />
             </div>
           )}
 
           <div className="group">
-            <label className="cap">Title (optional)</label>
-            <input type="text" value={title} placeholder="Leave blank to auto-generate" onChange={e => setTitle(e.target.value)} />
+            <label className="cap" htmlFor="f-title">Title (optional)</label>
+            <input id="f-title" type="text" value={title} placeholder="Leave blank to auto-generate" onChange={e => setTitle(e.target.value)} />
           </div>
 
           <div className="group">
-            <label className="cap">Band &amp; year</label>
+            <label className="cap" htmlFor="f-band">Band &amp; year</label>
             <div className="row2">
-              <select value={band} onChange={e => { setBand(e.target.value); setYear(""); setDiscoverYears([]); setDiscoverCats([]); }}>
+              <select id="f-band" value={band} onChange={e => { setBand(e.target.value); setYear(""); }}>
                 {Object.keys(BANDS).map(b => <option key={b} value={b}>{BANDS[b].label}</option>)}
               </select>
-              <select value={year} onChange={e => setYear(e.target.value)}>
+              <select aria-label="Year level" value={year} onChange={e => setYear(e.target.value)}>
                 <option value="">Whole band</option>
                 {BANDS[band].years.map(y => <option key={y} value={y}>{y}</option>)}
               </select>
@@ -1173,8 +1211,8 @@ function App() {
           </div>
 
           <div className="group">
-            <label className="cap">Focus theme</label>
-            <select value={theme} onChange={e => setTheme(e.target.value)}>
+            <label className="cap" htmlFor="f-theme">Focus theme</label>
+            <select id="f-theme" value={theme} onChange={e => setTheme(e.target.value)}>
               {THEMES.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
@@ -1182,17 +1220,18 @@ function App() {
           <button className="btn primary" ref={genBtnRef} disabled={loading || preparing} onClick={generate}>
             {loading ? <React.Fragment><span className="spinner"></span> Generating…</React.Fragment>
               : preparing ? <React.Fragment><span className="spinner"></span> Preparing stimulus…</React.Fragment>
-              : (spot ? "↻ Regenerate" : "✦ Generate Spotlight")}
+              : spot ? <React.Fragment><Icon d={I.refresh} size={16} stroke /> Regenerate</React.Fragment>
+              : <React.Fragment><Icon d={I.generate} size={16} /> Generate Spotlight</React.Fragment>}
           </button>
 
-          {error && <div className="alert bad"><b>Something went wrong.</b><pre>{error}</pre>{rawDump && <React.Fragment><b>Raw model output:</b><pre>{rawDump}</pre></React.Fragment>}</div>}
+          {error && <div className="alert bad" role="alert"><b>Something went wrong.</b><pre>{error}</pre>{rawDump && <React.Fragment><b>Raw model output:</b><pre>{rawDump}</pre></React.Fragment>}</div>}
         </div>
 
         {/* ----------------- PREVIEW PANEL ----------------- */}
         <div>
           {!spot && !loading && (
             <div className="panel"><div className="empty">
-              <div className="big">✦</div>
+              <div className="big" aria-hidden="true"><Icon d={I.generate} size={46} /></div>
               <h2 style={{ margin: "0 0 6px" }}>Your Spotlight preview appears here</h2>
               <p>Add a stimulus on the left and hit <b>Generate</b>. Every field below will be editable before you download.</p>
             </div></div>
@@ -1201,11 +1240,11 @@ function App() {
           {spot && (
             <React.Fragment>
               <div className="toolbar">
-                <button className="btn ghost" disabled={loading} onClick={generate}>↻ Regenerate</button>
-                <button className="btn primary" onClick={download}>⬇ Download PowerPoint</button>
+                <button type="button" className="btn ghost" disabled={loading} onClick={generate}><Icon d={I.refresh} size={16} stroke /> Regenerate</button>
+                <button type="button" className="btn primary" onClick={download}><Icon d={I.download} size={16} stroke /> Download PowerPoint</button>
               </div>
 
-              {/* PowerPoint design picker + live themed thumbnail */}
+              {/* Export-theme confirmation + live themed thumbnail (Wesley is the only theme) */}
               <div className="design-row">
                 <div className="thumb-slide" style={{ background: hx(T.titleBg), color: "#FFFFFF", fontFamily: T.bodyFont }}>
                   <div className="thumb-bar" style={barStyle}></div>
@@ -1214,9 +1253,8 @@ function App() {
                   <div className="thumb-meta" style={{ color: "#E7DCEF" }}>{bandLabel} · {theme}</div>
                 </div>
                 <div style={{ flex: 1 }}>
-                  <label className="cap" style={{ display: "block", marginBottom: 6 }}>PowerPoint design</label>
-                  <div style={{ fontWeight: 700 }}>Wesley College</div>
-                  <div className="hint">All exports use the Wesley College branded template (purple &amp; gold, Wesley crest on every slide).</div>
+                  <div style={{ fontWeight: 700 }}>Exports in the Wesley College theme</div>
+                  <div className="hint">Purple &amp; gold, with the Wesley crest on every slide. Edit any field below, then download.</div>
                 </div>
               </div>
 
@@ -1227,7 +1265,7 @@ function App() {
                   <textarea className="editable titlebig" rows={2} value={spot.hook} placeholder="A provoking question, statement, or headline…" onChange={e => patch({ hook: e.target.value })} />
                   <div className="meta-chips">
                     <span className="chip">{bandLabel}{year ? " · " + year : ""}</span>
-                    <span className="chip coral">{theme}</span>
+                    <span className="chip gold">{theme}</span>
                   </div>
                 </div></div>
 
@@ -1241,11 +1279,11 @@ function App() {
                       <textarea className="editable" rows={5} value={spot.summary} placeholder="A 5-sentence summary for students…" onChange={e => patch({ summary: e.target.value })} />
                     </React.Fragment>
                   )}
-                  {mode === "image" && imageDataUrl && <div className="stim-img"><img src={imageDataUrl} alt="" /></div>}
+                  {mode === "image" && imageDataUrl && <div className="stim-img"><img src={imageDataUrl} alt="Stimulus image for this Spotlight" /></div>}
                   {mode === "article" && articleImageUrl && (
                     <div className="stim-img" style={{ position: "relative" }}>
-                      <img src={articleImageUrl} alt="article" />
-                      <button className="iconbtn" style={{ position: "absolute", top: 6, right: 6 }} title="Remove image" onClick={() => setArticleImageUrl("")}>✕</button>
+                      <img src={articleImageUrl} alt="Lead image from the article" />
+                      <button type="button" className="iconbtn" style={{ position: "absolute", top: 6, right: 6 }} aria-label="Remove image" title="Remove image" onClick={() => setArticleImageUrl("")}><Icon d={I.close} size={14} stroke /></button>
                     </div>
                   )}
                   {mode !== "image" && link.trim() && <StimLink url={link.trim()} verb={MODE_VERB[mode]} />}
@@ -1268,10 +1306,10 @@ function App() {
                           <textarea className="editable" rows={2} value={st.responses || ""} placeholder="What students might actually say…" onChange={e => patchStep(i, { responses: e.target.value })} />
                         </div>
                       </div>
-                      <button className="iconbtn" title="Remove step" onClick={() => delStep(i)}>✕</button>
+                      <button type="button" className="iconbtn" aria-label={"Remove step: " + (st.name || (i + 1))} title="Remove step" onClick={() => delStep(i)}><Icon d={I.close} size={14} stroke /></button>
                     </div>
                   ))}
-                  <button className="addbtn" onClick={addStep}>+ Add step</button>
+                  <button type="button" className="addbtn" onClick={addStep}>+ Add step</button>
                   <div className={"total" + (totalMins > 5 ? " over" : "")}>Total: {totalMins} min {totalMins > 5 ? "— over 5 minutes!" : "/ 5 min"}</div>
                 </div></div>
 
@@ -1283,19 +1321,19 @@ function App() {
                     {spot.guidingQuestions.map((q, i) => (
                       <li key={i}>
                         <span className="num" style={{ background: hx(T.accent) }}>{i + 1}</span>
-                        <textarea className="editable" rows={1} value={q} onChange={e => patchQ(i, e.target.value)} />
-                        <button className="iconbtn" title="Remove" onClick={() => delQ(i)}>✕</button>
+                        <textarea className="editable" rows={1} aria-label={"Guiding question " + (i + 1)} value={q} onChange={e => patchQ(i, e.target.value)} />
+                        <button type="button" className="iconbtn" aria-label={"Remove guiding question " + (i + 1)} title="Remove" onClick={() => delQ(i)}><Icon d={I.close} size={14} stroke /></button>
                       </li>
                     ))}
                   </ul>
-                  <button className="addbtn" onClick={addQ}>+ Add question</button>
+                  <button type="button" className="addbtn" onClick={addQ}>+ Add question</button>
                 </div></div>
 
                 {/* Slide 5 — Student key takeaway */}
                 <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
                   <div className="kicker" style={kickStyle}>Slide 5 · Student key takeaway</div>
-                  <div className="action-box" style={{ background: hx(T.accent2) + "1A", borderColor: hx(T.accent2) + "55" }}>
-                    <div className="cap" style={{ color: hx(T.accent2) }}>One thing to take away</div>
+                  <div className="action-box" style={{ background: hx(T.accent2) + "22", borderColor: hx(T.accent2) + "66" }}>
+                    <div className="cap" style={{ color: "#7a5f1e" }}>One thing to take away</div>
                     <textarea className="editable" rows={2} value={spot.studentAction} onChange={e => patch({ studentAction: e.target.value })} />
                   </div>
                   <div className="lp-chips">
