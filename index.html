@@ -1137,9 +1137,11 @@ function App() {
       const kicker = (s, txt, col) => s.addText(String(txt).toUpperCase(), { x: 0.8, y: 0.55, w: W - 1.6, h: 0.4, fontSize: 13, bold: true, color: col || accent, charSpacing: 2, fontFace: bFont });
 
       // Resolve the stimulus image to an embeddable data URL.
+      const embedVideo = mode === "video" && !!videoDataUrl && !!videoFile && videoFile.size <= VIDEO_EMBED_MAX_BYTES;
       let stimImg = "";
       if (mode === "image" && imageDataUrl) stimImg = imageDataUrl;
       else if (mode === "article" && articleImageUrl) stimImg = await urlToDataUrl(articleImageUrl);
+      else if (mode === "video" && videoPoster && !embedVideo) stimImg = videoPoster; // first frame when not embedding
 
       /* Slide 1 — HOOK (now also carries band/theme, replacing the old Title slide) */
       const s1 = newSlide("title");
@@ -1161,6 +1163,11 @@ function App() {
         else if (!rightMedia) s3.addText("(Share the stimulus with students directly.)", { x: 0.8, y: 2.0, w: W - 1.6, h: 0.6, fontSize: 15, italic: true, color: muted, fontFace: bFont });
         const rx = 8.0, rw = 4.5;
         let ry = 1.9;
+        if (embedVideo) {
+          const vw2 = rw, vh2 = +(rw * 9 / 16).toFixed(2);
+          s3.addMedia({ type: "video", data: videoDataUrl, x: rx, y: ry, w: vw2, h: vh2 });
+          ry += vh2 + 0.2;
+        }
         if (stimImg) { s3.addImage({ data: stimImg, x: rx, y: ry, w: rw, h: 3.2, sizing: { type: "contain", w: rw, h: 3.2 } }); ry += 3.4; }
         if (link.trim()) {
           const url = link.trim();
