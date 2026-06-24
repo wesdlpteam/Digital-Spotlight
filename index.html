@@ -256,6 +256,20 @@
     color: #fff; display: grid; place-items: center; box-shadow: var(--shadow); pointer-events: none; }
   .vbadge svg { width: 20px; height: 20px; margin-left: 2px; }
 
+  .prov-cols { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 18px; align-items: start; margin-top: 8px; }
+  @media (max-width: 720px) { .prov-cols { grid-template-columns: 1fr; } }
+  .reel { position: relative; outline: none; }
+  .reel:focus-visible { box-shadow: 0 0 0 3px var(--accent-soft); border-radius: 12px; }
+  .reel-frame { position: relative; aspect-ratio: 4 / 3; background: var(--wash); border-radius: 10px; overflow: hidden; display: grid; place-items: center; box-shadow: var(--shadow); }
+  .reel-frame img, .reel-frame video { max-width: 100%; max-height: 100%; object-fit: contain; }
+  .reel-arrow { position: absolute; top: 50%; transform: translateY(-50%); width: 32px; height: 32px; border-radius: 999px; border: none; background: rgba(0,0,0,.5); color: #fff; font-size: 20px; line-height: 1; cursor: pointer; display: grid; place-items: center; }
+  .reel-arrow.left { left: 8px; } .reel-arrow.right { right: 8px; }
+  .reel-arrow:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+  .reel-dots { display: flex; justify-content: center; gap: 6px; margin-top: 8px; }
+  .reel-dots .dot { width: 8px; height: 8px; border-radius: 999px; border: none; background: var(--line); cursor: pointer; padding: 0; }
+  .reel-dots .dot.on { background: var(--accent); }
+  @media (prefers-reduced-motion: reduce) { .reel * { transition: none !important; } }
+
   .resp-note { margin-top: 6px; padding: 7px 10px; background: var(--wash); border-radius: 10px; }
   .resp-cap { font-size: 10.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--accent); font-weight: 700; display: block; margin-bottom: 2px; }
 
@@ -1035,6 +1049,34 @@ const ProgressRing = ({ value, size = 18 }) => {
 
 /* ------------------------------ App ------------------------------ */
 
+function MediaCarousel({ items, index, setIndex }) {
+  const n = items.length;
+  const clamp = (i) => (i + n) % n;
+  const go = (d) => setIndex(i => clamp(i + d));
+  const drag = React.useRef(null);
+  if (!n) return null;
+  const it = items[Math.min(index, n - 1)];
+  return (
+    <div className="reel" tabIndex={0} role="group" aria-label={`Stimulus ${index + 1} of ${n}`}
+      onKeyDown={e => { if (e.key === "ArrowLeft") { e.preventDefault(); go(-1); } if (e.key === "ArrowRight") { e.preventDefault(); go(1); } }}
+      onPointerDown={e => { drag.current = e.clientX; }}
+      onPointerUp={e => { if (drag.current != null) { const dx = e.clientX - drag.current; if (Math.abs(dx) > 40) go(dx < 0 ? 1 : -1); } drag.current = null; }}>
+      <div className="reel-frame">
+        {it.kind === "image"
+          ? <img src={it.dataUrl} alt={"Stimulus " + (index + 1) + ": " + it.name} />
+          : <video src={it.dataUrl || undefined} poster={it.poster} controls playsInline />}
+        {n > 1 && <React.Fragment>
+          <button type="button" className="reel-arrow left" aria-label="Previous image" onClick={() => go(-1)}>‹</button>
+          <button type="button" className="reel-arrow right" aria-label="Next image" onClick={() => go(1)}>›</button>
+        </React.Fragment>}
+      </div>
+      {n > 1 && <div className="reel-dots">
+        {items.map((m, i) => <button key={m.id} type="button" className={"dot" + (i === index ? " on" : "")} aria-label={"Go to image " + (i + 1)} aria-current={i === index} onClick={() => setIndex(i)} />)}
+      </div>}
+    </div>
+  );
+}
+
 const KEY_STORE = "dss_openai_key";
 
 function App() {
@@ -1512,6 +1554,49 @@ function App() {
   }
 
   /* ------------------------------ render ------------------------------ */
+  const routineBlockJsx = spot ? (
+    <React.Fragment>
+      <div className="cap" style={{ marginTop: 14 }}>Thinking routine <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0, color: "var(--muted)" }}>· {ROUTINE_SOURCE}</span></div>
+      <div className="routine-pick">
+        <select aria-label="Choose the thinking routine" value={routineChoice} disabled={!!regenSlide || loading || preparing}
+          onChange={e => { setRoutineChoice(e.target.value); regenerateSlide("provocation", e.target.value); }}>
+          <option value="">✨ Let AI choose the routine</option>
+          {ROUTINES[band].map(r => <option key={r.name} value={r.name}>{r.name}</option>)}
+        </select>
+      </div>
+      <textarea className="editable" rows={1} style={{ fontWeight: 700, fontSize: 16 }} value={spot.routineName} onChange={e => patch({ routineName: e.target.value })} />
+      <textarea className="editable" rows={1} style={{ fontStyle: "italic", color: "var(--muted)" }} value={spot.routineIntro} onChange={e => patch({ routineIntro: e.target.value })} />
+      {spot.steps.map((st, i) => (
+        <div className="step" key={i}>
+          <div className="mins"><input type="number" min="0" max="5" value={st.minutes} onChange={e => patchStep(i, { minutes: Number(e.target.value) })} /><span>min</span></div>
+          <div>
+            <input className="editable name" value={st.name} onChange={e => patchStep(i, { name: e.target.value })} />
+            <textarea className="editable" rows={2} value={st.prompt} onChange={e => patchStep(i, { prompt: e.target.value })} />
+            <div className="resp-note">
+              <span className="resp-cap">Likely student responses <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0 }}>(speaker notes)</span></span>
+              <textarea className="editable" rows={2} value={st.responses || ""} placeholder="What students might actually say…" onChange={e => patchStep(i, { responses: e.target.value })} />
+            </div>
+          </div>
+          <button type="button" className="iconbtn" aria-label={"Remove step: " + (st.name || (i + 1))} title="Remove step" onClick={() => delStep(i)}><Icon d={I.close} size={14} stroke /></button>
+        </div>
+      ))}
+      <button type="button" className="addbtn" onClick={addStep}>+ Add step</button>
+      <div className={"total" + (totalMins > 5 ? " over" : "")}>Total: {totalMins} min {totalMins > 5 ? "— over 5 minutes!" : "/ 5 min"}</div>
+
+      <div className="cap" style={{ marginTop: 14 }}>Guiding questions <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0, color: "var(--muted)" }}>· speaker notes (not shown on the slide)</span></div>
+      <ul className="ql">
+        {spot.guidingQuestions.map((q, i) => (
+          <li key={i}>
+            <span className="num" style={{ background: hx(T.accent) }}>{i + 1}</span>
+            <textarea className="editable" rows={1} aria-label={"Guiding question " + (i + 1)} value={q} onChange={e => patchQ(i, e.target.value)} />
+            <button type="button" className="iconbtn" aria-label={"Remove guiding question " + (i + 1)} title="Remove" onClick={() => delQ(i)}><Icon d={I.close} size={14} stroke /></button>
+          </li>
+        ))}
+      </ul>
+      <button type="button" className="addbtn" onClick={addQ}>+ Add question</button>
+    </React.Fragment>
+  ) : null;
+
   return (
     <React.Fragment>
       <header className="app">
@@ -1723,18 +1808,22 @@ function App() {
                 <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
                   <div className="slide-head"><div className="slide-tag"><span className="n">2</span> Provocation <span className="aside">· stimulus + thinking routine</span></div><RegenButton scope="provocation" /></div>
                   <textarea className="editable" rows={1} value={spot.framing} onChange={e => patch({ framing: e.target.value })} />
-                  {mode !== "image" && mode !== "video" && (
+                  {mode !== "media" && (
                     <React.Fragment>
                       <div className="cap" style={{ marginTop: 6 }}>5-sentence summary</div>
                       <textarea className="editable" rows={5} value={spot.summary} placeholder="A 5-sentence summary for students…" onChange={e => patch({ summary: e.target.value })} />
                     </React.Fragment>
                   )}
-                  {mode === "image" && imageDataUrl && <div className="stim-img"><img src={imageDataUrl} alt="Stimulus image for this Spotlight" /></div>}
-                  {mode === "video" && videoPoster && (
-                    <div className="stim-img">
-                      <img src={videoPoster} alt={"First frame of " + (videoFile ? videoFile.name : "the video")} />
-                      <span className="vbadge"><Icon d={I.play} size={20} /></span>
+                  {mode === "media" && media.length >= 2 && (
+                    <div className="prov-cols">
+                      <MediaCarousel items={media} index={Math.min(reelIndex, media.length - 1)} setIndex={setReelIndex} />
+                      <div className="prov-routine">{routineBlockJsx}</div>
                     </div>
+                  )}
+                  {mode === "media" && media.length === 1 && (
+                    media[0].kind === "image"
+                      ? <div className="stim-img"><img src={media[0].dataUrl} alt="Stimulus image for this Spotlight" /></div>
+                      : <div className="stim-img"><img src={media[0].poster} alt={"First frame of " + media[0].name} /><span className="vbadge"><Icon d={I.play} size={20} /></span></div>
                   )}
                   {mode === "article" && articleImageUrl && (
                     <div className="stim-img" style={{ position: "relative" }}>
@@ -1742,47 +1831,10 @@ function App() {
                       <button type="button" className="iconbtn" style={{ position: "absolute", top: 6, right: 6 }} aria-label="Remove image" title="Remove image" onClick={() => setArticleImageUrl("")}><Icon d={I.close} size={14} stroke /></button>
                     </div>
                   )}
-                  {mode !== "image" && link.trim() && <StimLink url={link.trim()} verb={MODE_VERB[mode]} />}
+                  {mode !== "media" && link.trim() && <StimLink url={link.trim()} verb={MODE_VERB[mode]} />}
                   {mode === "article" && !link.trim() && !articleImageUrl && <div className="hint">Tip: add a link on the left for a clickable link + QR code, or fetch an article to pull in its lead image.</div>}
 
-                  <div className="cap" style={{ marginTop: 14 }}>Thinking routine <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0, color: "var(--muted)" }}>· {ROUTINE_SOURCE}</span></div>
-                  <div className="routine-pick">
-                    <select aria-label="Choose the thinking routine" value={routineChoice} disabled={!!regenSlide || loading || preparing}
-                      onChange={e => { setRoutineChoice(e.target.value); regenerateSlide("provocation", e.target.value); }}>
-                      <option value="">✨ Let AI choose the routine</option>
-                      {ROUTINES[band].map(r => <option key={r.name} value={r.name}>{r.name}</option>)}
-                    </select>
-                  </div>
-                  <textarea className="editable" rows={1} style={{ fontWeight: 700, fontSize: 16 }} value={spot.routineName} onChange={e => patch({ routineName: e.target.value })} />
-                  <textarea className="editable" rows={1} style={{ fontStyle: "italic", color: "var(--muted)" }} value={spot.routineIntro} onChange={e => patch({ routineIntro: e.target.value })} />
-                  {spot.steps.map((st, i) => (
-                    <div className="step" key={i}>
-                      <div className="mins"><input type="number" min="0" max="5" value={st.minutes} onChange={e => patchStep(i, { minutes: Number(e.target.value) })} /><span>min</span></div>
-                      <div>
-                        <input className="editable name" value={st.name} onChange={e => patchStep(i, { name: e.target.value })} />
-                        <textarea className="editable" rows={2} value={st.prompt} onChange={e => patchStep(i, { prompt: e.target.value })} />
-                        <div className="resp-note">
-                          <span className="resp-cap">Likely student responses <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0 }}>(speaker notes)</span></span>
-                          <textarea className="editable" rows={2} value={st.responses || ""} placeholder="What students might actually say…" onChange={e => patchStep(i, { responses: e.target.value })} />
-                        </div>
-                      </div>
-                      <button type="button" className="iconbtn" aria-label={"Remove step: " + (st.name || (i + 1))} title="Remove step" onClick={() => delStep(i)}><Icon d={I.close} size={14} stroke /></button>
-                    </div>
-                  ))}
-                  <button type="button" className="addbtn" onClick={addStep}>+ Add step</button>
-                  <div className={"total" + (totalMins > 5 ? " over" : "")}>Total: {totalMins} min {totalMins > 5 ? "— over 5 minutes!" : "/ 5 min"}</div>
-
-                  <div className="cap" style={{ marginTop: 14 }}>Guiding questions <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0, color: "var(--muted)" }}>· speaker notes (not shown on the slide)</span></div>
-                  <ul className="ql">
-                    {spot.guidingQuestions.map((q, i) => (
-                      <li key={i}>
-                        <span className="num" style={{ background: hx(T.accent) }}>{i + 1}</span>
-                        <textarea className="editable" rows={1} aria-label={"Guiding question " + (i + 1)} value={q} onChange={e => patchQ(i, e.target.value)} />
-                        <button type="button" className="iconbtn" aria-label={"Remove guiding question " + (i + 1)} title="Remove" onClick={() => delQ(i)}><Icon d={I.close} size={14} stroke /></button>
-                      </li>
-                    ))}
-                  </ul>
-                  <button type="button" className="addbtn" onClick={addQ}>+ Add question</button>
+                  {!(mode === "media" && media.length >= 2) && routineBlockJsx}
                 </div></div>
 
                 {/* Slide 3 — Student key takeaway */}
