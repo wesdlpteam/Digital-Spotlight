@@ -185,6 +185,14 @@
   .slide-tag { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: var(--ink); margin-bottom: 2px; flex-wrap: wrap; }
   .slide-tag .n { flex: 0 0 auto; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 6px; background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; }
   .slide-tag .aside { color: var(--muted); font-weight: 400; }
+  .slide-head { display: flex; align-items: center; gap: 10px; margin-bottom: 2px; }
+  .slide-head .slide-tag { margin-bottom: 0; }
+  .regen { margin-left: auto; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--line); background: #fff; color: var(--accent); border-radius: 999px; padding: 4px 11px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; transition: .15s; white-space: nowrap; }
+  .regen:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-soft); }
+  .regen:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+  .regen:disabled { opacity: .5; cursor: not-allowed; }
+  .routine-pick { margin: 6px 0 8px; }
+  .routine-pick select { width: auto; min-width: 240px; max-width: 100%; }
   .slide h3 { margin: 4px 0 2px; font-size: 16px; }
   .editable {
     border: 1px solid transparent; border-radius: 8px; padding: 6px 8px; margin: -2px -8px 6px;
@@ -261,6 +269,8 @@
   .thumb-title { font-size: 15px; font-weight: 800; line-height: 1.12; margin-top: 3px; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
   .thumb-meta { font-size: 8px; position: absolute; bottom: 10px; left: 12px; right: 12px; }
   .spinner { width: 16px; height: 16px; border: 2.5px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; }
+  .spinner.sm { width: 13px; height: 13px; border-width: 2px; }
+  .spinner.dark { border-color: var(--accent-soft); border-top-color: var(--accent); }
 
   @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -796,37 +806,63 @@ async function discoverIssues({ apiKey, model, band, yearLevels, month, categori
 
 /* --------------------------- OpenAI call --------------------------- */
 
-async function generateSpotlight({ apiKey, model, mode, band, year, theme, title, imageDataUrl, sourceText, frames = [], sourceKind = "" }) {
+async function generateSpotlight({ apiKey, model, mode, band, year, theme, title, imageDataUrl, sourceText, frames = [], sourceKind = "", scope = "all", routineChoice = "", current = null }) {
   const yearStr = year ? ` Specifically pitch to ${year}.` : "";
   const titleInstruction = title
     ? `The teacher provided this title: "${title}". Use it (lightly polished if needed).`
     : `No title was provided — invent a short, inviting title (max ~8 words).`;
 
   const routineList = ROUTINES[band].map(r => `- ${r.name}: ${r.moves}`).join("\n");
-  const summaryRule = (mode === "image" || mode === "video")
-    ? `"summary": "" (empty string — the ${mode} is the stimulus, students view it directly, so no summary is needed),`
-    : `"summary": "string — EXACTLY 5 sentences. You have FULL creative licence: make it grab ${band} students instantly and bait discussion. Lead with the most surprising, relatable, or unsettling angle; use vivid concrete detail; speak to their world; end on a provocative note. Make the situation CONCRETE — clearly establish WHAT happened and the specifics students need to follow it; if the article is vague on an important detail, add brief, careful clarifying context so students aren't confused, but NEVER invent quotes, names, numbers, or events. Punchy, not bland, never a dry recap.",`;
+  const chosen = routineChoice ? ROUTINES[band].find(r => r.name === routineChoice) : null;
+
+  // Per-field schema fragments, assembled by scope so a single-slide regenerate
+  // asks the model for only that slide's fields.
+  const summaryField = (mode === "image" || mode === "video")
+    ? `"summary": ""`
+    : `"summary": "string — EXACTLY 5 sentences. You have FULL creative licence: make it grab ${band} students instantly and bait discussion. Lead with the most surprising, relatable, or unsettling angle; use vivid concrete detail; speak to their world; end on a provocative note. Make the situation CONCRETE — clearly establish WHAT happened and the specifics students need to follow it; if the article is vague on an important detail, add brief, careful clarifying context so students aren't confused, but NEVER invent quotes, names, numbers, or events. Punchy, not bland, never a dry recap."`;
+  const F = {
+    hook: `"hook": "string — a SHORT, catchy title for the slide: punchy and intriguing, MAX 6 words, NOT a full sentence or question and NOT a long statement. Think headline, not paragraph. Pitch it to the band. The real provocation belongs in the discussion steps, so keep this just a memorable, curiosity-sparking title."`,
+    title: `"title": "string — the spotlight title"`,
+    summary: summaryField,
+    framing: `"framing": "string — one short line telling students what to do, e.g. '${MODE_FRAMING[mode]}'"`,
+    routineRationale: `"routineRationale": "string — FIRST, before naming the routine: 1-2 sentences analysing THIS specific stimulus — its core tension and the kind of thinking it most rewards (close observation? predicting? taking an ethical stance? stepping into a stakeholder's shoes? testing a claim?) — and which routine from the list below best fits, and why. This is your private reasoning to choose well; it is not shown to students."`,
+    routineName: chosen
+      ? `"routineName": "string — MUST be exactly: ${chosen.name}"`
+      : `"routineName": "string — the EXACT name of the ONE thinking routine from the list below that your rationale concluded is the BEST fit for this stimulus"`,
+    routineIntro: `"routineIntro": "string — one warm sentence introducing the routine to the class"`,
+    steps: `"steps": [\n    { "name": "string — short step label", "minutes": 1, "prompt": "string — a punchy, provocative discussion prompt the teacher poses at this step", "responses": "string — 2 or 3 SHORT examples of what students at this band might actually say in response, so the teacher can anticipate the discussion (e.g. 'Some may say…; others might argue…')" }\n  ]`,
+    guidingQuestions: `"guidingQuestions": ["3 to 4 guiding questions pitched to the band"]`,
+    studentAction: `"studentAction": "string — one concrete action or takeaway a student leaves with"`,
+    learnerProfile: `"learnerProfile": ["1 to 3 IB Learner Profile attributes that fit, e.g. 'Thinker', 'Principled', 'Caring'"]`,
+  };
+  const SCOPES = {
+    all: ["hook", "title", "summary", "framing", "routineRationale", "routineName", "routineIntro", "steps", "guidingQuestions", "studentAction", "learnerProfile"],
+    title: ["hook", "title"],
+    provocation: chosen ? ["routineName", "routineIntro", "steps", "guidingQuestions"] : ["routineRationale", "routineName", "routineIntro", "steps", "guidingQuestions"],
+    takeaway: ["studentAction", "learnerProfile"],
+  };
+  const keys = SCOPES[scope] || SCOPES.all;
+  const includesRoutine = keys.indexOf("routineName") !== -1;
+
+  const routineBlock = includesRoutine
+    ? "\n" + (chosen
+        ? `Use EXACTLY this Harvard Project Zero thinking routine — do not pick another: "${chosen.name}" — ${chosen.moves} Build "routineIntro" and the steps around it as LOOSE INSPIRATION (capture its spirit, but DON'T mechanically echo its exact wording). Write genuinely engaging, provocative discussion prompts that maximise intrigue and debate for the band.`
+        : `Choose the SINGLE MOST EFFECTIVE routine from this Harvard Project Zero list for THIS specific stimulus — do the analysis in "routineRationale" first, then commit to it in "routineName". Different stimuli reward different thinking: an image or close-up rewards observation routines; a clear ethical dilemma rewards stance or stakeholder-viewpoint routines; a surprising claim or statistic rewards prediction or claim-testing routines; an open-ended scenario rewards wondering or connecting routines. Match the routine to where the real intrigue in this stimulus lives. Do NOT default to a familiar or generically-applicable routine (e.g. Compass Points) unless your rationale shows it is genuinely the best fit here. Once chosen, use the routine as LOOSE INSPIRATION only — capture its spirit, but DON'T mechanically echo its exact wording. Write genuinely engaging, provocative discussion prompts that maximise intrigue and debate for the band:\n${routineList}`)
+      + `\nRules: this is a FAST 5-minute TALKING activity. Every step must be students DISCUSSING out loud (in pairs, small groups, or whole class) — never silent independent writing or solo work. Keep it to 2–3 short steps, each 1–2 minutes, and the step "minutes" MUST total 5 or less with time to spare. Prioritise quick, punchy prompts that get students talking immediately.`
+    : "";
+
+  let diffNote = "";
+  if (current) {
+    const cur = {};
+    keys.forEach(k => { if (k !== "routineRationale" && current[k] !== undefined) cur[k] = current[k]; });
+    diffNote = `\n\nThis is a REGENERATE. Here is the CURRENT version of these fields — produce a genuinely DIFFERENT alternative (a fresh angle, different wording and emphasis), not a paraphrase of it:\n${JSON.stringify(cur)}`;
+  }
 
   const schema = `Return STRICT JSON only (no markdown, no preamble, no code fences) with EXACTLY this shape:
 {
-  "hook": "string — a SHORT, catchy title for the slide: punchy and intriguing, MAX 6 words, NOT a full sentence or question and NOT a long statement. Think headline, not paragraph. Pitch it to the band. The real provocation belongs in the discussion steps, so keep this just a memorable, curiosity-sparking title.",
-  "title": "string — the spotlight title",
-  ${summaryRule}
-  "framing": "string — one short line telling students what to do, e.g. '${MODE_FRAMING[mode]}'",
-  "routineRationale": "string — FIRST, before naming the routine: 1-2 sentences analysing THIS specific stimulus — its core tension and the kind of thinking it most rewards (close observation? predicting? taking an ethical stance? stepping into a stakeholder's shoes? testing a claim?) — and which routine from the list below best fits, and why. This is your private reasoning to choose well; it is not shown to students.",
-  "routineName": "string — the EXACT name of the ONE thinking routine from the list below that your rationale concluded is the BEST fit for this stimulus",
-  "routineIntro": "string — one warm sentence introducing the routine to the class",
-  "steps": [
-    { "name": "string — short step label", "minutes": 1, "prompt": "string — a punchy, provocative discussion prompt the teacher poses at this step", "responses": "string — 2 or 3 SHORT examples of what students at this band might actually say in response, so the teacher can anticipate the discussion (e.g. 'Some may say…; others might argue…')" }
-  ],
-  "guidingQuestions": ["3 to 4 guiding questions pitched to the band"],
-  "studentAction": "string — one concrete action or takeaway a student leaves with",
-  "learnerProfile": ["1 to 3 IB Learner Profile attributes that fit, e.g. 'Thinker', 'Principled', 'Caring'"]
+  ${keys.map(k => F[k]).join(",\n  ")}
 }
-Write every field in PLAIN TEXT — no markdown, no asterisks, no #, no backticks.
-Choose the SINGLE MOST EFFECTIVE routine from this Harvard Project Zero list for THIS specific stimulus — do the analysis in "routineRationale" first, then commit to it in "routineName". Different stimuli reward different thinking: an image or close-up rewards observation routines; a clear ethical dilemma rewards stance or stakeholder-viewpoint routines; a surprising claim or statistic rewards prediction or claim-testing routines; an open-ended scenario rewards wondering or connecting routines. Match the routine to where the real intrigue in this stimulus lives. Do NOT default to a familiar or generically-applicable routine (e.g. Compass Points) unless your rationale shows it is genuinely the best fit here. Once chosen, use the routine as LOOSE INSPIRATION only — capture its spirit, but DON'T mechanically echo its exact wording. Write genuinely engaging, provocative discussion prompts that maximise intrigue and debate for the band:
-${routineList}
-Rules: this is a FAST 5-minute TALKING activity. Every step must be students DISCUSSING out loud (in pairs, small groups, or whole class) — never silent independent writing or solo work. Keep it to 2–3 short steps, each 1–2 minutes, and the step "minutes" MUST total 5 or less with time to spare. Prioritise quick, punchy prompts that get students talking immediately.`;
+Write every field in PLAIN TEXT — no markdown, no asterisks, no #, no backticks.${routineBlock}${diffNote}`;
 
   const systemMsg = "You are an expert IB educator and digital-citizenship coach. You design short, 5-minute 'Digital Life Spotlight' discussion prompts about cyber safety and digital citizenship. Your tone is warm, curious and student-centred, aligned to the IB Learner Profile. You ALWAYS respond with strict JSON only.";
 
@@ -889,6 +925,27 @@ Rules: this is a FAST 5-minute TALKING activity. Every step must be students DIS
     e._raw = raw;
     throw e;
   }
+}
+
+/* Merge a scoped regenerate's parsed fields back into the spot, normalising like generate(). */
+function mergeScopedFields(spot, scope, p) {
+  const out = { ...spot };
+  const norm = v => stripMd(v || "");
+  if (scope === "title") {
+    if (p.hook) out.hook = norm(p.hook);
+    if (p.title) out.title = norm(p.title);
+  } else if (scope === "provocation") {
+    if (p.routineName) out.routineName = norm(p.routineName);
+    if (p.routineIntro) out.routineIntro = norm(p.routineIntro);
+    if (Array.isArray(p.steps) && p.steps.length)
+      out.steps = p.steps.map(s => ({ name: stripMd(s.name || "Step"), minutes: Number(s.minutes) || 1, prompt: stripMd(s.prompt || ""), responses: stripMd(s.responses || "") }));
+    if (Array.isArray(p.guidingQuestions) && p.guidingQuestions.length)
+      out.guidingQuestions = p.guidingQuestions.map(stripMd);
+  } else if (scope === "takeaway") {
+    if (p.studentAction) out.studentAction = norm(p.studentAction);
+    if (Array.isArray(p.learnerProfile)) out.learnerProfile = p.learnerProfile.map(stripMd);
+  }
+  return out;
 }
 
 // Ask the model for ONE short focus-theme phrase based on the current stimulus.
@@ -1008,6 +1065,8 @@ function App() {
   // generation
   const [loading, setLoading] = useState(false);
   const [genProgress, setGenProgress] = useState(0); // 0-100, eased estimate while generating
+  const [regenSlide, setRegenSlide] = useState(null);   // which slide is regenerating: "title" | "provocation" | "takeaway"
+  const [routineChoice, setRoutineChoice] = useState(""); // "" = let AI choose; else an exact routine name
   const [suggestingTheme, setSuggestingTheme] = useState(false);
   const [fetchingArticle, setFetchingArticle] = useState(false);
   const [error, setError] = useState("");
@@ -1124,7 +1183,7 @@ function App() {
 
   /* ------- generate ------- */
   async function generate() {
-    if (preparing) return; // a discovered stimulus is still loading
+    if (preparing || regenSlide) return; // a discovered stimulus is still loading, or a slide regen is in flight
     setError(""); setRawDump("");
     if (!apiKey.trim()) { setError("Please paste your OpenAI API key first."); return; }
     if (!inputReady()) { setError("Please add the stimulus (image, article text/PDF, or transcript)."); return; }
@@ -1171,6 +1230,30 @@ function App() {
       clearInterval(progTick);
       setLoading(false);
       setTimeout(() => setGenProgress(0), 500);
+    }
+  }
+
+  /* ------- regenerate a single slide (targeted, keeps the other slides) ------- */
+  async function regenerateSlide(scope, routineChoiceArg) {
+    if (!spot || regenSlide || loading || preparing) return;
+    if (!apiKey.trim()) { setError("Please paste your OpenAI API key first."); return; }
+    setError(""); setRawDump("");
+    setRegenSlide(scope);
+    try {
+      const sourceText = mode === "video" ? (transcript.trim() || videoDesc.trim()) : articleText;
+      const frames = mode === "video" ? videoFrames : [];
+      const sourceKind = mode === "video" ? (transcript.trim() ? "transcript" : videoDesc.trim() ? "teacher description" : "") : "";
+      const { parsed } = await generateSpotlight({
+        apiKey: apiKey.trim(), model, mode, band, year, theme,
+        title: title.trim(), imageDataUrl, sourceText, frames, sourceKind,
+        scope, routineChoice: routineChoiceArg !== undefined ? routineChoiceArg : routineChoice, current: spot,
+      });
+      setSpot(s => mergeScopedFields(s, scope, parsed));
+    } catch (err) {
+      setError(err.message || String(err));
+      if (err._raw) setRawDump(err._raw);
+    } finally {
+      setRegenSlide(null);
     }
   }
 
@@ -1267,6 +1350,16 @@ function App() {
   const bandLabel = BANDS[band].label;
   const T = THEME_DESIGNS[design];
   const barStyle = { background: hx(T.accent) };
+  const RegenButton = ({ scope }) => (
+    <button type="button" className="regen" title="Generate a different version of this slide"
+      disabled={!!regenSlide || loading || preparing}
+      aria-busy={regenSlide === scope} aria-label="Regenerate this slide for different options"
+      onClick={() => regenerateSlide(scope)}>
+      {regenSlide === scope
+        ? <React.Fragment><span className="spinner sm dark"></span> Regenerating…</React.Fragment>
+        : <React.Fragment><Icon d={I.refresh} size={13} stroke /> New options</React.Fragment>}
+    </button>
+  );
 
   /* ------- export ------- */
   async function download() {
@@ -1523,7 +1616,7 @@ function App() {
           <div className="group">
             <label className="cap" htmlFor="f-band">Band &amp; year</label>
             <div className="row2">
-              <select id="f-band" value={band} onChange={e => { setBand(e.target.value); setYear(""); }}>
+              <select id="f-band" value={band} onChange={e => { setBand(e.target.value); setYear(""); setRoutineChoice(""); }}>
                 {Object.keys(BANDS).map(b => <option key={b} value={b}>{BANDS[b].label}</option>)}
               </select>
               <select aria-label="Year level" value={year} onChange={e => setYear(e.target.value)}>
@@ -1547,7 +1640,7 @@ function App() {
             <div className="hint">Type any theme, tap a preset above, or <b>Suggest</b> one from your stimulus.</div>
           </div>
 
-          <button className="btn primary" ref={genBtnRef} disabled={loading || preparing} aria-busy={loading || preparing} onClick={generate}>
+          <button className="btn primary" ref={genBtnRef} disabled={loading || preparing || !!regenSlide} aria-busy={loading || preparing} onClick={generate}>
             {loading ? <React.Fragment><ProgressRing value={genProgress} /> Generating… {Math.round(genProgress)}%</React.Fragment>
               : preparing ? <React.Fragment><span className="spinner"></span> Preparing stimulus…</React.Fragment>
               : spot ? <React.Fragment><Icon d={I.refresh} size={16} stroke /> Regenerate</React.Fragment>
@@ -1559,6 +1652,7 @@ function App() {
           <div className="sr-only" role="status" aria-live="polite">
             {preparing ? "Preparing your stimulus, please wait."
               : loading ? "Generating your Spotlight, this may take a moment."
+              : regenSlide ? "Regenerating that section, please wait."
               : (spot && !error) ? "Your Spotlight is ready below."
               : ""}
           </div>
@@ -1600,7 +1694,7 @@ function App() {
               <div className="slides">
                 {/* Slide 1 — Hook */}
                 <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
-                  <div className="slide-tag"><span className="n">1</span> Title <span className="aside">· a short, catchy headline · band &amp; theme shown here</span></div>
+                  <div className="slide-head"><div className="slide-tag"><span className="n">1</span> Title <span className="aside">· a short, catchy headline · band &amp; theme shown here</span></div><RegenButton scope="title" /></div>
                   <textarea className="editable titlebig" rows={1} value={spot.hook} placeholder="A short, catchy title…" onChange={e => patch({ hook: e.target.value })} />
                   <div className="meta-chips">
                     <span className={"chip band-" + band.toLowerCase()}>{bandLabel}{year ? " · " + year : ""}</span>
@@ -1610,7 +1704,7 @@ function App() {
 
                 {/* Slide 2 — Provocation (stimulus + thinking routine on one slide) */}
                 <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
-                  <div className="slide-tag"><span className="n">2</span> Provocation <span className="aside">· stimulus + thinking routine</span></div>
+                  <div className="slide-head"><div className="slide-tag"><span className="n">2</span> Provocation <span className="aside">· stimulus + thinking routine</span></div><RegenButton scope="provocation" /></div>
                   <textarea className="editable" rows={1} value={spot.framing} onChange={e => patch({ framing: e.target.value })} />
                   {mode !== "image" && mode !== "video" && (
                     <React.Fragment>
@@ -1635,6 +1729,13 @@ function App() {
                   {mode === "article" && !link.trim() && !articleImageUrl && <div className="hint">Tip: add a link on the left for a clickable link + QR code, or fetch an article to pull in its lead image.</div>}
 
                   <div className="cap" style={{ marginTop: 14 }}>Thinking routine <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0, color: "var(--muted)" }}>· {ROUTINE_SOURCE}</span></div>
+                  <div className="routine-pick">
+                    <select aria-label="Choose the thinking routine" value={routineChoice} disabled={!!regenSlide || loading || preparing}
+                      onChange={e => { setRoutineChoice(e.target.value); regenerateSlide("provocation", e.target.value); }}>
+                      <option value="">✨ Let AI choose the routine</option>
+                      {ROUTINES[band].map(r => <option key={r.name} value={r.name}>{r.name}</option>)}
+                    </select>
+                  </div>
                   <textarea className="editable" rows={1} style={{ fontWeight: 700, fontSize: 16 }} value={spot.routineName} onChange={e => patch({ routineName: e.target.value })} />
                   <textarea className="editable" rows={1} style={{ fontStyle: "italic", color: "var(--muted)" }} value={spot.routineIntro} onChange={e => patch({ routineIntro: e.target.value })} />
                   {spot.steps.map((st, i) => (
@@ -1669,7 +1770,7 @@ function App() {
 
                 {/* Slide 3 — Student key takeaway */}
                 <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
-                  <div className="slide-tag"><span className="n">3</span> Student key takeaway</div>
+                  <div className="slide-head"><div className="slide-tag"><span className="n">3</span> Student key takeaway</div><RegenButton scope="takeaway" /></div>
                   <div className="action-box" style={{ background: hx(T.accent2) + "22", borderColor: hx(T.accent2) + "66" }}>
                     <div className="cap" style={{ color: "var(--accent-2-ink)" }}>One thing to take away</div>
                     <textarea className="editable" rows={2} value={spot.studentAction} onChange={e => patch({ studentAction: e.target.value })} />
