@@ -2,46 +2,73 @@
 name: Digital Space Spotlight Generator
 description: A calm, trustworthy single-page tool that turns a stimulus into a 5-minute Wesley-branded discussion deck.
 colors:
-  primary: "#4F2759"
-  primary-soft: "#EFE7FF"
-  secondary: "#C59F40"
+  # Wesley purple family — the dominant, interactive voice
+  primary: "#4F2759"          # Wesley Purple — all interaction
+  primary-deep: "#3D1D45"     # hover / pressed
+  primary-soft: "#E9DEEB"     # Wesley Light Purple — chips, focus glow, tints
+  grey-purple: "#CEC3CF"      # Wesley Grey Purple — inactive borders/dividers
+  wash: "#F4EEF8"             # faint purple surface wash (hover / notes)
+  # Wesley gold — rare emphasis
+  secondary: "#C59F40"        # Wesley Gold
+  secondary-ink: "#6A5018"    # readable gold for text on light (AA on gold-soft)
+  gold-soft: "#E4D1A1"        # Wesley Light Gold — emphasis wash
+  # Neutrals (Wesley Tertiary)
   ink: "#2B2536"
-  muted: "#6B6478"
+  muted: "#574F63"            # darkened from #6B6478 for AA at small sizes
   line: "#E7E1EF"
   surface-bg: "#F6F2FB"
   panel: "#FFFFFF"
-  success: "#2E9E6B"
-  warning: "#D9772E"
-  danger: "#D64545"
-  legacy-screen-violet: "#7C4DFF"
-  legacy-coral: "#FF7043"
+  beige: "#E6E2DD"            # Wesley Tertiary neutral wash
+  # Semantic states — Wesley Tertiary "Interface" traffic-light + Highlighter bg + AA-verified ink
+  success: "#58C337"          # Interface green
+  success-bg: "#CFE9D3"       # Highlighter green
+  success-ink: "#636656"      # 4.56:1 on success-bg
+  warning: "#F0A54F"          # Interface amber
+  warning-bg: "#FFDAB5"       # Highlighter orange
+  warning-ink: "#8A4B12"      # 5.15:1 (brand A35333 failed AA at 4.15)
+  danger: "#E83534"           # Interface red
+  danger-bg: "#FDAFBD"        # Highlighter red
+  danger-ink: "#8F1D2E"       # 5.05:1 (brand 983859 failed AA at 3.96)
+  info: "#7CA3FF"             # Secondary blue (light)
+  info-bg: "#CBDAFF"          # Highlighter blue
+  info-ink: "#4242A1"         # brand blue-dark, 5.94:1
+  # Band identity — Wesley Secondary spectrum, categorical (never an interactive cue)
+  band-pyp: "#7CA3FF"
+  band-pyp-bg: "#CBDAFF"
+  band-pyp-ink: "#4242A1"     # 5.94:1
+  band-myp: "#86C791"
+  band-myp-bg: "#CFE9D3"
+  band-myp-ink: "#636656"     # 4.56:1
+  band-senior: "#DFAB57"
+  band-senior-bg: "#FFEDBC"
+  band-senior-ink: "#7A5012"  # 6.06:1 (brand A2814A failed AA at 3.13)
 typography:
   display:
-    fontFamily: "Segoe UI, system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif"
+    fontFamily: "Graphik, Segoe UI, system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif"
     fontSize: "22px"
     fontWeight: 800
     lineHeight: 1.2
     letterSpacing: "normal"
   headline:
-    fontFamily: "Segoe UI, system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif"
+    fontFamily: "Graphik, Segoe UI, system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif"
     fontSize: "19px"
     fontWeight: 600
     lineHeight: 1.25
     letterSpacing: "normal"
   title:
-    fontFamily: "Segoe UI, system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif"
+    fontFamily: "Graphik, Segoe UI, system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif"
     fontSize: "16px"
     fontWeight: 700
     lineHeight: 1.3
     letterSpacing: "normal"
   body:
-    fontFamily: "Segoe UI, system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif"
+    fontFamily: "Graphik, Segoe UI, system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif"
     fontSize: "14px"
     fontWeight: 400
     lineHeight: 1.45
     letterSpacing: "normal"
   label:
-    fontFamily: "Segoe UI, system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif"
+    fontFamily: "Graphik, Segoe UI, system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif"
     fontSize: "11.5px"
     fontWeight: 700
     lineHeight: 1.2
@@ -132,15 +159,17 @@ A quiet, low-saturation palette: a soft-lilac room, white working surfaces, and 
 - **Success** (`#2E9E6B`), **Warning** (`#D9772E`), **Danger** (`#D64545`): Status only. Danger also drives the over-budget timing total and the delete-icon hover.
 
 ### Named Rules
-**The One Voice Rule.** Wesley Purple is the only interactive accent. Selection, focus, primary action, and links all speak in it. If a second hue appears to mean "interactive," one of them is wrong. Gold is emphasis, not interaction; coral is legacy.
+**The One Voice Rule.** Wesley Purple is the only **interactive** accent. Selection, focus, primary action, and links all speak in it. If a second hue appears to mean "interactive," one of them is wrong. Gold is emphasis, not interaction.
 
-**The Wesley Voice Rule.** The canonical brand is `#4F2759` purple + `#C59F40` gold — the export palette. The in-app bright violet (`#7C4DFF`) and coral (`#FF7043`) are legacy drift; new work uses the canonical pair and existing uses migrate toward it. The screen should look like the deck it produces.
+**The Variety Rule (categorical colour).** The Wesley Secondary spectrums and Tertiary highlighters/interface colours add variety only where colour carries *meaning*, never as decoration and never as an interaction cue: (a) **band identity** — PYP→blue, MYP→green, Senior→amber, shown as a soft pill (highlighter bg + AA-verified dark-spectrum ink) and a dot on the export thumbnail; (b) **semantic state** — the Tertiary "Interface" traffic-light set (green/amber/red) for success/warning/error, with highlighter backgrounds; (c) **focus-theme chips** — soft rotating highlighter tints at rest, snapping to purple when hovered or selected. The slide accent bar, all buttons, and the primary metadata chip stay purple so the screen still matches the deck it produces. Every text-on-tint pair is verified ≥4.5:1 (see frontmatter ratios).
+
+**The Wesley Voice Rule.** The canonical brand is `#4F2759` purple + `#C59F40` gold — the export palette. The former in-app bright violet (`#7C4DFF`) and coral (`#FF7043`) drift is fully retired; the live `--accent` now resolves to canonical purple. The screen should look like the deck it produces.
 
 ## 3. Typography
 
-**Display / Body / Label Font:** Segoe UI (with `system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif`)
+**Display / Body / Label Font:** **Graphik** — Wesley's primary brand typeface, self-hosted from `./fonts/` (`Graphik, Segoe UI, system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif`). Segoe UI is the graceful fallback if the font files are absent, so the UI never breaks.
 
-**Character:** One warm, familiar humanist sans across the entire interface — the same family Windows users read all day, so the tool feels native and unremarkable in the best way. The export theme uses Calibri / Calibri Light, Segoe UI's close cousin, so screen and slide read as one voice. No display face, no pairing: hierarchy comes entirely from weight and size.
+**Character:** One clean grotesque across the entire interface — Graphik is the brand's own face, so the screen now speaks in Wesley's actual voice rather than an approximation. Available weights are Regular (400), Medium (500) and Semibold (600); the app's heavier 700/800 headings map onto Semibold (via a `600 800` range) so everything stays in the Graphik family rather than mixing in the fallback. The **export** theme uses **Arial** — the brand's named typeface "for documents created in Microsoft Word and emails in Outlook" — because Graphik is not installed on teachers' machines and would substitute unpredictably in PowerPoint; Arial is universally present and brand-sanctioned for that MS-Office tier. No display face, no pairing: hierarchy comes entirely from weight and size.
 
 ### Hierarchy
 - **Display** (800, 22px, 1.2): The slide title (`.titlebig`) — the largest, most confident type, because the slide content is the hero.
@@ -150,7 +179,7 @@ A quiet, low-saturation palette: a soft-lilac room, white working surfaces, and 
 - **Label** (700, 11.5px, +0.04em, uppercase): Field caps (`.cap`) above form groups. A functional cue, not a decorative eyebrow.
 
 ### Named Rules
-**The Weight-Not-Face Rule.** Hierarchy is built from weight (400 → 600 → 700 → 800) and size, never from a second font. One family, many weights.
+**The Weight-Not-Face Rule.** Hierarchy is built from weight (400 → 500 → 600, with the 700/800 display steps rendering as Graphik Semibold) and size, never from a second font. One family, many weights. If heavier Graphik cuts (Bold/Black) are later licensed, drop them in `./fonts/` and add `@font-face` rules at weight 700/800 to restore the full range.
 
 **The No-Eyebrow Rule.** Uppercase tracked micro-labels are permitted only as functional form captions. The slide `.kicker` (11px, +0.08em, uppercase, accent) is a decorative eyebrow tell and is being retired — let the slide title and section heading carry the hierarchy instead.
 

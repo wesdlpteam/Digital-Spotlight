@@ -1,6 +1,12 @@
 # Earlier/local-only version — not published
 digital-space-spotlight.html
 
+# Graphik brand fonts — licensed desktop cuts, kept OUT of this public repo.
+# The @font-face rules reference fonts/*.woff2; if absent the UI falls back to
+# Segoe UI / system sans (export stays Arial). Drop the licensed webfont files in
+# locally, or serve them from a licensed host, before relying on Graphik publicly.
+fonts/
+
 # OS / editor cruft
 Thumbs.db
 .DS_Store
