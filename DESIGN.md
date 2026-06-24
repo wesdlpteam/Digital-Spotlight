@@ -44,31 +44,31 @@ colors:
   band-senior-ink: "#7A5012"  # 6.06:1 (brand A2814A failed AA at 3.13)
 typography:
   display:
-    fontFamily: "Graphik, Segoe UI, system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif"
+    fontFamily: "Avenir Black, Graphik, Arial, sans-serif"
     fontSize: "22px"
     fontWeight: 800
     lineHeight: 1.2
     letterSpacing: "normal"
   headline:
-    fontFamily: "Graphik, Segoe UI, system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif"
+    fontFamily: "Graphik, Arial, sans-serif"
     fontSize: "19px"
     fontWeight: 600
     lineHeight: 1.25
     letterSpacing: "normal"
   title:
-    fontFamily: "Graphik, Segoe UI, system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif"
+    fontFamily: "Graphik, Arial, sans-serif"
     fontSize: "16px"
     fontWeight: 700
     lineHeight: 1.3
     letterSpacing: "normal"
   body:
-    fontFamily: "Graphik, Segoe UI, system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif"
+    fontFamily: "Graphik, Arial, sans-serif"
     fontSize: "14px"
     fontWeight: 400
     lineHeight: 1.45
     letterSpacing: "normal"
   label:
-    fontFamily: "Graphik, Segoe UI, system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif"
+    fontFamily: "Graphik, Arial, sans-serif"
     fontSize: "11.5px"
     fontWeight: 700
     lineHeight: 1.2
@@ -167,9 +167,12 @@ A quiet, low-saturation palette: a soft-lilac room, white working surfaces, and 
 
 ## 3. Typography
 
-**Display / Body / Label Font:** **Graphik** — Wesley's primary brand typeface, self-hosted from `./fonts/` (`Graphik, Segoe UI, system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif`). Segoe UI is the graceful fallback if the font files are absent, so the UI never breaks.
+**Wesley three-tier type system** (per the brand guide and Marketing):
+- **Primary — Graphik** (`--font-body: "Graphik", Arial, sans-serif`): carries the whole UI — body, inputs, labels, most headings. Self-hosted from `./fonts/`; weights Regular (400), Medium (500), Semibold (600), with the 700/800 steps mapped onto Semibold.
+- **Secondary — Avenir Black** (`--font-display: "Avenir Black", "Graphik", Arial, sans-serif`): large **display headlines only** — the empty-state hero and the slide title (`.titlebig`). Self-hosted from `./fonts/Avenir-Black.woff2`; if absent it falls back to Graphik, so nothing breaks.
+- **Tertiary — Arial**: the universal fallback after the brand faces, and the **export (.pptx)** font — because neither Graphik nor Avenir is installed on teachers' machines and would substitute unpredictably in PowerPoint. Arial is the brand's named MS-Office tier and is installed everywhere.
 
-**Character:** One clean grotesque across the entire interface — Graphik is the brand's own face, so the screen now speaks in Wesley's actual voice rather than an approximation. Available weights are Regular (400), Medium (500) and Semibold (600); the app's heavier 700/800 headings map onto Semibold (via a `600 800` range) so everything stays in the Graphik family rather than mixing in the fallback. The **export** theme uses **Arial** — the brand's named typeface "for documents created in Microsoft Word and emails in Outlook" — because Graphik is not installed on teachers' machines and would substitute unpredictably in PowerPoint; Arial is universally present and brand-sanctioned for that MS-Office tier. No display face, no pairing: hierarchy comes entirely from weight and size.
+**Character:** A clean grotesque (Graphik) doing the working type, with the heavier geometric Avenir Black reserved for the few genuine display moments — a deliberate display+body pairing on a real contrast axis, not two near-identical sans. The screen speaks in Wesley's own faces rather than an approximation, and degrades gracefully to Arial wherever the licensed webfonts aren't served (e.g. the public deployment).
 
 ### Hierarchy
 - **Display** (800, 22px, 1.2): The slide title (`.titlebig`) — the largest, most confident type, because the slide content is the hero.
@@ -179,7 +182,7 @@ A quiet, low-saturation palette: a soft-lilac room, white working surfaces, and 
 - **Label** (700, 11.5px, +0.04em, uppercase): Field caps (`.cap`) above form groups. A functional cue, not a decorative eyebrow.
 
 ### Named Rules
-**The Weight-Not-Face Rule.** Hierarchy is built from weight (400 → 500 → 600, with the 700/800 display steps rendering as Graphik Semibold) and size, never from a second font. One family, many weights. If heavier Graphik cuts (Bold/Black) are later licensed, drop them in `./fonts/` and add `@font-face` rules at weight 700/800 to restore the full range.
+**The Weight-Not-Face Rule.** Within the UI, hierarchy is built from Graphik weight (400 → 500 → 600, with the 700/800 steps rendering as Semibold) and size — not from extra families. The **one** sanctioned second face is Avenir Black, and only for large display headlines (`--font-display`); it is a deliberate display+body pairing, never a per-section eyebrow or a third UI weight. If heavier Graphik cuts (Bold/Black) are later licensed, drop them in `./fonts/` and add `@font-face` rules at weight 700/800.
 
 **The No-Eyebrow Rule.** Uppercase tracked micro-labels are permitted only as functional form captions. The old slide `.kicker` (11px, +0.08em, uppercase, accent) eyebrow has been **retired** and replaced by `.slide-tag`: a small solid-purple number badge (reusing the discussion-scaffold number-tile motif) + a sentence-case slide name + a muted aside. Numbers are legitimate here because the five preview slides are a genuine ordered sequence (the deck order 1→5), not reflexive scaffolding. No uppercase, no wide tracking, no accent-coloured all-caps.
 

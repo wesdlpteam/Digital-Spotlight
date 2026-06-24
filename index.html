@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Digital Space Spotlight Generator</title>
+<title>Digital Life Spotlight Generator</title>
 
 <!-- React + Babel (in-browser JSX, no build step) -->
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -28,6 +28,11 @@
   @font-face { font-family: "Graphik"; font-weight: 500;     font-style: italic; font-display: swap; src: url("fonts/Graphik-MediumItalic.woff2") format("woff2"); }
   @font-face { font-family: "Graphik"; font-weight: 600 800; font-style: normal; font-display: swap; src: url("fonts/Graphik-Semibold.woff2") format("woff2"); }
   @font-face { font-family: "Graphik"; font-weight: 600 800; font-style: italic; font-display: swap; src: url("fonts/Graphik-SemiboldItalic.woff2") format("woff2"); }
+
+  /* Secondary brand typeface — Avenir Black, for large DISPLAY headlines only (Wesley hierarchy:
+     Graphik primary, Avenir Black secondary, Arial tertiary). Self-hosted from ./fonts/; drop in
+     Avenir-Black.woff2. If absent, display headings fall back to Graphik, then Arial. */
+  @font-face { font-family: "Avenir Black"; font-weight: 400 900; font-style: normal; font-display: swap; src: url("fonts/Avenir-Black.woff2") format("woff2"); }
 
   :root {
     /* Neutrals */
@@ -61,13 +66,18 @@
     --band-myp: #86c791; --band-myp-bg: #cfe9d3; --band-myp-ink: #636656;
     --band-senior: #dfab57; --band-senior-bg: #ffedbc; --band-senior-ink: #7a5012;
 
+    /* Typography — Wesley three-tier: Graphik primary, Avenir Black secondary (display
+       headlines only), Arial tertiary fallback. */
+    --font-body: "Graphik", Arial, sans-serif;
+    --font-display: "Avenir Black", "Graphik", Arial, sans-serif;
+
     --radius: 14px;
     --shadow: 0 6px 24px rgba(60,40,90,.10);
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    font-family: "Graphik", "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+    font-family: var(--font-body);
     color: var(--ink);
     background: linear-gradient(160deg, #f6f2fb 0%, #fbf7fd 100%);
     min-height: 100vh;
@@ -183,7 +193,7 @@
   .editable:hover { background: var(--wash); }
   .editable:focus { background: #fff; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); outline: none; }
   textarea.editable { resize: vertical; line-height: 1.5; }
-  .titlebig { font-size: 22px; font-weight: 800; }
+  .titlebig { font-size: 22px; font-weight: 800; font-family: var(--font-display); }
   .meta-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
   .chip { background: var(--accent-soft); color: var(--accent); padding: 4px 11px; border-radius: 999px; font-size: 12.5px; font-weight: 600; }
   .chip.gold { background: var(--gold-soft); color: var(--accent-2-ink); }
@@ -818,10 +828,10 @@ Choose the SINGLE MOST EFFECTIVE routine from this Harvard Project Zero list for
 ${routineList}
 Rules: this is a FAST 5-minute TALKING activity. Every step must be students DISCUSSING out loud (in pairs, small groups, or whole class) — never silent independent writing or solo work. Keep it to 2–3 short steps, each 1–2 minutes, and the step "minutes" MUST total 5 or less with time to spare. Prioritise quick, punchy prompts that get students talking immediately.`;
 
-  const systemMsg = "You are an expert IB educator and digital-citizenship coach. You design short, 5-minute 'Digital Space Spotlight' discussion prompts about cyber safety and digital citizenship. Your tone is warm, curious and student-centred, aligned to the IB Learner Profile. You ALWAYS respond with strict JSON only.";
+  const systemMsg = "You are an expert IB educator and digital-citizenship coach. You design short, 5-minute 'Digital Life Spotlight' discussion prompts about cyber safety and digital citizenship. Your tone is warm, curious and student-centred, aligned to the IB Learner Profile. You ALWAYS respond with strict JSON only.";
 
   const textParts = [
-    `Create a 5-minute "Digital Space Spotlight" discussion prompt.`,
+    `Create a 5-minute "Digital Life Spotlight" discussion prompt.`,
     BAND_GUIDANCE[band] + yearStr,
     `Focus theme: ${theme}.`,
     titleInstruction,
@@ -1141,7 +1151,7 @@ function App() {
 
       setSpot({
         hook: stripMd(parsed.hook || ""),
-        title: stripMd(parsed.title || title || "Digital Space Spotlight"),
+        title: stripMd(parsed.title || title || "Digital Life Spotlight"),
         summary: stripMd(parsed.summary || ""),
         framing: stripMd(parsed.framing || MODE_FRAMING[mode]),
         routineName: stripMd(parsed.routineName || ROUTINES[band][0].name),
@@ -1274,23 +1284,24 @@ function App() {
       pptx.layout = "WIDE";
 
       let n = 0;
-      const total = spot.steps.length + 4; // Hook + Stimulus + (N step reveals) + Teacher notes + Takeaway
+      const total = 3; // Intro + Hook · Provocation + thinking routine · Key takeaway
       const newSlide = (kind) => {
         n++;
         const s = pptx.addSlide();
         s.background = { color: kind === "title" ? T.titleBg : T.contentBg };
-        s.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: W, h: 0.18, fill: { color: accent } });
+        // Wesley footer band: a full-width accent bar along the BOTTOM of every slide.
+        s.addShape(pptx.ShapeType.rect, { x: 0, y: H - 0.18, w: W, h: 0.18, fill: { color: accent } });
         if (kind === "title") {
           // Gold crest is 870x499 (aspect 1.743) — size to that ratio so it isn't squished.
           const lw = 2.1, lh = lw / 1.743;
           s.addImage({ data: WESLEY_LOGO_GOLD, x: W - 0.6 - lw, y: 0.45, w: lw, h: lh });
         } else {
-          // Horizontal lockup is 554x111 (aspect 4.991).
+          // Horizontal lockup is 554x111 (aspect 4.991) — sits just above the footer band.
           const lw = 2.3, lh = lw / 4.991;
-          s.addImage({ data: WESLEY_LOGO_HORIZ, x: W - 0.6 - lw, y: H - 0.46 - lh, w: lw, h: lh });
+          s.addImage({ data: WESLEY_LOGO_HORIZ, x: W - 0.6 - lw, y: H - 0.62 - lh, w: lw, h: lh });
         }
         const footColor = kind === "title" ? "C9B7D6" : muted;
-        s.addText(`Digital Space Spotlight · 5-minute discussion · ${n}/${total}`, { x: 0.6, y: H - 0.42, w: W - 3.4, h: 0.3, fontSize: 9, color: footColor, fontFace: bFont });
+        s.addText(`Digital Life Spotlight · 5-minute discussion · ${n}/${total}`, { x: 0.6, y: H - 0.6, w: W - 3.4, h: 0.3, fontSize: 9, color: footColor, fontFace: bFont });
         return s;
       };
       const kicker = (s, txt, col) => s.addText(String(txt).toUpperCase(), { x: 0.8, y: 0.55, w: W - 1.6, h: 0.4, fontSize: 13, bold: true, color: col || accent, charSpacing: 2, fontFace: bFont });
@@ -1307,92 +1318,73 @@ function App() {
       s1.addText(tCase(spot.hook || spot.title), { x: 0.9, y: 1.6, w: W - 2.6, h: 3.8, fontSize: 44, bold: true, color: "FFFFFF", valign: "middle", fontFace: tFont });
       s1.addText(`${bandLabel}${year ? " · " + year : ""}   ·   ${theme}   ·   5-minute discussion`, { x: 0.9, y: 5.7, w: W - 1.8, h: 0.4, fontSize: 14, color: "E7DCEF", fontFace: bFont });
 
-      /* Slide 2 — STIMULUS */
+      /* Slide 2 — PROVOCATION + THINKING ROUTINE
+         Stimulus fills the left column top-to-bottom; the thinking routine (all steps shown
+         at once — no per-click reveals) sits on the right. Teacher guiding questions and
+         likely student responses move into the speaker notes. */
       const s3 = newSlide("content");
-      kicker(s3, "Stimulus");
-      s3.addText(spot.framing, { x: 0.8, y: 1.0, w: W - 1.6, h: 0.6, fontSize: 22, bold: true, color: ink, fontFace: tFont });
+      kicker(s3, "Provocation");
+      s3.addText(spot.framing, { x: 0.8, y: 1.0, w: W - 1.6, h: 0.7, fontSize: 22, bold: true, color: ink, fontFace: tFont });
       const hasSummary = !!(spot.summary && spot.summary.trim());
+
+      // Shared layout band below the framing: stimulus left, routine right.
+      const colY = 1.95, colH = 4.45;
+      const lx = 0.8, lw2 = 6.6;             // left column — stimulus
+      const rx2 = 7.7, rw2 = W - 0.8 - rx2;  // right column — thinking routine (~4.83")
+
+      /* ----- LEFT: stimulus, sized to fill the left column top-to-bottom ----- */
+      const hasLink = mode !== "image" && !!link.trim();
+      const mediaH = hasLink ? colH - 0.5 : colH; // reserve a line for the link when present
       if (mode === "image" && stimImg) {
-        s3.addImage({ data: stimImg, x: 1.2, y: 1.9, w: 10.9, h: 4.7, sizing: { type: "contain", w: 10.9, h: 4.7 } });
-      } else if (mode === "video" && (videoPoster || embedVideo)) {
-        // Embed the clip itself LARGE with the first frame as its poster/cover (PptxGenJS
-        // `cover`), so the slide shows a recognisable still that plays in place on click —
-        // one clickable image, not a big poster plus a tiny generic player. When the clip is
-        // too large to embed, fall back to the first frame + link/QR so teachers can open it.
+        s3.addImage({ data: stimImg, x: lx, y: colY, w: lw2, h: mediaH, sizing: { type: "contain", w: lw2, h: mediaH } });
+      } else if (mode === "video" && (embedVideo || videoPoster)) {
+        // Embed the clip with the first frame as its poster/cover so it plays in place on
+        // click; fall back to the first frame when the clip is too large to embed.
         const ar = (videoAspect && isFinite(videoAspect) && videoAspect > 0) ? videoAspect : (16 / 9);
-        let y = 1.75;
-        if (embedVideo) {
-          s3.addText("▶ Click to play the clip in PowerPoint", { x: 0, y, w: W, h: 0.3, align: "center", fontSize: 11, italic: true, color: muted, fontFace: bFont });
-          y += 0.34;
-          const vBoxW = 9.0, vBoxH = 3.8;
-          const vw = +Math.min(vBoxW, vBoxH * ar).toFixed(2);
-          const vh = +(vw / ar).toFixed(2);
-          s3.addMedia({ type: "video", data: videoDataUrl, cover: videoPoster || undefined, x: +((W - vw) / 2).toFixed(2), y, w: vw, h: vh });
-          y += vh + 0.2;
-          if (link.trim()) {
-            const url = link.trim();
-            s3.addText([{ text: `${MODE_VERB[mode]}: `, options: { color: ink, bold: true } }, { text: url, options: { color: accent, underline: true, hyperlink: { url } } }],
-              { x: 0.8, y, w: W - 1.6, h: 0.35, align: "center", fontSize: 11, valign: "middle", fontFace: bFont });
-          }
-        } else {
-          if (videoPoster) {
-            const pBoxW = 9.0, pBoxH = 3.8;
-            const pw = +Math.min(pBoxW, pBoxH * ar).toFixed(2);
-            const ph = +(pw / ar).toFixed(2);
-            s3.addImage({ data: videoPoster, x: +((W - pw) / 2).toFixed(2), y, w: pw, h: ph, sizing: { type: "contain", w: pw, h: ph } });
-            y += ph + 0.2;
-          }
-          if (link.trim()) {
-            const url = link.trim();
-            const qr = makeQrDataUrl(url);
-            if (qr) s3.addImage({ data: qr, x: 0.8, y, w: 1.1, h: 1.1 });
-            s3.addText([{ text: `${MODE_VERB[mode]}: `, options: { color: ink, bold: true } }, { text: url, options: { color: accent, underline: true, hyperlink: { url } } }],
-              { x: qr ? 2.1 : 0.8, y, w: W - (qr ? 2.9 : 1.6), h: 1.1, fontSize: 11, valign: "middle", fontFace: bFont });
-          }
-        }
-      } else {
-        const rightMedia = !!(stimImg || link.trim());
-        const sumW = rightMedia ? 6.9 : W - 1.6;
-        if (hasSummary) s3.addText(spot.summary, { x: 0.8, y: 1.9, w: sumW, h: 4.6, fontSize: 15, color: ink, valign: "top", fontFace: bFont, lineSpacingMultiple: 1.15 });
-        else if (!rightMedia) s3.addText("(Share the stimulus with students directly.)", { x: 0.8, y: 2.0, w: W - 1.6, h: 0.6, fontSize: 15, italic: true, color: muted, fontFace: bFont });
-        const rx = 8.0, rw = 4.5;
-        let ry = 1.9;
-        if (stimImg) { s3.addImage({ data: stimImg, x: rx, y: ry, w: rw, h: 3.2, sizing: { type: "contain", w: rw, h: 3.2 } }); ry += 3.4; }
-        if (link.trim()) {
-          const url = link.trim();
-          const qr = makeQrDataUrl(url);
-          if (qr) s3.addImage({ data: qr, x: rx, y: ry, w: 1.5, h: 1.5 });
-          s3.addText([{ text: `${MODE_VERB[mode]}: `, options: { color: ink, bold: true } }, { text: url, options: { color: accent, underline: true, hyperlink: { url } } }],
-            { x: rx + (qr ? 1.7 : 0), y: ry, w: rw - (qr ? 1.7 : 0), h: 1.5, fontSize: 11, valign: "middle", fontFace: bFont });
-        }
+        let vw = lw2, vh = vw / ar;
+        if (vh > mediaH) { vh = mediaH; vw = vh * ar; }
+        vw = +vw.toFixed(2); vh = +vh.toFixed(2);
+        const vX = +(lx + (lw2 - vw) / 2).toFixed(2), vY = +(colY + (mediaH - vh) / 2).toFixed(2);
+        if (embedVideo) s3.addMedia({ type: "video", data: videoDataUrl, cover: videoPoster || undefined, x: vX, y: vY, w: vw, h: vh });
+        else s3.addImage({ data: videoPoster, x: vX, y: vY, w: vw, h: vh, sizing: { type: "contain", w: vw, h: vh } });
+      } else if (mode === "article") {
+        let ay = colY, aAvail = mediaH;
+        if (stimImg) { const ih = +(aAvail * 0.5).toFixed(2); s3.addImage({ data: stimImg, x: lx, y: ay, w: lw2, h: ih, sizing: { type: "contain", w: lw2, h: ih } }); ay += ih + 0.15; aAvail -= ih + 0.15; }
+        if (hasSummary) s3.addText(spot.summary, { x: lx, y: ay, w: lw2, h: aAvail, fontSize: 13, color: ink, valign: "top", fontFace: bFont, lineSpacingMultiple: 1.1 });
+        else if (!stimImg) s3.addText("(Share the stimulus with students directly.)", { x: lx, y: ay, w: lw2, h: 0.6, fontSize: 14, italic: true, color: muted, fontFace: bFont });
+      } else if (hasSummary) {
+        s3.addText(spot.summary, { x: lx, y: colY, w: lw2, h: mediaH, fontSize: 13, color: ink, valign: "top", fontFace: bFont, lineSpacingMultiple: 1.1 });
+      }
+      if (hasLink) {
+        const url = link.trim();
+        const qr = makeQrDataUrl(url);
+        const lineY = colY + colH - 0.5;
+        if (qr) s3.addImage({ data: qr, x: lx, y: lineY, w: 0.5, h: 0.5 });
+        s3.addText([{ text: `${MODE_VERB[mode]}: `, options: { color: ink, bold: true } }, { text: url, options: { color: accent, underline: true, hyperlink: { url } } }],
+          { x: lx + (qr ? 0.6 : 0), y: lineY, w: lw2 - (qr ? 0.6 : 0), h: 0.5, fontSize: 9, valign: "middle", fontFace: bFont });
       }
 
-      /* DISCUSSION SCAFFOLD — one slide per step, cumulative, so steps reveal on click */
-      spot.steps.forEach((curr, k) => {
-        const ss = newSlide("content");
-        kicker(ss, "Discussion scaffold" + (spot.steps.length > 1 ? ` · step ${k + 1} of ${spot.steps.length}` : ""));
-        ss.addText(tCase(spot.routineName), { x: 0.8, y: 1.0, w: W - 1.6, h: 0.6, fontSize: 26, bold: true, color: ink, fontFace: tFont });
-        if (spot.routineIntro) ss.addText(spot.routineIntro, { x: 0.8, y: 1.65, w: W - 1.6, h: 0.5, fontSize: 15, italic: true, color: muted, fontFace: bFont });
-        let yy = 2.45;
-        for (let i = 0; i <= k; i++) {
-          const st = spot.steps[i];
-          ss.addText([
-            { text: `${st.minutes} min    `, options: { bold: true, color: accent2 } },
-            { text: st.name, options: { bold: true, color: ink } },
-            { text: st.prompt ? `\n${st.prompt}` : "", options: { color: ink } },
-          ], { x: 0.9, y: yy, w: W - 1.8, h: 1.0, fontSize: 15, valign: "top", fontFace: bFont });
-          yy += 1.0;
-        }
-        ss.addText(ROUTINE_SOURCE, { x: 0.8, y: H - 0.75, w: W - 1.6, h: 0.3, fontSize: 9, italic: true, color: muted, fontFace: bFont });
-        // Speaker notes: likely student responses for the step just revealed.
-        ss.addNotes(`Step ${k + 1}: ${curr.name}\nPrompt: ${curr.prompt}\nLikely student responses: ${curr.responses || "(none generated — add your own)"}`);
+      /* ----- RIGHT: thinking routine — every step shown at once (no click reveals) ----- */
+      let ry = colY;
+      s3.addText(tCase(spot.routineName), { x: rx2, y: ry, w: rw2, h: 0.5, fontSize: 18, bold: true, color: ink, fontFace: tFont }); ry += 0.55;
+      if (spot.routineIntro) { s3.addText(spot.routineIntro, { x: rx2, y: ry, w: rw2, h: 0.5, fontSize: 12, italic: true, color: muted, fontFace: bFont }); ry += 0.5; }
+      spot.steps.forEach((st) => {
+        s3.addText([
+          { text: `${st.minutes} min   `, options: { bold: true, color: accent2 } },
+          { text: st.name, options: { bold: true, color: ink } },
+          { text: st.prompt ? `\n${st.prompt}` : "", options: { color: ink } },
+        ], { x: rx2, y: ry, w: rw2, h: 1.0, fontSize: 12.5, valign: "top", fontFace: bFont });
+        ry += 1.05;
       });
+      s3.addText(ROUTINE_SOURCE, { x: rx2, y: Math.min(ry, colY + colH - 0.05), w: 2.6, h: 0.25, fontSize: 8, italic: true, color: muted, fontFace: bFont });
 
-      /* TEACHER NOTES (guiding questions) */
-      const s5 = newSlide("content");
-      kicker(s5, "Teacher notes · guiding questions");
-      const qBullets = spot.guidingQuestions.filter(q => q.trim()).map(q => ({ text: q, options: { bullet: { code: "2022" }, color: ink, paraSpaceAfter: 12 } }));
-      s5.addText(qBullets.length ? qBullets : [{ text: "—", options: { color: muted } }], { x: 0.9, y: 1.5, w: W - 1.8, h: 4.8, fontSize: 18, valign: "top", fontFace: bFont });
+      // Speaker notes: guiding questions + likely student responses (off-slide in the 3-slide layout).
+      const gq = spot.guidingQuestions.filter(q => q.trim());
+      const respLines = spot.steps.map((st, i) => `Step ${i + 1} — ${st.name}: ${st.responses || "(none generated — add your own)"}`);
+      s3.addNotes(
+        (gq.length ? "Guiding questions:\n" + gq.map(q => "• " + q).join("\n") : "") +
+        (respLines.length ? (gq.length ? "\n\n" : "") + "Likely student responses:\n" + respLines.join("\n") : "")
+      );
 
       /* STUDENT KEY TAKEAWAY */
       const s6 = newSlide("title");
@@ -1403,7 +1395,7 @@ function App() {
         s6.addText("IB Learner Profile: " + spot.learnerProfile.filter(Boolean).join(", "), { x: 1.1, y: 5.4, w: W - 2.2, h: 0.4, fontSize: 14, italic: true, color: "E7DCEF", align: "center", fontFace: bFont });
 
       const safe = (spot.title || "spotlight").replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "-").slice(0, 50) || "spotlight";
-      await pptx.writeFile({ fileName: `Digital-Space-Spotlight_${safe}.pptx` });
+      await pptx.writeFile({ fileName: `Digital-Life-Spotlight_${safe}.pptx` });
     } catch (err) {
       setError("PowerPoint export failed: " + (err.message || String(err)));
     }
@@ -1415,7 +1407,7 @@ function App() {
       <header className="app">
         <div className="logo"><Icon d={I.shield} size={22} /></div>
         <div>
-          <h1>Digital Space Spotlight</h1>
+          <h1>Digital Life Spotlight</h1>
           <p>5-minute cyber-safety &amp; digital-citizenship discussion prompts → PowerPoint</p>
         </div>
         <span className="appver" title="App version — check this matches after a refresh">{APP_VERSION}</span>
@@ -1579,7 +1571,7 @@ function App() {
           {!spot && !loading && (
             <div className="panel"><div className="empty">
               <div className="big" aria-hidden="true"><Icon d={I.generate} size={46} /></div>
-              <h2 style={{ margin: "0 0 6px" }}>Your Spotlight preview appears here</h2>
+              <h2 style={{ margin: "0 0 6px", fontFamily: "var(--font-display)" }}>Your Spotlight preview appears here</h2>
               <p>Add a stimulus on the left and hit <b>Generate</b>. Every field below will be editable before you download.</p>
             </div></div>
           )}
@@ -1597,7 +1589,7 @@ function App() {
                   <div className="thumb-bar" style={barStyle}></div>
                   <div className="thumb-kick" style={{ color: hx(T.accent2) }}>HOOK</div>
                   <div className="thumb-title" style={{ fontFamily: T.titleFont, textTransform: T.upper ? "uppercase" : "none" }}>{spot.hook || spot.title}</div>
-                  <div className="thumb-meta" style={{ color: "#E7DCEF" }}><span className={"band-dot band-" + band.toLowerCase()}></span>{bandLabel} · {theme}</div>
+                  <div className="thumb-meta" style={{ color: "var(--accent-soft)" }}><span className={"band-dot band-" + band.toLowerCase()}></span>{bandLabel} · {theme}</div>
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 700 }}>Exports in the Wesley College theme</div>
@@ -1616,9 +1608,9 @@ function App() {
                   </div>
                 </div></div>
 
-                {/* Slide 2 — Stimulus */}
+                {/* Slide 2 — Provocation (stimulus + thinking routine on one slide) */}
                 <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
-                  <div className="slide-tag"><span className="n">2</span> Stimulus</div>
+                  <div className="slide-tag"><span className="n">2</span> Provocation <span className="aside">· stimulus + thinking routine</span></div>
                   <textarea className="editable" rows={1} value={spot.framing} onChange={e => patch({ framing: e.target.value })} />
                   {mode !== "image" && mode !== "video" && (
                     <React.Fragment>
@@ -1641,11 +1633,8 @@ function App() {
                   )}
                   {mode !== "image" && link.trim() && <StimLink url={link.trim()} verb={MODE_VERB[mode]} />}
                   {mode === "article" && !link.trim() && !articleImageUrl && <div className="hint">Tip: add a link on the left for a clickable link + QR code, or fetch an article to pull in its lead image.</div>}
-                </div></div>
 
-                {/* Slide 3 — Scaffold */}
-                <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
-                  <div className="slide-tag"><span className="n">3</span> Discussion scaffold <span className="aside">· steps reveal one-per-click · {ROUTINE_SOURCE}</span></div>
+                  <div className="cap" style={{ marginTop: 14 }}>Thinking routine <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0, color: "var(--muted)" }}>· {ROUTINE_SOURCE}</span></div>
                   <textarea className="editable" rows={1} style={{ fontWeight: 700, fontSize: 16 }} value={spot.routineName} onChange={e => patch({ routineName: e.target.value })} />
                   <textarea className="editable" rows={1} style={{ fontStyle: "italic", color: "var(--muted)" }} value={spot.routineIntro} onChange={e => patch({ routineIntro: e.target.value })} />
                   {spot.steps.map((st, i) => (
@@ -1664,12 +1653,8 @@ function App() {
                   ))}
                   <button type="button" className="addbtn" onClick={addStep}>+ Add step</button>
                   <div className={"total" + (totalMins > 5 ? " over" : "")}>Total: {totalMins} min {totalMins > 5 ? "— over 5 minutes!" : "/ 5 min"}</div>
-                </div></div>
 
-                {/* Slide 4 — Teacher notes (guiding questions) */}
-                <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
-                  <div className="slide-tag"><span className="n">4</span> Teacher notes</div>
-                  <h3>Guiding questions</h3>
+                  <div className="cap" style={{ marginTop: 14 }}>Guiding questions <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0, color: "var(--muted)" }}>· speaker notes (not shown on the slide)</span></div>
                   <ul className="ql">
                     {spot.guidingQuestions.map((q, i) => (
                       <li key={i}>
@@ -1682,11 +1667,11 @@ function App() {
                   <button type="button" className="addbtn" onClick={addQ}>+ Add question</button>
                 </div></div>
 
-                {/* Slide 5 — Student key takeaway */}
+                {/* Slide 3 — Student key takeaway */}
                 <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
-                  <div className="slide-tag"><span className="n">5</span> Student key takeaway</div>
+                  <div className="slide-tag"><span className="n">3</span> Student key takeaway</div>
                   <div className="action-box" style={{ background: hx(T.accent2) + "22", borderColor: hx(T.accent2) + "66" }}>
-                    <div className="cap" style={{ color: "#7a5f1e" }}>One thing to take away</div>
+                    <div className="cap" style={{ color: "var(--accent-2-ink)" }}>One thing to take away</div>
                     <textarea className="editable" rows={2} value={spot.studentAction} onChange={e => patch({ studentAction: e.target.value })} />
                   </div>
                   <div className="lp-chips">
@@ -1721,10 +1706,10 @@ class ErrorBoundary extends React.Component {
   render() {
     if (this.state.err) {
       return (
-        <div style={{ maxWidth: 720, margin: "60px auto", padding: 24, fontFamily: "Segoe UI, sans-serif" }}>
-          <h2 style={{ color: "#d64545" }}>Something crashed in the app</h2>
+        <div style={{ maxWidth: 720, margin: "60px auto", padding: 24, fontFamily: "var(--font-body)" }}>
+          <h2 style={{ color: "var(--bad-ink)" }}>Something crashed in the app</h2>
           <p>Try a hard refresh (Ctrl+F5). If it keeps happening, send this message:</p>
-          <pre style={{ whiteSpace: "pre-wrap", background: "#fdecec", border: "1px solid #f3c9c9", borderRadius: 10, padding: 12 }}>
+          <pre style={{ whiteSpace: "pre-wrap", background: "var(--bad-bg)", color: "var(--bad-ink)", border: "1px solid var(--bad)", borderRadius: 10, padding: 12 }}>
             {String(this.state.err && (this.state.err.stack || this.state.err.message || this.state.err))}
           </pre>
         </div>
