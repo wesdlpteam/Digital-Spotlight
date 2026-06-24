@@ -250,6 +250,12 @@
 
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  /* Visually hidden but available to screen readers (for aria-live status). */
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
       animation-duration: .001ms !important;
@@ -1543,12 +1549,21 @@ function App() {
             <div className="hint">Type any theme, tap a preset above, or <b>Suggest</b> one from your stimulus.</div>
           </div>
 
-          <button className="btn primary" ref={genBtnRef} disabled={loading || preparing} onClick={generate}>
+          <button className="btn primary" ref={genBtnRef} disabled={loading || preparing} aria-busy={loading || preparing} onClick={generate}>
             {loading ? <React.Fragment><ProgressRing value={genProgress} /> Generating… {Math.round(genProgress)}%</React.Fragment>
               : preparing ? <React.Fragment><span className="spinner"></span> Preparing stimulus…</React.Fragment>
               : spot ? <React.Fragment><Icon d={I.refresh} size={16} stroke /> Regenerate</React.Fragment>
               : <React.Fragment><Icon d={I.generate} size={16} /> Generate Spotlight</React.Fragment>}
           </button>
+
+          {/* Screen-reader-only live status: announces the generation lifecycle (the
+              visible cue is the button text/spinner; errors are announced via role=alert). */}
+          <div className="sr-only" role="status" aria-live="polite">
+            {preparing ? "Preparing your stimulus, please wait."
+              : loading ? "Generating your Spotlight, this may take a moment."
+              : (spot && !error) ? "Your Spotlight is ready below."
+              : ""}
+          </div>
 
           {error && <div className="alert bad" role="alert"><b>Something went wrong.</b><pre>{error}</pre>{rawDump && <React.Fragment><b>Raw model output:</b><pre>{rawDump}</pre></React.Fragment>}</div>}
         </div>
