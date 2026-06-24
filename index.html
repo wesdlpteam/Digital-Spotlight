@@ -1445,7 +1445,8 @@ function App() {
       pptx.layout = "WIDE";
 
       let n = 0;
-      const total = 3; // Intro + Hook · Provocation + thinking routine · Key takeaway
+      // Title + one provocation slide per reel item (article = 1) + Key takeaway.
+      const total = 2 + ((mode === "media" && media.length) ? media.length : 1);
       const newSlide = (kind) => {
         n++;
         const s = pptx.addSlide();
