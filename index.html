@@ -170,7 +170,11 @@
   }
   .slide .bar { height: 6px; background: var(--accent); }
   .slide .body { padding: 18px 20px; }
-  .slide .kicker { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); font-weight: 800; }
+  /* Functional slide wayfinding label (replaces the retired uppercase .kicker eyebrow).
+     The 5 preview slides are a real ordered sequence, so a small numbered badge earns its place. */
+  .slide-tag { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: var(--ink); margin-bottom: 2px; flex-wrap: wrap; }
+  .slide-tag .n { flex: 0 0 auto; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 6px; background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; }
+  .slide-tag .aside { color: var(--muted); font-weight: 400; }
   .slide h3 { margin: 4px 0 2px; font-size: 16px; }
   .editable {
     border: 1px solid transparent; border-radius: 8px; padding: 6px 8px; margin: -2px -8px 6px;
@@ -1253,7 +1257,6 @@ function App() {
   const bandLabel = BANDS[band].label;
   const T = THEME_DESIGNS[design];
   const barStyle = { background: hx(T.accent) };
-  const kickStyle = { color: hx(T.accent) };
 
   /* ------- export ------- */
   async function download() {
@@ -1312,37 +1315,40 @@ function App() {
       if (mode === "image" && stimImg) {
         s3.addImage({ data: stimImg, x: 1.2, y: 1.9, w: 10.9, h: 4.7, sizing: { type: "contain", w: 10.9, h: 4.7 } });
       } else if (mode === "video" && (videoPoster || embedVideo)) {
-        // Show the first frame LARGE so the slide is recognisable, then (when the clip is
-        // embedded) a smaller player below it that plays on click. PowerPoint can't show a
-        // custom poster on an embedded video, so the small player stays a generic thumbnail.
+        // Embed the clip itself LARGE with the first frame as its poster/cover (PptxGenJS
+        // `cover`), so the slide shows a recognisable still that plays in place on click —
+        // one clickable image, not a big poster plus a tiny generic player. When the clip is
+        // too large to embed, fall back to the first frame + link/QR so teachers can open it.
         const ar = (videoAspect && isFinite(videoAspect) && videoAspect > 0) ? videoAspect : (16 / 9);
         let y = 1.75;
-        if (videoPoster) {
-          const pBoxW = 9.0, pBoxH = embedVideo ? 2.8 : 3.8;
-          const pw = +Math.min(pBoxW, pBoxH * ar).toFixed(2);
-          const ph = +(pw / ar).toFixed(2);
-          s3.addImage({ data: videoPoster, x: +((W - pw) / 2).toFixed(2), y, w: pw, h: ph, sizing: { type: "contain", w: pw, h: ph } });
-          y += ph + 0.2;
-        }
         if (embedVideo) {
           s3.addText("▶ Click to play the clip in PowerPoint", { x: 0, y, w: W, h: 0.3, align: "center", fontSize: 11, italic: true, color: muted, fontFace: bFont });
-          y += 0.32;
-          const vBoxH = 1.4;
-          const vw = +Math.min(4.0, vBoxH * ar).toFixed(2);
+          y += 0.34;
+          const vBoxW = 9.0, vBoxH = 3.8;
+          const vw = +Math.min(vBoxW, vBoxH * ar).toFixed(2);
           const vh = +(vw / ar).toFixed(2);
-          s3.addMedia({ type: "video", data: videoDataUrl, x: +((W - vw) / 2).toFixed(2), y, w: vw, h: vh });
-          y += vh + 0.15;
+          s3.addMedia({ type: "video", data: videoDataUrl, cover: videoPoster || undefined, x: +((W - vw) / 2).toFixed(2), y, w: vw, h: vh });
+          y += vh + 0.2;
           if (link.trim()) {
             const url = link.trim();
             s3.addText([{ text: `${MODE_VERB[mode]}: `, options: { color: ink, bold: true } }, { text: url, options: { color: accent, underline: true, hyperlink: { url } } }],
               { x: 0.8, y, w: W - 1.6, h: 0.35, align: "center", fontSize: 11, valign: "middle", fontFace: bFont });
           }
-        } else if (link.trim()) {
-          const url = link.trim();
-          const qr = makeQrDataUrl(url);
-          if (qr) s3.addImage({ data: qr, x: 0.8, y, w: 1.1, h: 1.1 });
-          s3.addText([{ text: `${MODE_VERB[mode]}: `, options: { color: ink, bold: true } }, { text: url, options: { color: accent, underline: true, hyperlink: { url } } }],
-            { x: qr ? 2.1 : 0.8, y, w: W - (qr ? 2.9 : 1.6), h: 1.1, fontSize: 11, valign: "middle", fontFace: bFont });
+        } else {
+          if (videoPoster) {
+            const pBoxW = 9.0, pBoxH = 3.8;
+            const pw = +Math.min(pBoxW, pBoxH * ar).toFixed(2);
+            const ph = +(pw / ar).toFixed(2);
+            s3.addImage({ data: videoPoster, x: +((W - pw) / 2).toFixed(2), y, w: pw, h: ph, sizing: { type: "contain", w: pw, h: ph } });
+            y += ph + 0.2;
+          }
+          if (link.trim()) {
+            const url = link.trim();
+            const qr = makeQrDataUrl(url);
+            if (qr) s3.addImage({ data: qr, x: 0.8, y, w: 1.1, h: 1.1 });
+            s3.addText([{ text: `${MODE_VERB[mode]}: `, options: { color: ink, bold: true } }, { text: url, options: { color: accent, underline: true, hyperlink: { url } } }],
+              { x: qr ? 2.1 : 0.8, y, w: W - (qr ? 2.9 : 1.6), h: 1.1, fontSize: 11, valign: "middle", fontFace: bFont });
+          }
         }
       } else {
         const rightMedia = !!(stimImg || link.trim());
@@ -1602,7 +1608,7 @@ function App() {
               <div className="slides">
                 {/* Slide 1 — Hook */}
                 <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
-                  <div className="kicker" style={kickStyle}>Slide 1 · Title <span style={{ color: "var(--muted)", fontWeight: 600 }}>· a short, catchy headline · band &amp; theme shown here</span></div>
+                  <div className="slide-tag"><span className="n">1</span> Title <span className="aside">· a short, catchy headline · band &amp; theme shown here</span></div>
                   <textarea className="editable titlebig" rows={1} value={spot.hook} placeholder="A short, catchy title…" onChange={e => patch({ hook: e.target.value })} />
                   <div className="meta-chips">
                     <span className={"chip band-" + band.toLowerCase()}>{bandLabel}{year ? " · " + year : ""}</span>
@@ -1612,7 +1618,7 @@ function App() {
 
                 {/* Slide 2 — Stimulus */}
                 <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
-                  <div className="kicker" style={kickStyle}>Slide 2 · Stimulus</div>
+                  <div className="slide-tag"><span className="n">2</span> Stimulus</div>
                   <textarea className="editable" rows={1} value={spot.framing} onChange={e => patch({ framing: e.target.value })} />
                   {mode !== "image" && mode !== "video" && (
                     <React.Fragment>
@@ -1639,7 +1645,7 @@ function App() {
 
                 {/* Slide 3 — Scaffold */}
                 <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
-                  <div className="kicker" style={kickStyle}>Slide 3 · Discussion scaffold <span style={{ color: "var(--muted)", fontWeight: 600 }}>· steps reveal one-per-click · {ROUTINE_SOURCE}</span></div>
+                  <div className="slide-tag"><span className="n">3</span> Discussion scaffold <span className="aside">· steps reveal one-per-click · {ROUTINE_SOURCE}</span></div>
                   <textarea className="editable" rows={1} style={{ fontWeight: 700, fontSize: 16 }} value={spot.routineName} onChange={e => patch({ routineName: e.target.value })} />
                   <textarea className="editable" rows={1} style={{ fontStyle: "italic", color: "var(--muted)" }} value={spot.routineIntro} onChange={e => patch({ routineIntro: e.target.value })} />
                   {spot.steps.map((st, i) => (
@@ -1662,7 +1668,7 @@ function App() {
 
                 {/* Slide 4 — Teacher notes (guiding questions) */}
                 <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
-                  <div className="kicker" style={kickStyle}>Slide 4 · Teacher notes</div>
+                  <div className="slide-tag"><span className="n">4</span> Teacher notes</div>
                   <h3>Guiding questions</h3>
                   <ul className="ql">
                     {spot.guidingQuestions.map((q, i) => (
@@ -1678,7 +1684,7 @@ function App() {
 
                 {/* Slide 5 — Student key takeaway */}
                 <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
-                  <div className="kicker" style={kickStyle}>Slide 5 · Student key takeaway</div>
+                  <div className="slide-tag"><span className="n">5</span> Student key takeaway</div>
                   <div className="action-box" style={{ background: hx(T.accent2) + "22", borderColor: hx(T.accent2) + "66" }}>
                     <div className="cap" style={{ color: "#7a5f1e" }}>One thing to take away</div>
                     <textarea className="editable" rows={2} value={spot.studentAction} onChange={e => patch({ studentAction: e.target.value })} />

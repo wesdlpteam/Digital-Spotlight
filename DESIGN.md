@@ -181,7 +181,7 @@ A quiet, low-saturation palette: a soft-lilac room, white working surfaces, and 
 ### Named Rules
 **The Weight-Not-Face Rule.** Hierarchy is built from weight (400 → 500 → 600, with the 700/800 display steps rendering as Graphik Semibold) and size, never from a second font. One family, many weights. If heavier Graphik cuts (Bold/Black) are later licensed, drop them in `./fonts/` and add `@font-face` rules at weight 700/800 to restore the full range.
 
-**The No-Eyebrow Rule.** Uppercase tracked micro-labels are permitted only as functional form captions. The slide `.kicker` (11px, +0.08em, uppercase, accent) is a decorative eyebrow tell and is being retired — let the slide title and section heading carry the hierarchy instead.
+**The No-Eyebrow Rule.** Uppercase tracked micro-labels are permitted only as functional form captions. The old slide `.kicker` (11px, +0.08em, uppercase, accent) eyebrow has been **retired** and replaced by `.slide-tag`: a small solid-purple number badge (reusing the discussion-scaffold number-tile motif) + a sentence-case slide name + a muted aside. Numbers are legitimate here because the five preview slides are a genuine ordered sequence (the deck order 1→5), not reflexive scaffolding. No uppercase, no wide tracking, no accent-coloured all-caps.
 
 ## 4. Elevation
 
@@ -241,6 +241,6 @@ The four editable slides are the product made visible. Each is a white card with
 - **Don't** drift to the **generic SaaS dashboard** — no metric-card grids, no console density. This is one focused task, not an analytics console.
 - **Don't** go **gimmicky edtech** — no mascots, no badges, no gamification, no over-rounded "playful everything."
 - **Don't** swing to the **cramped grey utility form** either; calm restraint is carried by space and soft lilac, not by draining colour out.
-- **Don't** scaffold with decorative uppercase tracked **eyebrows** — the slide `.kicker` is a tell; let titles and headings carry hierarchy (The No-Eyebrow Rule).
+- **Don't** scaffold with decorative uppercase tracked **eyebrows** — the slide eyebrow is retired in favour of the `.slide-tag` numbered label (The No-Eyebrow Rule).
 - **Don't** introduce a second interactive hue. The legacy bright violet (`#7C4DFF`) and coral (`#FF7043`) are drift, not a palette — migrate them toward the Wesley pair.
 - **Don't** use `border-left`/`border-right` greater than 1px as a coloured stripe (the `.resp-note` 2px accent edge is the one to rework with a full treatment or none).
