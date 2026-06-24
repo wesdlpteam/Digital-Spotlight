@@ -151,6 +151,15 @@
   .filebox .big { font-size: 26px; }
   .filebox .small { font-size: 12px; color: var(--muted); margin-top: 4px; }
   .thumb { max-width: 100%; max-height: 160px; border-radius: 10px; margin-top: 8px; box-shadow: var(--shadow); }
+  .media-strip { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+  .media-thumb { width: 120px; border: 1px solid var(--line); border-radius: 10px; padding: 6px; background: #fff; position: relative; }
+  .media-thumb > img { width: 100%; height: 70px; object-fit: contain; border-radius: 6px; background: var(--wash); }
+  .media-thumb .vtag { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,.55); color: #fff; border-radius: 6px; padding: 1px 4px; display: inline-flex; }
+  .media-thumb-tools { display: flex; align-items: center; gap: 2px; margin-top: 4px; }
+  .media-thumb-tools .ord { font-size: 11px; color: var(--muted); min-width: 14px; text-align: center; }
+  .media-thumb-tools .iconbtn { flex: 0 0 auto; }
+  .media-thumb-tools .iconbtn:disabled { opacity: .35; cursor: not-allowed; }
+  .media-text { width: 100%; margin-top: 4px; font: inherit; font-size: 11px; resize: vertical; border: 1px solid var(--line); border-radius: 6px; padding: 4px; }
 
   .btn {
     width: 100%; padding: 12px; border: 0; border-radius: 12px; font: inherit; font-weight: 700;
@@ -337,6 +346,7 @@ const THEMES = [
 // Videos at or under this size are embedded directly in the .pptx; larger ones
 // fall back to a poster frame + link/QR so the deck stays portable.
 const VIDEO_EMBED_MAX_BYTES = 25 * 1024 * 1024; // 25 MB
+const MAX_MEDIA = 10; // max images+videos in one provocation reel
 
 const BAND_GUIDANCE = {
   PYP: "Audience: IB PYP (Prep–Year 6). Use concrete, simple, inquiry-based language. Short sentences, warm and curious. Centre noticing and wondering.",
@@ -1034,13 +1044,12 @@ function App() {
   const [model, setModel] = useState("gpt-5.4");
 
   // inputs
-  const [mode, setMode] = useState("image");
-  const [imageDataUrl, setImageDataUrl] = useState("");
-  const [imageName, setImageName] = useState("");
+  const [mode, setMode] = useState("media");
+  const [media, setMedia] = useState([]); // ordered reel of {kind:"image"|"video", ...}
+  const [reelIndex, setReelIndex] = useState(0); // active item in the preview carousel
   const [articleText, setArticleText] = useState("");
   const [articleImageUrl, setArticleImageUrl] = useState("");
   const [pdfName, setPdfName] = useState("");
-  const [transcript, setTranscript] = useState("");
   const [title, setTitle] = useState("");
   const [link, setLink] = useState("");
   const [band, setBand] = useState("PYP");
@@ -1073,57 +1082,65 @@ function App() {
   const [rawDump, setRawDump] = useState("");
   const [spot, setSpot] = useState(null); // editable spotlight object
 
-  // video upload
-  const [videoFile, setVideoFile] = useState(null);
-  const [videoDataUrl, setVideoDataUrl] = useState("");   // base64 for embedding
-  const [videoFrames, setVideoFrames] = useState([]);     // JPEG data URLs for the model
-  const [videoPoster, setVideoPoster] = useState("");     // first frame
-  const [videoAspect, setVideoAspect] = useState(0);      // width/height, 0 = unknown
-  const [videoDesc, setVideoDesc] = useState("");         // fallback description
-  const [extractingVideo, setExtractingVideo] = useState(false);
-  const [videoNote, setVideoNote] = useState("");         // soft inline status under the dropzone
+  // media reel
+  const [extractingVideo, setExtractingVideo] = useState(false); // any video frame-extraction in flight
+  const [mediaNote, setMediaNote] = useState(""); // soft inline status under the dropzone
 
-  const imgInput = useRef(null);
+  const mediaInput = useRef(null);
   const pdfInput = useRef(null);
-  const vidInput = useRef(null);
   const genBtnRef = useRef(null);
 
+  // First item's still image — keeps legacy single-image AI/PPTX paths working.
+  const firstStill = media[0] ? (media[0].kind === "image" ? media[0].dataUrl : media[0].poster) : "";
+  const imageDataUrl = firstStill; // legacy alias still read by generateSpotlight + export
+
   /* ------- file handlers ------- */
-  async function onImage(e) {
-    const f = e.target.files?.[0]; if (!f) return;
-    try { setImageDataUrl(await readFileAsDataURL(f)); setImageName(f.name); }
-    catch (_) { setError("Could not read that image."); }
+  const newId = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
+
+  async function addMediaFiles(fileList) {
+    const files = Array.from(fileList || []);
+    if (!files.length) return;
+    setError(""); setMediaNote("");
+    const room = MAX_MEDIA - media.length;
+    if (room <= 0) { setMediaNote(`That's the limit of ${MAX_MEDIA} items — remove one to add more.`); return; }
+    const take = files.slice(0, room);
+    if (files.length > room) setMediaNote(`Only added ${room} — a reel holds up to ${MAX_MEDIA} items.`);
+
+    for (const f of take) {
+      if (f.type.startsWith("image/")) {
+        try { const dataUrl = await readFileAsDataURL(f); setMedia(m => [...m, { id: newId(), kind: "image", dataUrl, name: f.name }]); }
+        catch (_) { setError("Could not read image: " + f.name); }
+      } else if (f.type.startsWith("video/")) {
+        setExtractingVideo(true);
+        try {
+          let dataUrl = "";
+          if (f.size <= VIDEO_EMBED_MAX_BYTES) { try { dataUrl = await readFileAsDataURL(f); } catch (_) {} }
+          const { frames, poster, width, height } = await extractVideoFrames(f, 4);
+          setMedia(m => [...m, { id: newId(), kind: "video", dataUrl, name: f.name, sizeBytes: f.size,
+            poster, aspect: width && height ? width / height : 0, frames, text: "" }]);
+          if (!frames.length) setMediaNote("Couldn't read frames from " + f.name + " — add a description under its thumbnail. It will still embed in the PowerPoint.");
+          else if (f.size > VIDEO_EMBED_MAX_BYTES) setMediaNote(`${f.name} is large (${formatBytes(f.size)}) — the deck will use its first frame + a link instead of embedding.`);
+        } catch (_) { setError("Could not read video: " + f.name); }
+        finally { setExtractingVideo(false); }
+      }
+    }
   }
+  function onMedia(e) { addMediaFiles(e.target.files); e.target.value = ""; }
+  const removeMedia = (id) => setMedia(m => m.filter(x => x.id !== id));
+  const setMediaText = (id, text) => setMedia(m => m.map(x => x.id === id ? { ...x, text } : x));
+  function moveMedia(id, dir) {
+    setMedia(m => {
+      const i = m.findIndex(x => x.id === id); const j = i + dir;
+      if (i < 0 || j < 0 || j >= m.length) return m;
+      const out = m.slice(); const [it] = out.splice(i, 1); out.splice(j, 0, it); return out;
+    });
+  }
+
   async function onPdf(e) {
     const f = e.target.files?.[0]; if (!f) return;
     setPdfName(f.name + " (extracting…)");
     try { const t = await extractPdfText(f); setArticleText(t); setPdfName(f.name + ` (${t.length.toLocaleString()} chars)`); }
     catch (err) { setError("Could not extract text from that PDF: " + err.message); setPdfName(""); }
-  }
-  async function onVideo(e) {
-    const f = e.target.files?.[0]; if (!f) return;
-    setError(""); setVideoNote("");
-    setVideoFile(f);
-    setVideoFrames([]); setVideoPoster(""); setVideoDataUrl(""); setVideoAspect(0);
-    setExtractingVideo(true);
-    try {
-      // Read base64 for embedding only when within the cutoff (avoids huge reads).
-      if (f.size <= VIDEO_EMBED_MAX_BYTES) {
-        try { setVideoDataUrl(await readFileAsDataURL(f)); } catch (_) {}
-      }
-      const { frames, poster, width, height } = await extractVideoFrames(f, 4);
-      setVideoFrames(frames); setVideoPoster(poster);
-      setVideoAspect(width && height ? width / height : 0);
-      if (!frames.length) {
-        setVideoNote("Couldn't read frames from this video format — add a transcript or description below. The video will still embed in the PowerPoint.");
-      } else if (f.size > VIDEO_EMBED_MAX_BYTES) {
-        setVideoNote(`Large file (${formatBytes(f.size)}) — too big to embed, so the deck will use the first frame + a link. Add a link below for a QR code.`);
-      } else {
-        setVideoNote(`Ready (${formatBytes(f.size)}) — this clip will embed and play in the PowerPoint.`);
-      }
-    } finally {
-      setExtractingVideo(false);
-    }
   }
   // Pull readable article text from a public link via the r.jina.ai reader
   // (it allows browser/CORS requests). Hard paywalls may still fail.
@@ -1530,27 +1547,59 @@ function App() {
           <div className="group">
             <label className="cap" id="lbl-mode">Stimulus mode</label>
             <div className="modes" role="group" aria-labelledby="lbl-mode">
-              {["image", "article", "video"].map(m => (
+              {["media", "article"].map(m => (
                 <button key={m} type="button" className={mode === m ? "active" : ""} aria-pressed={mode === m} onClick={() => setMode(m)}>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                    <Icon d={m === "image" ? I.image : m === "article" ? I.doc : I.video} size={16} stroke />
-                    {m === "image" ? "Image" : m === "article" ? "Article" : "Video"}
+                    <Icon d={m === "media" ? I.image : I.doc} size={16} stroke />
+                    {m === "media" ? "Images / video" : "Article"}
                   </span>
                 </button>
               ))}
             </div>
           </div>
 
-          {mode === "image" && (
+          {mode === "media" && (
             <div className="group">
-              <label className="cap" htmlFor="f-image">Upload image</label>
-              <button type="button" className="filebox" aria-label={imageDataUrl ? `Replace uploaded image ${imageName}` : "Upload an image"} onClick={() => imgInput.current.click()}>
-                {imageDataUrl
-                  ? <React.Fragment><img className="thumb" src={imageDataUrl} alt={"Uploaded stimulus: " + imageName} /><div className="small">{imageName} — click to replace</div></React.Fragment>
-                  : <React.Fragment><div className="big"><Icon d={I.image} size={26} stroke /></div><div className="small">Click or press Enter to upload an image</div></React.Fragment>}
+              <label className="cap" htmlFor="f-media">Images &amp; video <span style={{ color: "var(--muted)", fontWeight: 600 }}>(swipeable reel)</span></label>
+              <button type="button" className="filebox"
+                aria-label="Add images or videos to the reel"
+                onClick={() => mediaInput.current.click()}
+                onDragOver={e => { e.preventDefault(); }}
+                onDrop={e => { e.preventDefault(); addMediaFiles(e.dataTransfer.files); }}>
+                {extractingVideo
+                  ? <React.Fragment><div className="big"><span className="spinner" style={{ borderTopColor: "var(--accent)", borderColor: "var(--accent-soft)" }}></span></div><div className="small">Reading video…</div></React.Fragment>
+                  : <React.Fragment><div className="big"><Icon d={I.image} size={26} stroke /></div><div className="small">Click, or drop images / videos here ({media.length}/{MAX_MEDIA})</div></React.Fragment>}
               </button>
-              <input ref={imgInput} id="f-image" type="file" accept="image/*" hidden onChange={onImage} />
-              <div className="hint">The model sees the actual image and builds the Spotlight from its real content.</div>
+              <input ref={mediaInput} id="f-media" type="file" accept="image/*,video/*" multiple hidden onChange={onMedia} />
+              {mediaNote && <div className="alert info" style={{ marginTop: 8 }}>{mediaNote}</div>}
+
+              {media.length > 0 && (
+                <div className="media-strip">
+                  {media.map((it, i) => (
+                    <div className="media-thumb" key={it.id}>
+                      <img src={it.kind === "image" ? it.dataUrl : it.poster} alt={it.name} />
+                      {it.kind === "video" && <span className="vtag"><Icon d={I.play} size={14} /></span>}
+                      <div className="media-thumb-tools">
+                        <button type="button" className="iconbtn" aria-label={"Move " + it.name + " earlier"} disabled={i === 0} onClick={() => moveMedia(it.id, -1)}>‹</button>
+                        <span className="ord">{i + 1}</span>
+                        <button type="button" className="iconbtn" aria-label={"Move " + it.name + " later"} disabled={i === media.length - 1} onClick={() => moveMedia(it.id, +1)}>›</button>
+                        <button type="button" className="iconbtn" aria-label={"Remove " + it.name} onClick={() => removeMedia(it.id)}><Icon d={I.close} size={13} stroke /></button>
+                      </div>
+                      {it.kind === "video" && (
+                        <textarea className="media-text" rows={2} value={it.text}
+                          placeholder="Transcript / what's in this clip (optional)"
+                          onChange={e => setMediaText(it.id, e.target.value)} />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="group" style={{ marginTop: 10 }}>
+                <label className="cap" htmlFor="f-mlink">Link (optional — becomes a QR code)</label>
+                <input id="f-mlink" type="text" value={link} placeholder="https://…" onChange={e => setLink(e.target.value)} />
+              </div>
+              <div className="hint">Add one or many — they appear as a swipeable carousel with the routine on the right, and export as a click-through slideshow. Videos: still frames are read so the model can "see" them; small clips embed and play in <b>desktop</b> PowerPoint.</div>
             </div>
           )}
 
@@ -1575,38 +1624,6 @@ function App() {
             </div>
           )}
 
-          {mode === "video" && (
-  <React.Fragment>
-    <div className="group">
-      <label className="cap" htmlFor="f-video">Upload video</label>
-      <button type="button" className="filebox" aria-label={videoFile ? `Replace video ${videoFile.name}` : "Upload a video"} onClick={() => vidInput.current.click()}>
-        {videoPoster
-          ? <React.Fragment><img className="thumb" src={videoPoster} alt={"First frame of " + (videoFile ? videoFile.name : "the video")} /><div className="small">{videoFile ? videoFile.name : ""} — click to replace</div></React.Fragment>
-          : extractingVideo
-            ? <React.Fragment><div className="big"><span className="spinner" style={{ borderTopColor: "var(--accent)", borderColor: "var(--accent-soft)" }}></span></div><div className="small">Reading video…</div></React.Fragment>
-            : <React.Fragment><div className="big"><Icon d={I.video} size={26} stroke /></div><div className="small">Click or press Enter to upload a video</div></React.Fragment>}
-      </button>
-      <input ref={vidInput} id="f-video" type="file" accept="video/*" hidden onChange={onVideo} />
-      {videoNote && <div className="alert info" style={{ marginTop: 8 }}>{videoNote}</div>}
-      <div className="hint">Still frames are read from the clip so the model can "see" it. Embedded video plays in <b>desktop</b> PowerPoint (PowerPoint-on-the-web may not play it).</div>
-    </div>
-
-    <div className="group">
-      <label className="cap" htmlFor="f-transcript">Transcript <span style={{ color: "var(--muted)", fontWeight: 600 }}>(optional)</span></label>
-      <textarea id="f-transcript" value={transcript} placeholder="Paste the transcript if you have it (captures spoken content)" onChange={e => setTranscript(e.target.value)} />
-    </div>
-
-    <div className="group">
-      <label className="cap" htmlFor="f-vdesc">Or describe what the video is about</label>
-      <textarea id="f-vdesc" value={videoDesc} placeholder="No transcript? Describe the clip in a sentence or two and the model will build the lesson from that + the frames." onChange={e => setVideoDesc(e.target.value)} />
-    </div>
-
-    <div className="group">
-      <label className="cap" htmlFor="f-vlink">Video link (optional — becomes a QR code)</label>
-      <input id="f-vlink" type="text" value={link} placeholder="https://…" onChange={e => setLink(e.target.value)} />
-    </div>
-  </React.Fragment>
-)}
 
           <div className="group">
             <label className="cap" htmlFor="f-title">Title (optional)</label>
