@@ -1360,41 +1360,41 @@ function App() {
       // When falling back to the issue brief, also attach a relevant free image so
       // the stimulus slide isn't bland.
       const useBrief = async (msg) => {
-        setMode(“article”); setMedia([]); setArticleText(seed); setNotice(msg);
+        setMode("article"); setMedia([]); setArticleText(seed); setNotice(msg);
         setArticleImageUrl(await findRelevantImage(imgQuery));
       };
 
-      const type = [“article”, “image”, “video”].includes(card.resourceType) ? card.resourceType : “article”;
+      const type = ["article", "image", "video"].includes(card.resourceType) ? card.resourceType : "article";
       if (!card.resourceUrl) {
-        await useBrief(`Loaded “${card.title}” as the stimulus from the issue summary (no free resource was attached). Edit or replace it on the left, then Generate.`);
-      } else if (type === “image”) {
-        setMode(“media”); setMedia([]); setLink(“”);
+        await useBrief(`Loaded "${card.title}" as the stimulus from the issue summary (no free resource was attached). Edit or replace it on the left, then Generate.`);
+      } else if (type === "image") {
+        setMode("media"); setMedia([]); setLink("");
         let d = await urlToDataUrl(card.resourceUrl);
         if (!d) { const alt = await findRelevantImage(imgQuery); if (alt) d = await urlToDataUrl(alt); } // fall back to a relevant free image
-        if (d) { setMedia([{ id: newId(), kind: “image”, dataUrl: d, name: card.resourceTitle || “resource image” }]); }
-        else await useBrief(“Couldn't load an image for this one, so I loaded the issue summary instead — Generate, or add your own image on the left.”);
-      } else if (type === “video”) {
+        if (d) { setMedia([{ id: newId(), kind: "image", dataUrl: d, name: card.resourceTitle || "resource image" }]); }
+        else await useBrief("Couldn't load an image for this one, so I loaded the issue summary instead — Generate, or add your own image on the left.");
+      } else if (type === "video") {
         // A discovered video is an external URL only — no file, no frames.
         // Route to article mode with the link (becomes a QR code) and the
         // transcript as the generation stimulus if one can be fetched.
-        setMode(“article”); setMedia([]); setLink(card.resourceUrl);
+        setMode("article"); setMedia([]); setLink(card.resourceUrl);
         let gotTranscript = false;
         if (/youtube\.com|youtu\.be/i.test(card.resourceUrl)) {
           try {
-            const r = await fetch(“https://r.jina.ai/” + card.resourceUrl);
+            const r = await fetch("https://r.jina.ai/" + card.resourceUrl);
             if (r.ok) { const t = cleanArticleMarkdown(await r.text()); if (t.length > 80) { setArticleText(t); gotTranscript = true; } }
           } catch (_) { /* leave blank; teacher pastes */ }
         }
         if (!gotTranscript) {
           setArticleText(seed);
-          setNotice(“Loaded the video link (it becomes a QR code). I couldn't pull a transcript, so I used the issue summary as the stimulus — paste a transcript into the text box to use the spoken content, or just Generate.”);
+          setNotice("Loaded the video link (it becomes a QR code). I couldn't pull a transcript, so I used the issue summary as the stimulus — paste a transcript into the text box to use the spoken content, or just Generate.");
         } else {
-          setNotice(“Loaded the video transcript as the stimulus. The link becomes a QR code on the slide — review and Generate when ready.”);
+          setNotice("Loaded the video transcript as the stimulus. The link becomes a QR code on the slide — review and Generate when ready.");
         }
       } else {
-        setMode(“article”); setMedia([]);
+        setMode("article"); setMedia([]);
         const { text, image } = await fetchArticleFromLink(card.resourceUrl);
-        if (!text) { setError(“”); setArticleText(seed); setNotice(“Couldn't auto-load the full article, so I loaded the issue summary as the stimulus. The link is on the left — click “Fetch text” to retry, or just Generate.”); }
+        if (!text) { setError(""); setArticleText(seed); setNotice("Couldn't auto-load the full article, so I loaded the issue summary as the stimulus. The link is on the left — click “Fetch text” to retry, or just Generate."); }
         if (!image) setArticleImageUrl(await findRelevantImage(imgQuery)); // article had no picture — supply one
       }
     } finally {
