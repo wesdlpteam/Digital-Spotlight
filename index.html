@@ -291,6 +291,16 @@
   .thumb-kick { font-size: 8px; letter-spacing: 1.5px; font-weight: 800; margin-top: 4px; }
   .thumb-title { font-size: 15px; font-weight: 800; line-height: 1.12; margin-top: 3px; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
   .thumb-meta { font-size: 8px; position: absolute; bottom: 10px; left: 12px; right: 12px; }
+  .tpl-picks { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .tpl-swatch { display: flex; flex-direction: column; gap: 4px; width: 84px; padding: 4px; background: #fff; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; font: inherit; transition: border-color .15s, box-shadow .15s; }
+  .tpl-swatch:hover { border-color: var(--accent); }
+  .tpl-swatch:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .tpl-swatch.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+  .tpl-cover { position: relative; height: 40px; border-radius: 6px; overflow: hidden; display: block; }
+  .tpl-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 6px; display: block; }
+  .tpl-name { font-size: 10.5px; font-weight: 600; color: var(--ink); text-align: center; line-height: 1.1; }
+  .tpl-swatch.on .tpl-name { color: var(--accent); }
+  @media (prefers-reduced-motion: reduce) { .tpl-swatch { transition: none; } }
   .spinner { width: 16px; height: 16px; border: 2.5px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; }
   .spinner.sm { width: 13px; height: 13px; border-width: 2px; }
   .spinner.dark { border-color: var(--accent-soft); border-top-color: var(--accent); }
@@ -413,10 +423,49 @@ const ROUTINE_SOURCE = "Harvard Project Zero Thinking Routines · pz.harvard.edu
 const MODE_FRAMING = { media: "Look closely, then discuss.", image: "Look closely, then discuss.", article: "Read, then discuss.", video: "Watch, then discuss." };
 const MODE_VERB = { media: "Look", image: "Look", article: "Read", video: "Watch" };
 
-// Wesley College is the only export theme. Hex values carry NO leading '#'.
+// Six Wesley export templates — all on the brand primary (purple/gold) and
+// secondary (band) palettes. Hex values carry NO leading '#'. Every title-text,
+// footer, kicker and takeaway-card colour is set per template so each one passes
+// WCAG-AA on its own cover, light or dark.
+//   titleBg/Ink/Sub/Foot/Kick → the cover slide   ·   bar → footer band
+//   accent → readable text/links/kickers on white content (never gold; gold fails AA as text)
+//   cardBg/cardInk → the "key takeaway" card       ·   accent2 → gold tie (on-screen action box)
 const THEME_DESIGNS = {
-  wesley: { label: "Wesley College", dark: true, titleBg: "4F2759", contentBg: "FFFFFF",
-            ink: "2B2536", muted: "6B6478", accent: "4F2759", accent2: "C59F40",
+  purple: { label: "Wesley Purple", dark: true,
+            blurb: "The flagship — a deep Wesley-purple cover with a gold takeaway. Calm and authoritative.",
+            titleBg: "4F2759", titleInk: "FFFFFF", titleSub: "E7DCEF", titleFoot: "C9B7D6", titleKick: "E4D1A1",
+            contentBg: "FFFFFF", ink: "2B2536", muted: "6B6478",
+            accent: "4F2759", accent2: "C59F40", bar: "4F2759", cardBg: "C59F40", cardInk: "2B2536",
+            titleFont: "Arial", bodyFont: "Arial", upper: false },
+  ivory:  { label: "Ivory & Gold", dark: false,
+            blurb: "A light, editorial cover in warm ivory with a gold rule and a purple takeaway. Quietly premium.",
+            titleBg: "FBF7EE", titleInk: "4F2759", titleSub: "6A5018", titleFoot: "6A5018", titleKick: "6A5018",
+            contentBg: "FFFFFF", ink: "2B2536", muted: "6B6478",
+            accent: "4F2759", accent2: "C59F40", bar: "C59F40", cardBg: "4F2759", cardInk: "FFFFFF",
+            titleFont: "Arial", bodyFont: "Arial", upper: false },
+  midnight:{ label: "Midnight & Gold", dark: true,
+            blurb: "A near-black aubergine cover with gold detailing and uppercase headlines. Formal and bold.",
+            titleBg: "2E1A36", titleInk: "FFFFFF", titleSub: "E4D1A1", titleFoot: "BBA9C8", titleKick: "E4D1A1",
+            contentBg: "FFFFFF", ink: "2B2536", muted: "6B6478",
+            accent: "4F2759", accent2: "C59F40", bar: "C59F40", cardBg: "C59F40", cardInk: "2B2536",
+            titleFont: "Arial", bodyFont: "Arial", upper: true },
+  pyp:    { label: "PYP Blue", dark: true,
+            blurb: "A secondary-palette blue cover for the Primary Years, accented with Wesley gold.",
+            titleBg: "4242A1", titleInk: "FFFFFF", titleSub: "CBDAFF", titleFoot: "B4C0EE", titleKick: "E4D1A1",
+            contentBg: "FFFFFF", ink: "2B2536", muted: "6B6478",
+            accent: "4242A1", accent2: "C59F40", bar: "4242A1", cardBg: "C59F40", cardInk: "2B2536",
+            titleFont: "Arial", bodyFont: "Arial", upper: false },
+  myp:    { label: "MYP Green", dark: true,
+            blurb: "A deep emerald cover for the Middle Years — a darkened Wesley green with a gold takeaway.",
+            titleBg: "2C5638", titleInk: "FFFFFF", titleSub: "CFE9D3", titleFoot: "B7D9C0", titleKick: "E4D1A1",
+            contentBg: "FFFFFF", ink: "2B2536", muted: "6B6478",
+            accent: "4F2759", accent2: "C59F40", bar: "86C791", cardBg: "C59F40", cardInk: "2B2536",
+            titleFont: "Arial", bodyFont: "Arial", upper: false },
+  senior: { label: "Senior Amber", dark: false,
+            blurb: "A warm secondary-palette amber cover for the Senior School, with a purple takeaway.",
+            titleBg: "FFEDBC", titleInk: "2B2536", titleSub: "7A5012", titleFoot: "7A5012", titleKick: "4F2759",
+            contentBg: "FFFFFF", ink: "2B2536", muted: "6B6478",
+            accent: "4F2759", accent2: "C59F40", bar: "DFAB57", cardBg: "4F2759", cardInk: "FFFFFF",
             titleFont: "Arial", bodyFont: "Arial", upper: false },
 };
 const hx = (c) => "#" + c;
@@ -1102,7 +1151,7 @@ function App() {
   const [band, setBand] = useState("PYP");
   const [year, setYear] = useState("");
   const [theme, setTheme] = useState(THEMES[0]);
-  const [design, setDesign] = useState("wesley");
+  const [design, setDesign] = useState("purple");
 
   // discovery
   const curMonth = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; })();
@@ -1442,7 +1491,7 @@ function App() {
     if (!spot) return;
     try {
       const T = THEME_DESIGNS[design];
-      const accent = T.accent, accent2 = T.accent2, ink = T.ink, muted = T.muted;
+      const accent = T.accent, accent2 = T.accent2, bar = T.bar, ink = T.ink, muted = T.muted;
       const tFont = T.titleFont, bFont = T.bodyFont;
       const tCase = (s) => T.upper ? String(s).toUpperCase() : String(s);
       const W = 13.33, H = 7.5;
@@ -1460,7 +1509,7 @@ function App() {
         const s = pptx.addSlide();
         s.background = { color: kind === "title" ? T.titleBg : T.contentBg };
         // Wesley footer band: a full-width accent bar along the BOTTOM of every slide.
-        s.addShape(pptx.ShapeType.rect, { x: 0, y: H - 0.18, w: W, h: 0.18, fill: { color: accent } });
+        s.addShape(pptx.ShapeType.rect, { x: 0, y: H - 0.18, w: W, h: 0.18, fill: { color: bar } });
         if (kind === "title") {
           // Gold crest is 870x499 (aspect 1.743) — size to that ratio so it isn't squished.
           const lw = 2.1, lh = lw / 1.743;
@@ -1470,7 +1519,7 @@ function App() {
           const lw = 2.3, lh = lw / 4.991;
           s.addImage({ data: WESLEY_LOGO_HORIZ, x: W - 0.6 - lw, y: H - 0.62 - lh, w: lw, h: lh });
         }
-        const footColor = kind === "title" ? "C9B7D6" : muted;
+        const footColor = kind === "title" ? T.titleFoot : muted;
         s.addText(`Digital Life Spotlight · 5-minute discussion · ${n}/${total}`, { x: 0.6, y: H - 0.6, w: W - 3.4, h: 0.3, fontSize: 9, color: footColor, fontFace: bFont });
         return s;
       };
@@ -1478,8 +1527,8 @@ function App() {
 
       /* Slide 1 — TITLE (catchy headline; also carries band/theme) */
       const s1 = newSlide("title");
-      s1.addText(tCase(spot.hook || spot.title), { x: 0.9, y: 1.6, w: W - 2.6, h: 3.8, fontSize: 44, bold: true, color: "FFFFFF", valign: "middle", fontFace: tFont });
-      s1.addText(`${bandLabel}${year ? " · " + year : ""}   ·   ${theme}   ·   5-minute discussion`, { x: 0.9, y: 5.7, w: W - 1.8, h: 0.4, fontSize: 14, color: "E7DCEF", fontFace: bFont });
+      s1.addText(tCase(spot.hook || spot.title), { x: 0.9, y: 1.6, w: W - 2.6, h: 3.8, fontSize: 44, bold: true, color: T.titleInk, valign: "middle", fontFace: tFont });
+      s1.addText(`${bandLabel}${year ? " · " + year : ""}   ·   ${theme}   ·   5-minute discussion`, { x: 0.9, y: 5.7, w: W - 1.8, h: 0.4, fontSize: 14, color: T.titleSub, fontFace: bFont });
 
       const drawRoutine = (s, rx2, rw2, colY, colH) => {
         let ry = colY;
@@ -1487,7 +1536,7 @@ function App() {
         if (spot.routineIntro) { s.addText(spot.routineIntro, { x: rx2, y: ry, w: rw2, h: 0.5, fontSize: 12, italic: true, color: muted, fontFace: bFont }); ry += 0.5; }
         spot.steps.forEach((st) => {
           s.addText([
-            { text: `${st.minutes} min   `, options: { bold: true, color: accent2 } },
+            { text: `${st.minutes} min   `, options: { bold: true, color: accent } },
             { text: st.name, options: { bold: true, color: ink } },
             { text: st.prompt ? `\n${st.prompt}` : "", options: { color: ink } },
           ], { x: rx2, y: ry, w: rw2, h: 1.0, fontSize: 12.5, valign: "top", fontFace: bFont });
@@ -1577,11 +1626,11 @@ function App() {
 
       /* STUDENT KEY TAKEAWAY */
       const s6 = newSlide("title");
-      kicker(s6, "Your key takeaway", accent2);
-      s6.addShape(pptx.ShapeType.roundRect, { x: 1.1, y: 2.2, w: W - 2.2, h: 2.8, fill: { color: accent2 }, rectRadius: 0.18 });
-      s6.addText(spot.studentAction || "—", { x: 1.7, y: 2.4, w: W - 3.4, h: 2.4, fontSize: 26, bold: true, color: "FFFFFF", valign: "middle", align: "center", fontFace: tFont });
+      kicker(s6, "Your key takeaway", T.titleKick);
+      s6.addShape(pptx.ShapeType.roundRect, { x: 1.1, y: 2.2, w: W - 2.2, h: 2.8, fill: { color: T.cardBg }, rectRadius: 0.18 });
+      s6.addText(spot.studentAction || "—", { x: 1.7, y: 2.4, w: W - 3.4, h: 2.4, fontSize: 26, bold: true, color: T.cardInk, valign: "middle", align: "center", fontFace: tFont });
       if (spot.learnerProfile.filter(Boolean).length)
-        s6.addText("IB Learner Profile: " + spot.learnerProfile.filter(Boolean).join(", "), { x: 1.1, y: 5.4, w: W - 2.2, h: 0.4, fontSize: 14, italic: true, color: "E7DCEF", align: "center", fontFace: bFont });
+        s6.addText("IB Learner Profile: " + spot.learnerProfile.filter(Boolean).join(", "), { x: 1.1, y: 5.4, w: W - 2.2, h: 0.4, fontSize: 14, italic: true, color: T.titleSub, align: "center", fontFace: bFont });
 
       const safe = (spot.title || "spotlight").replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "-").slice(0, 50) || "spotlight";
       await pptx.writeFile({ fileName: `Digital-Life-Spotlight_${safe}.pptx` });
@@ -1816,17 +1865,28 @@ function App() {
                 <button type="button" className="btn primary" onClick={download}><Icon d={I.download} size={16} stroke /> Download PowerPoint</button>
               </div>
 
-              {/* Export-theme confirmation + live themed thumbnail (Wesley is the only theme) */}
+              {/* Export-template picker + live themed cover preview */}
               <div className="design-row">
-                <div className="thumb-slide" style={{ background: hx(T.titleBg), color: "#FFFFFF", fontFamily: T.bodyFont }}>
-                  <div className="thumb-bar" style={barStyle}></div>
-                  <div className="thumb-kick" style={{ color: hx(T.accent2) }}>HOOK</div>
+                <div className="thumb-slide" style={{ background: hx(T.titleBg), color: hx(T.titleInk), fontFamily: T.bodyFont }}>
+                  <div className="thumb-bar" style={{ background: hx(T.bar) }}></div>
+                  <div className="thumb-kick" style={{ color: hx(T.titleKick) }}>HOOK</div>
                   <div className="thumb-title" style={{ fontFamily: T.titleFont, textTransform: T.upper ? "uppercase" : "none" }}>{spot.hook || spot.title}</div>
-                  <div className="thumb-meta" style={{ color: "var(--accent-soft)" }}><span className={"band-dot band-" + band.toLowerCase()}></span>{bandLabel} · {theme}</div>
+                  <div className="thumb-meta" style={{ color: hx(T.titleSub) }}><span className={"band-dot band-" + band.toLowerCase()}></span>{bandLabel} · {theme}</div>
                 </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 700 }}>Exports in the Wesley College theme</div>
-                  <div className="hint">Purple &amp; gold, with the Wesley crest on every slide. Edit any field below, then download.</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700 }}>Export template — {T.label}</div>
+                  <div className="hint">{T.blurb} The Wesley crest sits on every slide — pick a look, then download.</div>
+                  <div className="tpl-picks" role="radiogroup" aria-label="Export template">
+                    {Object.entries(THEME_DESIGNS).map(([key, d]) => (
+                      <button key={key} type="button" role="radio" aria-checked={design === key} title={d.blurb}
+                        className={"tpl-swatch" + (design === key ? " on" : "")} onClick={() => setDesign(key)}>
+                        <span className="tpl-cover" style={{ background: hx(d.titleBg) }}>
+                          <span className="tpl-bar" style={{ background: hx(d.bar) }}></span>
+                        </span>
+                        <span className="tpl-name">{d.label}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
