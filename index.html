@@ -1066,12 +1066,12 @@ function MediaCarousel({ items, index, setIndex }) {
           ? <img src={it.dataUrl} alt={"Stimulus " + (index + 1) + ": " + it.name} />
           : <video src={it.dataUrl || undefined} poster={it.poster} controls playsInline />}
         {n > 1 && <React.Fragment>
-          <button type="button" className="reel-arrow left" aria-label="Previous image" onClick={() => go(-1)}>‹</button>
-          <button type="button" className="reel-arrow right" aria-label="Next image" onClick={() => go(1)}>›</button>
+          <button type="button" className="reel-arrow left" aria-label="Previous item" onClick={() => go(-1)}>‹</button>
+          <button type="button" className="reel-arrow right" aria-label="Next item" onClick={() => go(1)}>›</button>
         </React.Fragment>}
       </div>
       {n > 1 && <div className="reel-dots">
-        {items.map((m, i) => <button key={m.id} type="button" className={"dot" + (i === index ? " on" : "")} aria-label={"Go to image " + (i + 1)} aria-current={i === index} onClick={() => setIndex(i)} />)}
+        {items.map((m, i) => <button key={m.id} type="button" className={"dot" + (i === index ? " on" : "")} aria-label={"Go to " + (m.kind === "video" ? "video " : "image ") + (i + 1)} aria-current={i === index ? "true" : "false"} onClick={() => setIndex(i)} />)}
       </div>}
     </div>
   );
