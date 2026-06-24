@@ -10,12 +10,12 @@
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-<!-- PowerPoint export -->
-<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 <!-- QR codes (qrcode-generator: exposes a global `qrcode` with synchronous createDataURL) -->
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-<!-- PDF text extraction -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<!-- pptxgenjs (PowerPoint export, ~155KB) and pdf.js (PDF text extraction, ~73KB) are
+     heavy and only needed on user action, so they're lazy-loaded on demand via
+     loadScript() below — keeping ~228KB off the initial render path. -->
+
 
 <style>
   /* Wesley primary typeface — Graphik (self-hosted from ./fonts/). Available weights are
@@ -273,6 +273,21 @@
 <script type="text/babel" data-presets="react-classic">
 const { useState, useRef, useMemo } = React;
 
+/* ---- Lazy-load heavy CDN libs only when actually needed (export / PDF) ----
+   Keeps them off the critical render path. Idempotent: each src loads at most once. */
+const _scriptCache = {};
+function loadScript(src) {
+  return _scriptCache[src] || (_scriptCache[src] = new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = src; s.async = true;
+    s.onload = () => resolve();
+    s.onerror = () => { delete _scriptCache[src]; reject(new Error("Failed to load " + src)); };
+    document.head.appendChild(s);
+  }));
+}
+const PPTX_SRC = "https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js";
+const PDFJS_SRC = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+
 /* ----------------------------- constants ----------------------------- */
 
 const BANDS = {
@@ -507,6 +522,7 @@ async function findRelevantImage(query) {
 
 async function extractPdfText(file) {
   const buf = await file.arrayBuffer();
+  await loadScript(PDFJS_SRC);
   const pdfjs = window.pdfjsLib;
   pdfjs.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
   const pdf = await pdfjs.getDocument({ data: buf }).promise;
@@ -1243,6 +1259,7 @@ function App() {
       const tCase = (s) => T.upper ? String(s).toUpperCase() : String(s);
       const W = 13.33, H = 7.5;
 
+      await loadScript(PPTX_SRC);
       const pptx = new PptxGenJS();
       pptx.defineLayout({ name: "WIDE", width: W, height: H });
       pptx.layout = "WIDE";
