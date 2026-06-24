@@ -410,8 +410,8 @@ const ROUTINES = {
 };
 const ROUTINE_SOURCE = "Harvard Project Zero Thinking Routines · pz.harvard.edu/thinking-routines";
 
-const MODE_FRAMING = { image: "Look closely, then discuss.", article: "Read, then discuss.", video: "Watch, then discuss." };
-const MODE_VERB = { image: "Look", article: "Read", video: "Watch" };
+const MODE_FRAMING = { media: "Look closely, then discuss.", image: "Look closely, then discuss.", article: "Read, then discuss.", video: "Watch, then discuss." };
+const MODE_VERB = { media: "Look", image: "Look", article: "Read", video: "Watch" };
 
 // Wesley College is the only export theme. Hex values carry NO leading '#'.
 const THEME_DESIGNS = {
@@ -1139,7 +1139,9 @@ function App() {
 
   // First item's still image — keeps legacy single-image AI/PPTX paths working.
   const firstStill = media[0] ? (media[0].kind === "image" ? media[0].dataUrl : media[0].poster) : "";
-  const imageDataUrl = firstStill; // legacy alias still read by generateSpotlight + export
+
+  // Keep reelIndex in range whenever the reel shrinks.
+  React.useEffect(() => { if (reelIndex > Math.max(0, media.length - 1)) setReelIndex(0); }, [media.length]);
 
   /* ------- file handlers ------- */
   const newId = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
@@ -1247,7 +1249,8 @@ function App() {
     if (preparing || regenSlide) return; // a discovered stimulus is still loading, or a slide regen is in flight
     setError(""); setRawDump("");
     if (!apiKey.trim()) { setError("Please paste your OpenAI API key first."); return; }
-    if (!inputReady()) { setError("Please add the stimulus (image, article text/PDF, or transcript)."); return; }
+    if (mode === "media" && !media.length) { setError("Add at least one image or video first."); return; }
+    if (!inputReady()) { setError("Please add a stimulus first (images/video, or article text/PDF)."); return; }
 
     setLoading(true);
     // Estimated progress: ease toward ~92% while the single request is in flight,
@@ -1357,33 +1360,41 @@ function App() {
       // When falling back to the issue brief, also attach a relevant free image so
       // the stimulus slide isn't bland.
       const useBrief = async (msg) => {
-        setMode("article"); setImageDataUrl(""); setImageName(""); setArticleText(seed); setNotice(msg);
+        setMode(“article”); setMedia([]); setArticleText(seed); setNotice(msg);
         setArticleImageUrl(await findRelevantImage(imgQuery));
       };
 
-      const type = ["article", "image", "video"].includes(card.resourceType) ? card.resourceType : "article";
+      const type = [“article”, “image”, “video”].includes(card.resourceType) ? card.resourceType : “article”;
       if (!card.resourceUrl) {
         await useBrief(`Loaded “${card.title}” as the stimulus from the issue summary (no free resource was attached). Edit or replace it on the left, then Generate.`);
-      } else if (type === "image") {
-        setMode("image"); setLink("");
+      } else if (type === “image”) {
+        setMode(“media”); setMedia([]); setLink(“”);
         let d = await urlToDataUrl(card.resourceUrl);
         if (!d) { const alt = await findRelevantImage(imgQuery); if (alt) d = await urlToDataUrl(alt); } // fall back to a relevant free image
-        if (d) { setImageDataUrl(d); setImageName(card.resourceTitle || "resource image"); }
-        else await useBrief("Couldn't load an image for this one, so I loaded the issue summary instead — Generate, or add your own image on the left.");
-      } else if (type === "video") {
-        setMode("video"); setLink(card.resourceUrl); setTranscript("");
+        if (d) { setMedia([{ id: newId(), kind: “image”, dataUrl: d, name: card.resourceTitle || “resource image” }]); }
+        else await useBrief(“Couldn't load an image for this one, so I loaded the issue summary instead — Generate, or add your own image on the left.”);
+      } else if (type === “video”) {
+        // A discovered video is an external URL only — no file, no frames.
+        // Route to article mode with the link (becomes a QR code) and the
+        // transcript as the generation stimulus if one can be fetched.
+        setMode(“article”); setMedia([]); setLink(card.resourceUrl);
         let gotTranscript = false;
         if (/youtube\.com|youtu\.be/i.test(card.resourceUrl)) {
           try {
-            const r = await fetch("https://r.jina.ai/" + card.resourceUrl);
-            if (r.ok) { const t = cleanArticleMarkdown(await r.text()); if (t.length > 80) { setTranscript(t); gotTranscript = true; } }
+            const r = await fetch(“https://r.jina.ai/” + card.resourceUrl);
+            if (r.ok) { const t = cleanArticleMarkdown(await r.text()); if (t.length > 80) { setArticleText(t); gotTranscript = true; } }
           } catch (_) { /* leave blank; teacher pastes */ }
         }
-        if (!gotTranscript) setNotice("Video link loaded (it becomes a QR code). Paste the transcript so the model can read the video — or switch to Article mode to Generate from the issue summary.");
+        if (!gotTranscript) {
+          setArticleText(seed);
+          setNotice(“Loaded the video link (it becomes a QR code). I couldn't pull a transcript, so I used the issue summary as the stimulus — paste a transcript into the text box to use the spoken content, or just Generate.”);
+        } else {
+          setNotice(“Loaded the video transcript as the stimulus. The link becomes a QR code on the slide — review and Generate when ready.”);
+        }
       } else {
-        setMode("article"); setImageDataUrl(""); setImageName("");
+        setMode(“article”); setMedia([]);
         const { text, image } = await fetchArticleFromLink(card.resourceUrl);
-        if (!text) { setError(""); setArticleText(seed); setNotice("Couldn't auto-load the full article, so I loaded the issue summary as the stimulus. The link is on the left — click “Fetch text” to retry, or just Generate."); }
+        if (!text) { setError(“”); setArticleText(seed); setNotice(“Couldn't auto-load the full article, so I loaded the issue summary as the stimulus. The link is on the left — click “Fetch text” to retry, or just Generate.”); }
         if (!image) setArticleImageUrl(await findRelevantImage(imgQuery)); // article had no picture — supply one
       }
     } finally {
