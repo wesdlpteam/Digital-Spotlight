@@ -1108,7 +1108,7 @@ function App() {
 
     for (const f of take) {
       if (f.type.startsWith("image/")) {
-        try { const dataUrl = await readFileAsDataURL(f); setMedia(m => [...m, { id: newId(), kind: "image", dataUrl, name: f.name }]); }
+        try { const dataUrl = await readFileAsDataURL(f); setMedia(m => m.length >= MAX_MEDIA ? m : [...m, { id: newId(), kind: "image", dataUrl, name: f.name }]); }
         catch (_) { setError("Could not read image: " + f.name); }
       } else if (f.type.startsWith("video/")) {
         setExtractingVideo(true);
@@ -1116,7 +1116,7 @@ function App() {
           let dataUrl = "";
           if (f.size <= VIDEO_EMBED_MAX_BYTES) { try { dataUrl = await readFileAsDataURL(f); } catch (_) {} }
           const { frames, poster, width, height } = await extractVideoFrames(f, 4);
-          setMedia(m => [...m, { id: newId(), kind: "video", dataUrl, name: f.name, sizeBytes: f.size,
+          setMedia(m => m.length >= MAX_MEDIA ? m : [...m, { id: newId(), kind: "video", dataUrl, name: f.name, sizeBytes: f.size,
             poster, aspect: width && height ? width / height : 0, frames, text: "" }]);
           if (!frames.length) setMediaNote("Couldn't read frames from " + f.name + " — add a description under its thumbnail. It will still embed in the PowerPoint.");
           else if (f.size > VIDEO_EMBED_MAX_BYTES) setMediaNote(`${f.name} is large (${formatBytes(f.size)}) — the deck will use its first frame + a link instead of embedding.`);
