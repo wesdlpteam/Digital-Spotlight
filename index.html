@@ -1145,6 +1145,14 @@ function App() {
 
   /* ------- file handlers ------- */
   const newId = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
+  // Intrinsic aspect (w/h) of an image data URL, so the PPTX export can letterbox it
+  // correctly (pptxgenjs `sizing:contain` stretches; we compute contain ourselves).
+  const imageAspect = (dataUrl) => new Promise(res => {
+    const im = new Image();
+    im.onload = () => res(im.naturalWidth && im.naturalHeight ? im.naturalWidth / im.naturalHeight : 0);
+    im.onerror = () => res(0);
+    im.src = dataUrl;
+  });
 
   async function addMediaFiles(fileList) {
     const files = Array.from(fileList || []);
@@ -1157,7 +1165,7 @@ function App() {
 
     for (const f of take) {
       if (f.type.startsWith("image/")) {
-        try { const dataUrl = await readFileAsDataURL(f); setMedia(m => m.length >= MAX_MEDIA ? m : [...m, { id: newId(), kind: "image", dataUrl, name: f.name }]); }
+        try { const dataUrl = await readFileAsDataURL(f); const aspect = await imageAspect(dataUrl); setMedia(m => m.length >= MAX_MEDIA ? m : [...m, { id: newId(), kind: "image", dataUrl, name: f.name, aspect }]); }
         catch (_) { setError("Could not read image: " + f.name); }
       } else if (f.type.startsWith("video/")) {
         setExtractingVideo(true);
@@ -1371,7 +1379,7 @@ function App() {
         setMode("media"); setMedia([]); setLink("");
         let d = await urlToDataUrl(card.resourceUrl);
         if (!d) { const alt = await findRelevantImage(imgQuery); if (alt) d = await urlToDataUrl(alt); } // fall back to a relevant free image
-        if (d) { setMedia([{ id: newId(), kind: "image", dataUrl: d, name: card.resourceTitle || "resource image" }]); }
+        if (d) { const aspect = await imageAspect(d); setMedia([{ id: newId(), kind: "image", dataUrl: d, name: card.resourceTitle || "resource image", aspect }]); }
         else await useBrief("Couldn't load an image for this one, so I loaded the issue summary instead — Generate, or add your own image on the left.");
       } else if (type === "video") {
         // A discovered video is an external URL only — no file, no frames.
@@ -1510,7 +1518,12 @@ function App() {
 
         // LEFT: this item's media (or article/summary on the single non-media slide).
         if (item && item.kind === "image") {
-          s3.addImage({ data: item.dataUrl, x: lx, y: colY, w: lw2, h: mediaH, sizing: { type: "contain", w: lw2, h: mediaH } });
+          // Compute "contain" ourselves (pptxgenjs sizing:contain stretches the image to the box).
+          const ar = (item.aspect && isFinite(item.aspect) && item.aspect > 0) ? item.aspect : (lw2 / mediaH);
+          let iw = lw2, ih = iw / ar; if (ih > mediaH) { ih = mediaH; iw = ih * ar; }
+          iw = +iw.toFixed(2); ih = +ih.toFixed(2);
+          const iX = +(lx + (lw2 - iw) / 2).toFixed(2), iY = +(colY + (mediaH - ih) / 2).toFixed(2);
+          s3.addImage({ data: item.dataUrl, x: iX, y: iY, w: iw, h: ih });
         } else if (item && item.kind === "video") {
           const embed = !!item.dataUrl && item.sizeBytes <= VIDEO_EMBED_MAX_BYTES;
           const ar = (item.aspect && isFinite(item.aspect) && item.aspect > 0) ? item.aspect : (16 / 9);
