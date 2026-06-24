@@ -830,7 +830,7 @@ async function discoverIssues({ apiKey, model, band, yearLevels, month, categori
 
 /* --------------------------- OpenAI call --------------------------- */
 
-async function generateSpotlight({ apiKey, model, mode, band, year, theme, title, imageDataUrl, sourceText, frames = [], sourceKind = "", scope = "all", routineChoice = "", current = null }) {
+async function generateSpotlight({ apiKey, model, mode, band, year, theme, title, media = [], sourceText = "", scope = "all", routineChoice = "", current = null }) {
   const yearStr = year ? ` Specifically pitch to ${year}.` : "";
   const titleInstruction = title
     ? `The teacher provided this title: "${title}". Use it (lightly polished if needed).`
@@ -841,7 +841,7 @@ async function generateSpotlight({ apiKey, model, mode, band, year, theme, title
 
   // Per-field schema fragments, assembled by scope so a single-slide regenerate
   // asks the model for only that slide's fields.
-  const summaryField = (mode === "image" || mode === "video")
+  const summaryField = (mode === "media")
     ? `"summary": ""`
     : `"summary": "string — EXACTLY 5 sentences. You have FULL creative licence: make it grab ${band} students instantly and bait discussion. Lead with the most surprising, relatable, or unsettling angle; use vivid concrete detail; speak to their world; end on a provocative note. Make the situation CONCRETE — clearly establish WHAT happened and the specifics students need to follow it; if the article is vague on an important detail, add brief, careful clarifying context so students aren't confused, but NEVER invent quotes, names, numbers, or events. Punchy, not bland, never a dry recap."`;
   const F = {
@@ -899,22 +899,27 @@ Write every field in PLAIN TEXT — no markdown, no asterisks, no #, no backtick
   ];
 
   const userContent = [];
+  const mediaItems = Array.isArray(media) ? media : [];
 
-  if (mode === "image") {
-    textParts.push("The stimulus is the attached image. Look at its ACTUAL content and build the whole spotlight from what you genuinely see in it. Tie the discussion to the focus theme.");
+  if (mode === "media" && mediaItems.length) {
+    const imgs = mediaItems.filter(m => m.kind === "image").length;
+    const vids = mediaItems.filter(m => m.kind === "video").length;
+    let mt = `The stimulus is a reel of ${mediaItems.length} item(s) shown in order` +
+      `${imgs ? ` — ${imgs} image(s)` : ""}${vids ? `${imgs ? " and" : " —"} ${vids} video(s) (still frames attached per clip)` : ""}. ` +
+      `Treat them as ONE provocation in sequence; item 1 is the primary stimulus. Build the whole spotlight from what you genuinely see/read across them, tied to the focus theme.`;
+    const clipText = mediaItems
+      .map((m, i) => (m.kind === "video" && m.text && m.text.trim()) ? `Video at position ${i + 1} — ${m.text.trim().slice(0, 4000)}` : "")
+      .filter(Boolean);
+    if (clipText.length) mt += `\nClip notes:\n${clipText.join("\n")}`;
+    textParts.push(mt);
     userContent.push({ type: "text", text: textParts.join("\n") + "\n\n" + schema });
-    userContent.push({ type: "image_url", image_url: { url: imageDataUrl } });
-  } else if (mode === "video" && frames.length) {
-    const trimmed = (sourceText || "").slice(0, 12000);
-    let vt = "The stimulus is a short video. Attached are still frames sampled across it — treat them as the video's actual content and build the whole spotlight from what you see, tied to the focus theme.";
-    if (trimmed) vt += `\nAdditional context${sourceKind ? " (" + sourceKind + ")" : ""}:\n"""\n${trimmed}\n"""`;
-    textParts.push(vt);
-    userContent.push({ type: "text", text: textParts.join("\n") + "\n\n" + schema });
-    frames.forEach(fr => userContent.push({ type: "image_url", image_url: { url: fr } }));
+    mediaItems.forEach(m => {
+      if (m.kind === "image") userContent.push({ type: "image_url", image_url: { url: m.dataUrl } });
+      else (m.frames || []).forEach(fr => userContent.push({ type: "image_url", image_url: { url: fr } }));
+    });
   } else {
     const trimmed = (sourceText || "").slice(0, 12000);
-    const noun = mode === "video" ? "video (described below)" : "article text";
-    textParts.push(`The stimulus is the following ${noun}. Build the spotlight from its real content, tied to the focus theme:\n\n"""\n${trimmed}\n"""`);
+    textParts.push(`The stimulus is the following article text. Build the spotlight from its real content, tied to the focus theme:\n\n"""\n${trimmed}\n"""`);
     userContent.push({ type: "text", text: textParts.join("\n") + "\n\n" + schema });
   }
 
@@ -975,16 +980,16 @@ function mergeScopedFields(spot, scope, p) {
 // Ask the model for ONE short focus-theme phrase based on the current stimulus.
 // Sends the same content kinds generate() would (text + any image/frames) but asks
 // only for a 2-4 word theme. Returns a cleaned phrase, or "" on empty.
-async function suggestThemeFromStimulus({ apiKey, model, mode, imageDataUrl, frames = [], sourceText = "" }) {
+async function suggestThemeFromStimulus({ apiKey, model, mode, media = [], sourceText = "" }) {
   const sys = "You are an IB digital-citizenship coach. You name the single best FOCUS THEME for a 5-minute cyber-safety / digital-citizenship discussion built on the given stimulus. Reply with ONLY the theme: 2-4 words, Title Case, no quotes, no punctuation, no explanation.";
   const ask = "Suggest ONE focus theme (2-4 words) for a cyber-safety / digital-citizenship discussion based on this stimulus.";
   const userContent = [];
-  if (mode === "image" && imageDataUrl) {
-    userContent.push({ type: "text", text: ask + " The stimulus is the attached image." });
-    userContent.push({ type: "image_url", image_url: { url: imageDataUrl } });
-  } else if (mode === "video" && frames.length) {
-    userContent.push({ type: "text", text: ask + " The stimulus is a short video; still frames are attached." + (sourceText ? `\nContext:\n"""\n${sourceText.slice(0, 4000)}\n"""` : "") });
-    frames.forEach(fr => userContent.push({ type: "image_url", image_url: { url: fr } }));
+  if (mode === "media" && media.length) {
+    userContent.push({ type: "text", text: ask + ` The stimulus is a reel of ${media.length} item(s).` });
+    media.forEach(m => {
+      if (m.kind === "image") userContent.push({ type: "image_url", image_url: { url: m.dataUrl } });
+      else (m.frames || []).forEach(fr => userContent.push({ type: "image_url", image_url: { url: fr } }));
+    });
   } else {
     userContent.push({ type: "text", text: ask + `\nStimulus:\n"""\n${(sourceText || "").slice(0, 8000)}\n"""` });
   }
@@ -1212,9 +1217,8 @@ function App() {
 
   /* ------- validation ------- */
   function inputReady() {
-    if (mode === "image") return !!imageDataUrl;
+    if (mode === "media") return media.length > 0;
     if (mode === "article") return articleText.trim().length > 20;
-    if (mode === "video") return videoFrames.length > 0 || transcript.trim().length > 20 || videoDesc.trim().length > 20;
     return false;
   }
 
@@ -1225,11 +1229,9 @@ function App() {
     if (!inputReady()) { setError("Add a stimulus first, then Suggest a theme."); return; }
     setSuggestingTheme(true);
     try {
-      const sourceText = mode === "video" ? (transcript.trim() || videoDesc.trim())
-        : mode === "article" ? articleText : "";
       const t = await suggestThemeFromStimulus({
-        apiKey: apiKey.trim(), model, mode, imageDataUrl,
-        frames: mode === "video" ? videoFrames : [], sourceText,
+        apiKey: apiKey.trim(), model, mode, media,
+        sourceText: mode === "article" ? articleText : "",
       });
       if (t) setTheme(t);
       else setError("The model didn't return a theme — try again or type one.");
@@ -1254,12 +1256,10 @@ function App() {
     setGenProgress(3);
     const progTick = setInterval(() => setGenProgress(p => (p < 92 ? p + (92 - p) * 0.06 : p)), 250);
     try {
-      const sourceText = mode === "video" ? (transcript.trim() || videoDesc.trim()) : articleText;
-      const frames = mode === "video" ? videoFrames : [];
-      const sourceKind = mode === "video" ? (transcript.trim() ? "transcript" : videoDesc.trim() ? "teacher description" : "") : "";
+      const sourceText = mode === "article" ? articleText : "";
       const { parsed, raw } = await generateSpotlight({
         apiKey: apiKey.trim(), model, mode, band, year, theme,
-        title: title.trim(), imageDataUrl, sourceText, frames, sourceKind,
+        title: title.trim(), media, sourceText,
       });
 
       // Build the editable spotlight, merging model output with user-chosen facts.
@@ -1299,12 +1299,10 @@ function App() {
     setError(""); setRawDump("");
     setRegenSlide(scope);
     try {
-      const sourceText = mode === "video" ? (transcript.trim() || videoDesc.trim()) : articleText;
-      const frames = mode === "video" ? videoFrames : [];
-      const sourceKind = mode === "video" ? (transcript.trim() ? "transcript" : videoDesc.trim() ? "teacher description" : "") : "";
+      const sourceText = mode === "article" ? articleText : "";
       const { parsed } = await generateSpotlight({
         apiKey: apiKey.trim(), model, mode, band, year, theme,
-        title: title.trim(), imageDataUrl, sourceText, frames, sourceKind,
+        title: title.trim(), media, sourceText,
         scope, routineChoice: routineChoiceArg !== undefined ? routineChoiceArg : routineChoice, current: spot,
       });
       setSpot(s => mergeScopedFields(s, scope, parsed));
