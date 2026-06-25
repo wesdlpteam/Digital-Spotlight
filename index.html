@@ -12,6 +12,8 @@
 
 <!-- QR codes (qrcode-generator: exposes a global `qrcode` with synchronous createDataURL) -->
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<!-- JSZip: post-process the generated .pptx to inject SharePoint online-video markup -->
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <!-- pptxgenjs (PowerPoint export, ~155KB) and pdf.js (PDF text extraction, ~73KB) are
      heavy and only needed on user action, so they're lazy-loaded on demand via
      loadScript() below — keeping ~228KB off the initial render path. -->
@@ -367,6 +369,58 @@ function loadScript(src) {
 }
 const PPTX_SRC = "https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js";
 const PDFJS_SRC = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+
+/* ---- SharePoint online-video post-processing ----
+   pptxgenjs cannot emit a working SharePoint online-video object (its output
+   corrupts). So for a video that has a sharePointUrl we export its first frame
+   as a *marked* poster image (altText -> <p:cNvPr descr="TSG-VIDEO::<url>">),
+   then rewrite each marked <p:pic> here into PowerPoint's exact online-video
+   markup: an external `video` relationship + <a:videoFile r:link> + an
+   <a:hlinkClick action="ppaction://media"/>, keeping the poster blipFill. */
+const VIDEO_MARK_PREFIX = "TSG-VIDEO::";
+// Convert each marked poster <p:pic> into a real online-video object referencing its SharePoint URL.
+async function injectOnlineVideos(blob, videoMarks) {
+  if (!videoMarks.length || typeof JSZip === "undefined") return blob;
+  const zip = await JSZip.loadAsync(blob);
+  const slidePaths = Object.keys(zip.files).filter(p => /^ppt\/slides\/slide\d+\.xml$/.test(p));
+  for (const sp of slidePaths) {
+    let xml = await zip.file(sp).async("string");
+    if (xml.indexOf(VIDEO_MARK_PREFIX) === -1) continue;
+    const relPath = sp.replace(/slides\/(slide\d+)\.xml$/, "slides/_rels/$1.xml.rels");
+    let rels = await zip.file(relPath).async("string");
+    let relSeq = 0;
+    // Each marked pic carries descr="TSG-VIDEO::<url>" on its <p:cNvPr>.
+    xml = xml.replace(/<p:pic>[\s\S]*?<\/p:pic>/g, (pic) => {
+      const m = pic.match(/descr="TSG-VIDEO::([^"]+)"/);
+      if (!m) return pic;
+      const rid = "rIdVid" + (++relSeq);
+      // add external video relationship (Target keeps the XML-escaped url, e.g. &amp;)
+      rels = rels.replace("</Relationships>",
+        `<Relationship Id="${rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/video" Target="${m[1]}" TargetMode="External"/></Relationships>`);
+      // strip the marker, add hlinkClick(media) into cNvPr, add videoFile into nvPr
+      let p = pic.replace(/\s*descr="TSG-VIDEO::[^"]+"/, "");
+      p = p.replace(/(<p:cNvPr\b[^>]*?)(\/>|>)/, (full, head, close) => {
+        if (close === "/>") return head + '><a:hlinkClick r:id="" action="ppaction://media"/></p:cNvPr>';
+        return head + '><a:hlinkClick r:id="" action="ppaction://media"/>';
+      });
+      // Insert <a:videoFile> into the pic's <p:nvPr>. pptxgenjs already emits a
+      // (usually empty) <p:nvPr> for an image; OOXML allows only ONE per nvPicPr,
+      // so reuse it if present, otherwise create one before </p:nvPicPr>.
+      const vf = `<a:videoFile r:link="${rid}"/>`;
+      if (/<p:nvPr\s*\/>/.test(p)) {
+        p = p.replace(/<p:nvPr\s*\/>/, `<p:nvPr>${vf}</p:nvPr>`);
+      } else if (/<p:nvPr>[\s\S]*?<\/p:nvPr>/.test(p)) {
+        p = p.replace(/<\/p:nvPr>/, `${vf}</p:nvPr>`);
+      } else {
+        p = p.replace(/<\/p:nvPicPr>/, `<p:nvPr>${vf}</p:nvPr></p:nvPicPr>`);
+      }
+      return p;
+    });
+    zip.file(sp, xml);
+    zip.file(relPath, rels);
+  }
+  return await zip.generateAsync({ type: "blob" });
+}
 
 /* ----------------------------- constants ----------------------------- */
 
@@ -910,7 +964,7 @@ window.DSS = { DISCOVERY_CATEGORIES, RESOURCE_DOMAINS, availableCategories, mont
   audienceStr, buildEventRequest, buildResourceRequest, extractResponseText,
   citationSet, urlInCitations, mergeIssuesAndResources, validateResourceUrls,
   BANDS, BAND_ORDER, bandLabelOf, audienceStrMulti, shapeDeck, bandFileSlug,
-  videoFileToWav16k, transcribeMedia };
+  videoFileToWav16k, transcribeMedia, injectOnlineVideos, VIDEO_MARK_PREFIX };
 
 const TRANSCRIBE_LIMIT = 25 * 1024 * 1024; // OpenAI audio endpoint per-file cap
 // Transcribe a video/audio File via OpenAI. Sends the file directly when small
@@ -1677,6 +1731,9 @@ function App() {
     const year = years[bandKey] || "";
     const bandLabel = bandLabelOf(bandKey);
     try {
+      // SharePoint online-video markers recorded during the build; applied to the
+      // .pptx blob post-build by injectOnlineVideos(). Scoped per band/call.
+      const videoMarks = [];
       const T = THEME_DESIGNS[design];
       const accent = T.accent, accent2 = T.accent2, bar = T.bar, ink = T.ink, muted = T.muted;
       const tFont = T.titleFont, bFont = T.bodyFont;
@@ -1761,13 +1818,22 @@ function App() {
           const iX = +(lx + (lw2 - iw) / 2).toFixed(2), iY = +(colY + (mediaH - ih) / 2).toFixed(2);
           s3.addImage({ data: item.dataUrl, x: iX, y: iY, w: iw, h: ih });
         } else if (item && item.kind === "video") {
-          const embed = !!item.dataUrl && item.sizeBytes <= VIDEO_EMBED_MAX_BYTES;
           const ar = (item.aspect && isFinite(item.aspect) && item.aspect > 0) ? item.aspect : (16 / 9);
           let vw = lw2, vh = vw / ar; if (vh > mediaH) { vh = mediaH; vw = vh * ar; }
           vw = +vw.toFixed(2); vh = +vh.toFixed(2);
           const vX = +(lx + (lw2 - vw) / 2).toFixed(2), vY = +(colY + (mediaH - vh) / 2).toFixed(2);
-          if (embed) s3.addMedia({ type: "video", data: item.dataUrl, cover: item.poster || undefined, x: vX, y: vY, w: vw, h: vh });
-          else if (item.poster) s3.addImage({ data: item.poster, x: vX, y: vY, w: vw, h: vh, sizing: { type: "contain", w: vw, h: vh } });
+          if (item.sharePointUrl) {
+            // Marked poster — converted into a real online-video by post-processing (injectOnlineVideos).
+            const firstStillFallback = item.poster || WESLEY_LOGO_HORIZ;
+            s3.addImage({ data: item.poster || firstStillFallback, x: vX, y: vY, w: vw, h: vh,
+              sizing: { type: "contain", w: vw, h: vh },
+              altText: VIDEO_MARK_PREFIX + item.sharePointUrl });
+            videoMarks.push({ url: item.sharePointUrl, name: item.name || "video.mp4" });
+          } else {
+            const embed = !!item.dataUrl && item.sizeBytes <= VIDEO_EMBED_MAX_BYTES;
+            if (embed) s3.addMedia({ type: "video", data: item.dataUrl, cover: item.poster || undefined, x: vX, y: vY, w: vw, h: vh });
+            else if (item.poster) s3.addImage({ data: item.poster, x: vX, y: vY, w: vw, h: vh, sizing: { type: "contain", w: vw, h: vh } });
+          }
         } else {
           // article / no-media: lead image + summary (legacy behavior).
           let stimImg = "";
@@ -1819,7 +1885,14 @@ function App() {
       if (spot.learnerProfile.filter(Boolean).length)
         s6.addText("IB Learner Profile: " + spot.learnerProfile.filter(Boolean).join(", "), { x: 1.1, y: 5.4, w: W - 2.2, h: 0.4, fontSize: 14, italic: true, color: T.titleSub, align: "center", fontFace: bFont });
 
-      await pptx.writeFile({ fileName: `Tech-Spotlight-${bandFileSlug(bandKey)}.pptx` });
+      // Build to a blob, post-process any SharePoint videos, then download.
+      const blob = await pptx.write({ outputType: "blob" });
+      const finalBlob = await injectOnlineVideos(blob, videoMarks);
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(finalBlob);
+      a.download = `Tech-Spotlight-${bandFileSlug(bandKey)}.pptx`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
     } catch (err) {
       setError("PowerPoint export failed: " + (err.message || String(err)));
     }
