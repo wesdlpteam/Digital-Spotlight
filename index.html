@@ -1888,10 +1888,12 @@ function App() {
       let n = 0;
       // Title + one provocation slide per reel item (article = 1) + Key takeaway.
       const total = 2 + ((mode === "media" && media.length) ? media.length : 1);
-      const newSlide = (kind) => {
+      const newSlide = (kind, bgOverride) => {
         n++;
         const s = pptx.addSlide();
-        s.background = { color: kind === "title" ? T.titleBg : T.contentBg };
+        // bgOverride lets a "title"-kind slide use a style-specific background (e.g. Pop Art's
+        // amber takeaway) while keeping the title chrome — footer band, crest and texture.
+        s.background = { color: bgOverride || (kind === "title" ? T.titleBg : T.contentBg) };
         if (ST.texture) s.addImage({ data: makeTexture(ST.texture.kind, { color: ST.texture.color, alpha: ST.texture.alpha }), x:0, y:0, w:W, h:H });
         // Wesley footer band: a full-width accent bar along the BOTTOM of every slide.
         s.addShape(pptx.ShapeType.rect, { x: 0, y: H - 0.18, w: W, h: 0.18, fill: { color: bar } });
@@ -2028,8 +2030,8 @@ function App() {
             s.addText(c.spot.framing, { x:0.8, y:1.05, w:c.W-1.6, h:0.7, fontSize:22, bold:true, color:c.ink, fontFace:c.tFont });
           },
           takeaway(s, c) {
-            s.addShape(c.pptx.ShapeType.rect, { x:0, y:0, w:c.W, h:c.H, fill:{color:"FFEDBC"} });
-            s.addImage({ data: makeTexture("halftone", { color:"#C59F40", alpha:0.5, dot:20 }), x:0, y:0, w:c.W, h:c.H });
+            // The amber field + halftone now come from newSlide (takeawayBg override + texture
+            // hook), so the Wesley footer band + crest survive. Skin only draws the speech card.
             s.addShape(c.pptx.ShapeType.roundRect, { x:1.2, y:1.9, w:c.W-2.4, h:3.2, fill:{color:"FFFFFF"}, line:{color:"1A1320", width:3}, rectRadius:0.3 });
             s.addText(c.tCase("Your key takeaway"), { x:1.6, y:2.1, w:c.W-3.2, h:0.4, fontSize:13, bold:true, color:"4F2759", fontFace:c.tFont, charSpacing:1 });
             s.addText((c.spot.studentAction || "—") + "!", { x:1.6, y:2.6, w:c.W-3.2, h:2.0, fontSize:26, bold:true, color:"4F2759", valign:"middle", fontFace:c.tFont });
@@ -2126,7 +2128,7 @@ function App() {
       }
 
       /* STUDENT KEY TAKEAWAY */
-      const s6 = newSlide("title");
+      const s6 = newSlide("title", T.takeawayBg);
       skin.takeaway(s6, ctx);
 
       // Build to a blob and post-process any SharePoint videos. Caller saves it.
