@@ -326,6 +326,11 @@
     overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
   }
 
+  /* Link-import row: paste URL + "Add link" button side by side */
+  .link-import { }
+  .link-import-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+  .link-import-row input { min-width: 0; }
+
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
       animation-duration: .001ms !important;
@@ -385,6 +390,7 @@ const THEMES = [
 // Videos at or under this size are embedded directly in the .pptx; larger ones
 // fall back to a poster frame + link/QR so the deck stays portable.
 const VIDEO_EMBED_MAX_BYTES = 25 * 1024 * 1024; // 25 MB
+const HELPER_BASE = "http://127.0.0.1:7717"; // local link-helper server (loopback only)
 const MAX_MEDIA = 10; // max images+videos in one provocation reel
 
 const BAND_GUIDANCE = {
@@ -1302,6 +1308,17 @@ function App() {
   const [extractingVideo, setExtractingVideo] = useState(false); // any video frame-extraction in flight
   const [mediaNote, setMediaNote] = useState(""); // soft inline status under the dropzone
 
+  // link helper — loopback server on 127.0.0.1:7717
+  const [helperUp, setHelperUp] = useState(false);
+  const [linkUrl, setLinkUrl] = useState("");
+  const [linkBusy, setLinkBusy] = useState(false);
+  React.useEffect(() => {
+    let alive = true;
+    const ping = () => fetch(HELPER_BASE + "/health").then(r => r.ok).catch(() => false).then(ok => { if (alive) setHelperUp(ok); });
+    ping(); const t = setInterval(ping, 8000);
+    return () => { alive = false; clearInterval(t); };
+  }, []);
+
   const mediaInput = useRef(null);
   const pdfInput = useRef(null);
   const genBtnRef = useRef(null);
@@ -1385,6 +1402,22 @@ function App() {
       }
     }
   }
+  async function importFromLink(url) {
+    if (!url.trim()) return;
+    setLinkBusy(true); setError(""); setMediaNote("");
+    try {
+      const r = await fetch(HELPER_BASE + "/fetch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: url.trim() }) });
+      const data = await r.json();
+      if (data.error) { setError(data.error); return; }
+      const bin = Uint8Array.from(atob(data.b64), c => c.charCodeAt(0));
+      const file = new File([bin], data.name || "download", { type: data.mime || "application/octet-stream" });
+      await addMediaFiles([file]);   // reuses frame-extraction + auto-transcribe
+      setLinkUrl("");
+    } catch (e) {
+      setError("Couldn't reach the link helper. Make sure Start-Helper is running.");
+    } finally { setLinkBusy(false); }
+  }
+
   function onMedia(e) { addMediaFiles(e.target.files); e.target.value = ""; }
   const removeMedia = (id) => setMedia(m => m.filter(x => x.id !== id));
   const setMediaText = (id, text) => setMedia(m => m.map(x => x.id === id ? { ...x, text } : x));
@@ -1924,7 +1957,7 @@ function App() {
                       )}
                       {it.kind === "video" && (
                         <div className="hint" aria-live="polite">
-                          {it.transcribeState === "running" && <React.Fragment><span className="spinner sm"></span> transcribing…</React.Fragment>}
+                          {it.transcribeState === "running" && <React.Fragment><span className="spinner sm dark"></span> transcribing…</React.Fragment>}
                           {it.transcribeState === "done" && `transcript ready (${(it.text ? it.text.trim().split(/\s+/).length : 0)} words) ${it.transcribeNote}`}
                           {it.transcribeState === "failed" && it.transcribeNote}
                         </div>
@@ -1933,6 +1966,22 @@ function App() {
                   ))}
                 </div>
               )}
+
+              <div className="link-import" style={{ marginTop: 10 }}>
+                {helperUp ? (
+                  <React.Fragment>
+                    <div className="link-import-row">
+                      <input type="url" value={linkUrl} placeholder="Paste an Instagram / YouTube / image link" onChange={e => setLinkUrl(e.target.value)} onKeyDown={e => { if (e.key === "Enter") importFromLink(linkUrl); }} />
+                      <button type="button" className="btn ghost" disabled={linkBusy || !linkUrl.trim()} onClick={() => importFromLink(linkUrl)}>
+                        {linkBusy ? <React.Fragment><span className="spinner sm dark"></span> Fetching…</React.Fragment> : "Add link"}
+                      </button>
+                    </div>
+                    <div className="hint" style={{ color: "var(--good-ink)" }}>Link helper connected ✓</div>
+                  </React.Fragment>
+                ) : (
+                  <div className="hint">Want to paste a link? Start the link helper (see <a href="link-helper/README.md" target="_blank" rel="noopener">link-helper/README.md</a>) and it will appear here.</div>
+                )}
+              </div>
 
               <div className="group" style={{ marginTop: 10 }}>
                 <label className="cap" htmlFor="f-mlink">Link (optional — becomes a QR code)</label>
