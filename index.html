@@ -1960,12 +1960,15 @@ function App() {
         },
         cyberpunk: {
           cover(s, c) {
-            const glow = { type:"outer", color:"E4D1A1", blur:18, offset:0, angle:0, opacity:0.5 };
+            // pptxgenjs MUTATES the shadow options object in place (angle/opacity -> OOXML units),
+            // so a shared object reused across addText calls corrupts the 2nd use (PowerPoint then
+            // can't read the file). Use a factory so every call gets a fresh, unmutated object.
+            const glow = () => ({ type:"outer", color:"E4D1A1", blur:18, offset:0, angle:0, opacity:0.5 });
             s.addShape(c.pptx.ShapeType.rect, { x:0.18, y:0.18, w:c.W-0.36, h:c.H-0.36, fill:{type:"none"}, line:{ color:"E4D1A1", width:0.75, transparency:55 } });
             s.addShape(c.pptx.ShapeType.rect, { x:0, y:0, w:c.W, h:0.28, fill:{color:"0D060F"} });
             s.addShape(c.pptx.ShapeType.rect, { x:0, y:c.H-0.28, w:c.W, h:0.28, fill:{color:"0D060F"} });
-            s.addText("// DIGITAL LIFE SPOTLIGHT", { x:0.9, y:0.7, w:c.W-1.8, h:0.3, fontSize:11, color:"E4D1A1", charSpacing:3, fontFace:"Consolas", shadow:glow });
-            s.addText(c.tCase(c.spot.hook || c.spot.title), { x:0.9, y:1.7, w:c.W-1.8, h:3.4, fontSize:44, bold:true, color:"FFFFFF", valign:"middle", fontFace:c.tFont, shadow:glow });
+            s.addText("// DIGITAL LIFE SPOTLIGHT", { x:0.9, y:0.7, w:c.W-1.8, h:0.3, fontSize:11, color:"E4D1A1", charSpacing:3, fontFace:"Consolas", shadow:glow() });
+            s.addText(c.tCase(c.spot.hook || c.spot.title), { x:0.9, y:1.7, w:c.W-1.8, h:3.4, fontSize:44, bold:true, color:"FFFFFF", valign:"middle", fontFace:c.tFont, shadow:glow() });
             s.addText(`${c.bandLabel}${c.year?" · "+c.year:""}  ·  ${c.theme}  ·  5-MIN`, { x:0.9, y:5.9, w:c.W-1.8, h:0.4, fontSize:13, color:"C9A86A", charSpacing:2, fontFace:"Consolas" });
           },
           provChrome(s, c, idx, reelLen) {
