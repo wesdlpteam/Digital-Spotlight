@@ -843,6 +843,11 @@ function shapeDeck(parsed, { band, title }) {
   };
 }
 
+// Filename-safe band token for the per-band .pptx export.
+function bandFileSlug(bandKey) {
+  return ({ PYP: "PYP", Middle: "Middle-7-9", Senior: "Senior-10-12" })[bandKey] || bandKey;
+}
+
 function hostOf(u) { try { return new URL(u).host.toLowerCase(); } catch (_) { return ""; } }
 
 // Drop a card's resource (but keep the card) unless its URL is either really
@@ -862,7 +867,7 @@ function validateResourceUrls(cards, cset, trustedDomains) {
 window.DSS = { DISCOVERY_CATEGORIES, RESOURCE_DOMAINS, availableCategories, monthLabel,
   audienceStr, buildEventRequest, buildResourceRequest, extractResponseText,
   citationSet, urlInCitations, mergeIssuesAndResources, validateResourceUrls,
-  BANDS, BAND_ORDER, bandLabelOf, audienceStrMulti, shapeDeck };
+  BANDS, BAND_ORDER, bandLabelOf, audienceStrMulti, shapeDeck, bandFileSlug };
 
 /* --------------------- Discovery: API orchestration --------------------- */
 
@@ -1550,8 +1555,14 @@ function App() {
   );
 
   /* ------- export ------- */
-  async function download() {
-    if (!spot) return;
+  // Build + save one deck. Shadows spot/band/year/bandLabel so the ~150-line body
+  // below operates on the passed deck instead of the active-band view.
+  async function buildAndSaveDeck(bandKey, deck) {
+    if (!deck) return;
+    const spot = deck;                       // body reads spot.*
+    const band = bandKey;
+    const year = years[bandKey] || "";
+    const bandLabel = bandLabelOf(bandKey);
     try {
       const T = THEME_DESIGNS[design];
       const accent = T.accent, accent2 = T.accent2, bar = T.bar, ink = T.ink, muted = T.muted;
@@ -1695,10 +1706,18 @@ function App() {
       if (spot.learnerProfile.filter(Boolean).length)
         s6.addText("IB Learner Profile: " + spot.learnerProfile.filter(Boolean).join(", "), { x: 1.1, y: 5.4, w: W - 2.2, h: 0.4, fontSize: 14, italic: true, color: T.titleSub, align: "center", fontFace: bFont });
 
-      const safe = (spot.title || "spotlight").replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "-").slice(0, 50) || "spotlight";
-      await pptx.writeFile({ fileName: `Digital-Life-Spotlight_${safe}.pptx` });
+      await pptx.writeFile({ fileName: `Tech-Spotlight-${bandFileSlug(bandKey)}.pptx` });
     } catch (err) {
       setError("PowerPoint export failed: " + (err.message || String(err)));
+    }
+  }
+
+  // Export one .pptx per generated band, staggered so browsers don't drop files.
+  async function download() {
+    const keys = BAND_ORDER.filter(b => spots[b]);
+    for (const b of keys) {
+      await buildAndSaveDeck(b, spots[b]);
+      await new Promise(r => setTimeout(r, 400));
     }
   }
 
