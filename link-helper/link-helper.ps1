@@ -20,6 +20,25 @@ $ErrorActionPreference = "Stop"
 $Port    = 7717
 $Browser = "chrome"   # cookies-from-browser source: chrome | edge | firefox
 
+# SharePoint pipeline settings (set these during install per teacher/site):
+$SyncFolder      = "$env:USERPROFILE\OneDrive - Wesley College\Images + Videos"   # local OneDrive-synced path
+$SharePointBase  = "https://wesleycollegemelbourne.sharepoint.com/sites/DigitalSpotlight/Shared%20Documents/Images%20+%20Videos/"
+
+function New-UniqueName($originalName) {
+    # "InTruth.mp4" -> "InTruth-7f3a1c.mp4"; strips unsafe chars, adds a short hex tag.
+    $base = [System.IO.Path]::GetFileNameWithoutExtension($originalName)
+    $ext  = [System.IO.Path]::GetExtension($originalName)
+    $safe = ($base -replace '[^A-Za-z0-9 _.+-]', '') -replace '\s+', ' '
+    $tag  = ([System.Guid]::NewGuid().ToString("N")).Substring(0,6)
+    return ($safe.Trim() + "-" + $tag + $ext)
+}
+
+function To-SharePointUrl($fileName) {
+    # Append the file name to the base, encoding spaces as %20 (keep other chars; base already encoded).
+    $enc = $fileName -replace ' ', '%20'
+    return ($SharePointBase + $enc)
+}
+
 # Allowlist of approved origin patterns (PowerShell regex).
 # To restrict to one exact URL, replace the array with: @("^https://yourorg\.github\.io$")
 $AllowedOriginPatterns = @(
@@ -178,7 +197,23 @@ while ($true) {
                     "gif"  { "image/gif" }
                     default { "application/octet-stream" }
                 }
-                $payload = @{ name = $out.Name; mime = $mime; b64 = $b64 } | ConvertTo-Json -Compress
+                $spUrl = ""
+                $posterB64 = ""
+                try {
+                    if (-not (Test-Path $SyncFolder)) { New-Item -ItemType Directory -Path $SyncFolder -Force | Out-Null }
+                    $uniqueName = New-UniqueName $out.Name
+                    $dest = Join-Path $SyncFolder $uniqueName
+                    Copy-Item -LiteralPath $out.FullName -Destination $dest -Force
+                    $spUrl = To-SharePointUrl $uniqueName
+                    # Poster: first frame via ffmpeg if available (best-effort).
+                    $ff = Join-Path $Here "ffmpeg.exe"
+                    if (Test-Path $ff) {
+                        $posterPath = Join-Path $tmp "poster.jpg"
+                        & $ff -y -ss 0 -i $dest -frames:v 1 $posterPath 2>$null
+                        if (Test-Path $posterPath) { $posterB64 = [System.Convert]::ToBase64String([System.IO.File]::ReadAllBytes($posterPath)) }
+                    }
+                } catch { $spUrl = "" }
+                $payload = @{ name = $out.Name; mime = $mime; b64 = $b64; sharePointUrl = $spUrl; posterB64 = $posterB64 } | ConvertTo-Json -Compress
                 Write-Response $ns "200 OK" (Utf8 $payload) "application/json" $allowOrigin
             } else {
                 $msg = "Could not fetch that link."
