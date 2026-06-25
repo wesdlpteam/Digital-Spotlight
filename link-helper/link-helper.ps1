@@ -104,8 +104,13 @@ while ($true) {
         $bodyText = ""
         if ($len -gt 0) {
             $bufc = New-Object char[] $len
-            [void]$reader.Read($bufc, 0, $len)
-            $bodyText = -join $bufc
+            $totalRead = 0
+            while ($totalRead -lt $len) {
+                $n = $reader.Read($bufc, $totalRead, $len - $totalRead)
+                if ($n -eq 0) { break }
+                $totalRead += $n
+            }
+            $bodyText = if ($totalRead -eq 0) { "" } else { -join $bufc[0..($totalRead - 1)] }
         }
 
         # Resolve allowed origin for this request
