@@ -1410,13 +1410,14 @@ function App() {
   async function runDiscovery() {
     setDiscoverError(""); setDiscoverCards([]); setDiscoverRaw("");
     if (!apiKey.trim()) { setDiscoverError("Please paste your OpenAI API key first."); return; }
-    const cats = availableCategories(band).filter(c => discoverCats.includes(c.id));
+    const dband = bands[0] || "PYP";
+    const cats = availableCategories(dband).filter(c => discoverCats.includes(c.id));
     if (!cats.length) { setDiscoverError("Pick at least one topic."); return; }
     if (!discoverTypes.length) { setDiscoverError("Pick at least one resource type (article, image, or video)."); return; }
     setDiscovering(true);
     try {
       const { cards, raw } = await discoverIssues({
-        apiKey: apiKey.trim(), model, band, yearLevels: discoverYears, month: discoverMonth, categories: cats, types: discoverTypes,
+        apiKey: apiKey.trim(), model, band: dband, yearLevels: discoverYears, month: discoverMonth, categories: cats, types: discoverTypes,
       });
       setDiscoverCards(cards); setDiscoverRaw(raw);
       if (!cards.length) setDiscoverError(`No current issues found for ${monthLabel(discoverMonth)} — try a different month or topic.`);
@@ -1440,8 +1441,9 @@ function App() {
       setTitle(card.title || "");
       setTheme(THEMES.includes(card.theme) ? card.theme : THEMES[0]);
       // single targeted year level -> set it; otherwise whole band
-      if (discoverYears.length === 1 && BANDS[band].years.includes(discoverYears[0])) setYear(discoverYears[0]);
-      else setYear("");
+      const cardBand = bands[0] || "PYP";
+      setBands([cardBand]);
+      setYears(y => ({ ...y, [cardBand]: (discoverYears.length === 1 && BANDS[cardBand].years.includes(discoverYears[0])) ? discoverYears[0] : "" }));
 
       // A short brief built from the issue itself — always a valid stimulus, so a
       // generation never dead-ends when the richer resource can't auto-load.
