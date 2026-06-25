@@ -205,14 +205,18 @@ while ($true) {
                     $dest = Join-Path $SyncFolder $uniqueName
                     Copy-Item -LiteralPath $out.FullName -Destination $dest -Force
                     $spUrl = To-SharePointUrl $uniqueName
-                    # Poster: first frame via ffmpeg if available (best-effort).
+                } catch { $spUrl = "" }
+                # Poster: first frame via ffmpeg if available (best-effort).
+                # Runs in its own try/catch so a failure never clears $spUrl.
+                # Reads from the original temp file ($out.FullName), not the synced copy.
+                try {
                     $ff = Join-Path $Here "ffmpeg.exe"
                     if (Test-Path $ff) {
                         $posterPath = Join-Path $tmp "poster.jpg"
-                        & $ff -y -ss 0 -i $dest -frames:v 1 $posterPath 2>$null
+                        & $ff -y -ss 0 -i $out.FullName -frames:v 1 $posterPath 2>$null
                         if (Test-Path $posterPath) { $posterB64 = [System.Convert]::ToBase64String([System.IO.File]::ReadAllBytes($posterPath)) }
                     }
-                } catch { $spUrl = "" }
+                } catch { $posterB64 = "" }
                 $payload = @{ name = $out.Name; mime = $mime; b64 = $b64; sharePointUrl = $spUrl; posterB64 = $posterB64 } | ConvertTo-Json -Compress
                 Write-Response $ns "200 OK" (Utf8 $payload) "application/json" $allowOrigin
             } else {
