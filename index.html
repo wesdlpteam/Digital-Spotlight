@@ -1197,7 +1197,7 @@ function App() {
   const [fetchingArticle, setFetchingArticle] = useState(false);
   const [error, setError] = useState("");
   const [rawDump, setRawDump] = useState("");
-  const [spot, setSpot] = useState(null); // editable spotlight object
+  const [spots, setSpots] = useState({});            // { [band]: deckObject }
 
   // media reel
   const [extractingVideo, setExtractingVideo] = useState(false); // any video frame-extraction in flight
@@ -1221,6 +1221,17 @@ function App() {
     return BAND_ORDER.filter(x => next.includes(x)); // keep canonical order
   });
   const setBandYear = (b, y) => setYears(prev => ({ ...prev, [b]: y }));
+
+  // The preview/edit/export view is single-deck: `spot` is the active band's deck,
+  // and `setSpot` (accepting a value OR a function updater, like the old useState
+  // setter) writes back into the active band's slot of the spots map.
+  const spot = activeBand ? (spots[activeBand] || null) : null;
+  const setSpot = (upd) => setSpots(all => {
+    if (!activeBand) return all;
+    const cur = all[activeBand] || null;
+    const next = typeof upd === "function" ? upd(cur) : upd;
+    return { ...all, [activeBand]: next };
+  });
 
   // Keep reelIndex in range whenever the reel shrinks.
   React.useEffect(() => { if (reelIndex > Math.max(0, media.length - 1)) setReelIndex(0); }, [media.length]);
