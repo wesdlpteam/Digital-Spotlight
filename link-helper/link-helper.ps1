@@ -170,8 +170,16 @@ while ($true) {
                 # Try video first (yt-dlp), fall back to image (gallery-dl).
                 # URL is passed as an argv element — never interpolated into a shell string.
                 if (Test-Path $YtDlp) {
-                    & $YtDlp --no-playlist --cookies-from-browser $Browser -o (Join-Path $tmp "%(title).80s.%(ext)s") $url 2>$null
+                    # First try WITHOUT cookies — public videos (YouTube etc.) download fine and
+                    # this avoids yt-dlp aborting when Chrome has its cookie DB locked (issue #7271).
+                    & $YtDlp --no-playlist -o (Join-Path $tmp "%(title).80s.%(ext)s") $url 2>$null
                     $out = Get-ChildItem $tmp -File | Select-Object -First 1
+                    if (-not $out) {
+                        # Retry WITH browser cookies for login-gated sites (e.g. Instagram).
+                        # (Needs the browser's cookie DB readable — close $Browser if this still fails.)
+                        & $YtDlp --no-playlist --cookies-from-browser $Browser -o (Join-Path $tmp "%(title).80s.%(ext)s") $url 2>$null
+                        $out = Get-ChildItem $tmp -File | Select-Object -First 1
+                    }
                 }
                 if (-not $out) {
                     if (Test-Path $Gallery) {
