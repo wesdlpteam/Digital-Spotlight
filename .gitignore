@@ -11,3 +11,8 @@ fonts/
 Thumbs.db
 .DS_Store
 desktop.ini
+
+# link-helper downloaded binaries (fetched by Install-Helper.cmd)
+link-helper/yt-dlp.exe
+link-helper/gallery-dl.exe
+link-helper/ffmpeg.exe
