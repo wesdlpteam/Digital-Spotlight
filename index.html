@@ -225,6 +225,10 @@
   .band-dot.band-myp    { background: var(--band-myp); }
   .band-dot.band-middle { background: var(--band-middle); }
   .band-dot.band-senior { background: var(--band-senior); }
+  /* Band deck tabs — switch the previewed/edited deck when several bands generated */
+  .band-tabs { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+  .band-tab { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); font-weight: 600; cursor: pointer; }
+  .band-tab.on { border-color: var(--accent); color: var(--accent); }
 
   .band-multi { display: flex; flex-direction: column; gap: 8px; }
   .band-opt { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
@@ -1932,6 +1936,17 @@ function App() {
 
           {spot && (
             <React.Fragment>
+              {Object.keys(spots).length > 1 && (
+                <div className="band-tabs" role="tablist" aria-label="Band decks">
+                  {BAND_ORDER.filter(b => spots[b]).map(b => (
+                    <button key={b} role="tab" aria-selected={activeBand === b}
+                      className={"band-tab" + (activeBand === b ? " on" : "")}
+                      onClick={() => setActiveBand(b)}>
+                      <span className={"band-dot band-" + b.toLowerCase()}></span>{bandLabelOf(b)}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="toolbar">
                 <button type="button" className="btn ghost" disabled={loading} onClick={generate}><Icon d={I.refresh} size={16} stroke /> Regenerate</button>
                 <button type="button" className="btn primary" onClick={download}><Icon d={I.download} size={16} stroke /> Download PowerPoint</button>
