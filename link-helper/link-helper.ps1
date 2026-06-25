@@ -199,6 +199,7 @@ while ($true) {
                 }
                 $spUrl = ""
                 $posterB64 = ""
+                $dest = $null
                 try {
                     if (-not (Test-Path $SyncFolder)) { New-Item -ItemType Directory -Path $SyncFolder -Force | Out-Null }
                     $uniqueName = New-UniqueName $out.Name
@@ -207,18 +208,20 @@ while ($true) {
                     $spUrl = To-SharePointUrl $uniqueName
                 } catch { $spUrl = "" }
                 $uploadPending = $true
-                try {
-                    $stable = 0; $lastLen = -1
-                    for ($i = 0; $i -lt 30; $i++) {   # up to ~15s
-                        Start-Sleep -Milliseconds 500
-                        $fi = Get-Item -LiteralPath $dest -ErrorAction SilentlyContinue
-                        if ($fi) {
-                            if ($fi.Length -eq $lastLen) { $stable++ } else { $stable = 0; $lastLen = $fi.Length }
-                            # OneDrive clears the "offline/pinned" attribute area once uploaded; treat 3 stable reads as ready.
-                            if ($stable -ge 3) { $uploadPending = $false; break }
+                if ($spUrl -and $dest -and (Test-Path -LiteralPath $dest)) {
+                    try {
+                        $stable = 0; $lastLen = -1
+                        for ($i = 0; $i -lt 30; $i++) {   # up to ~15s
+                            Start-Sleep -Milliseconds 500
+                            $fi = Get-Item -LiteralPath $dest -ErrorAction SilentlyContinue
+                            if ($fi) {
+                                if ($fi.Length -eq $lastLen) { $stable++ } else { $stable = 0; $lastLen = $fi.Length }
+                                # OneDrive clears the "offline/pinned" attribute area once uploaded; treat 3 stable reads as ready.
+                                if ($stable -ge 3) { $uploadPending = $false; break }
+                            }
                         }
-                    }
-                } catch { $uploadPending = $true }
+                    } catch { $uploadPending = $true }
+                }
                 # Poster: first frame via ffmpeg if available (best-effort).
                 # Runs in its own try/catch so a failure never clears $spUrl.
                 # Reads from the original temp file ($out.FullName), not the synced copy.
