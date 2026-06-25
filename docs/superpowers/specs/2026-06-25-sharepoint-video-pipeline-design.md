@@ -9,7 +9,7 @@
 
 Make stimulus videos **play inline in PowerPoint for the web** by hosting them in SharePoint and embedding them as real *online-video* objects — fully automatically, with **no Microsoft sign-in / Graph API / app registration**.
 
-When a teacher pastes a video link, the local helper downloads it, drops it into the teacher's **OneDrive-synced SharePoint folder** (so OneDrive uploads it), constructs the file's **plain SharePoint path URL**, and returns that URL to the app. On Generate, the export embeds that URL using **PowerPoint's exact online-video markup** (reproduced by post-processing the generated `.pptx`), so the deck plays inline in PowerPoint-web.
+When a teacher pastes a video link, the local helper downloads it, drops it into the teacher's **OneDrive-synced SharePoint folder** (so OneDrive uploads it), constructs the file's **plain SharePoint path URL**, and returns that URL to the app. On Generate, the export embeds that URL using **PowerPoint's exact online-video markup** (reproduced by post-processing the generated `.pptx`), so the deck plays inline in PowerPoint-web — and **autoplays when the slide opens** (no click), with click-to-play as the guaranteed fallback if PPT-web declines to autoplay.
 
 ## Why this approach (decisions locked during brainstorming)
 
@@ -125,8 +125,14 @@ The export adds a **post-processing pass** over the generated `.pptx` (the PPTX 
    - Ensure `[Content_Types].xml` covers the poster image extension (jpeg/png Default) — the library already adds image defaults.
 4. Re-zip and save (per-band filename as in v1.2.0).
 
+### Autoplay on slide open (no click)
+The video must **start playing automatically when the slide opens**, with no click. In OOXML this is a `<p:timing>` block on the slide (what PowerPoint writes for Playback → Start → **Automatically**): a main animation sequence with a media `<p:cmd>` (`playFrom(0.0)`) triggered on slide entry, referencing the video `<p:pic>`'s shape id (`spid`). The post-processing step therefore **also injects this `<p:timing>` autoplay block** (and, on the `<a:videoFile>`/media, the matching auto-advance state) referencing the same shape id it created for the video.
+
+- The exact autoplay timing markup is **reverse-engineered from a reference deck** (a video with Start → Automatically), the same method used to capture the online-video markup, and reproduced verbatim.
+- **PPT-web caveat (verified, not assumed):** PowerPoint-web is selective about honoring timing/animation. If PPT-web does not autoplay a *linked SharePoint* video, the deck still plays on click (the online-video object alone). Autoplay is layered **on top of** the working click-to-play object, so a non-honoring web client degrades gracefully rather than breaking playback. The plan must verify autoplay actually fires in PPT-web before claiming it.
+
 ### Fallback (no regression)
-If a video item has **no** `sharePointUrl` (helper absent, or a plain uploaded file), the export keeps the **current** behaviour (embed ≤25 MB / poster + link/QR). The post-processing only runs for items that have a SharePoint URL.
+If a video item has **no** `sharePointUrl` (helper absent, or a plain uploaded file), the export keeps the **current** behaviour (embed ≤25 MB / poster + link/QR). The post-processing (online-video object + autoplay timing) only runs for items that have a SharePoint URL.
 
 ### Per-band decks
 Each band's deck embeds the same `sharePointUrl` for the same video (one SharePoint file, referenced by every band's export).
@@ -143,6 +149,7 @@ Each band's deck embeds the same `sharePointUrl` for the same video (one SharePo
 
 ## Open implementation details (resolve in the plan, not blocking design)
 
+- Exact autoplay `<p:timing>` markup — capture it from a reference deck (video set to Start → Automatically), reproduce verbatim, and verify it autoplays a linked SharePoint video in PPT-web; if PPT-web ignores it, ship the working click-to-play object and note the limitation.
 - Exact OneDrive sync-state detection method on Windows (file attribute vs. a fixed wait); pick the most reliable simple approach.
 - Exact JSZip integration point in the export (intercept `write('blob')` vs. a dedicated post-process step) and how the marker `<p:pic>` is located reliably.
 - Poster source of truth (helper `ffmpeg` frame vs. the page's existing extracted first frame) — prefer reusing the page's frame to avoid bundling another tool dependency if simpler.
@@ -154,6 +161,7 @@ Each band's deck embeds the same `sharePointUrl` for the same video (one SharePo
 - [ ] Pasting a video link downloads it, places a collision-proof copy in the synced Images+Videos folder, and returns a `sharePointUrl` of the plain-path form; the clip still gets frames + transcript.
 - [ ] A teacher is shown a brief "uploading to SharePoint" note until the file is ready.
 - [ ] An **app-generated** deck containing such a video **plays inline in PowerPoint-web** (the key acceptance test — same test as the spike, but produced by the app).
+- [ ] The video **autoplays when the slide opens** in PowerPoint-web (no click). If PPT-web declines to autoplay a linked SharePoint video, click-to-play still works and the limitation is documented — the deck must never end up unplayable.
 - [ ] Per-band decks each embed the same SharePoint video URL.
 - [ ] A video with no SharePoint URL (helper absent / plain upload) still exports with the current embed/QR fallback — no regression.
 - [ ] Other teachers with site access can play the embedded video; the access requirement is documented in the README.
