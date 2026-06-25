@@ -15,12 +15,18 @@ The helper **only runs on your own machine** and **only downloads links you past
 
 > **Instagram note:** Instagram links use your own logged-in Chrome cookies, so you must be logged into Instagram in Chrome before pasting an Instagram link. The helper reads cookies from your browser — it does not ask for your password.
 
-## Starting the helper each session
+## Auto-start / how to stop
 
-1. Double-click **`Start-Helper.cmd`**. A black window opens and shows: `Link helper listening on http://127.0.0.1:7717`
-2. Open (or refresh) the Tech Spotlight Generator. The "Link helper connected ✓" message appears in the media section.
-3. **Keep the black window open** while you are pasting links. Closing it stops the helper.
-4. When you are done, close the black window (or press Ctrl+C inside it).
+After running `Install-Helper.cmd`, the helper starts **automatically and silently** each time you log in — no window appears. You do not need to do anything to launch it; open the Tech Spotlight Generator and the "Link helper connected ✓" message will appear.
+
+To stop the auto-start:
+1. Press **Win+R**, type `shell:startup`, and press Enter.
+2. Delete the **`TechSpotlightHelper.lnk`** shortcut from that folder.
+3. To stop the currently running helper: open Task Manager, find any `powershell` process, and end it — or simply ignore it (it uses no CPU when idle and only responds to requests from this app).
+
+## Starting the helper each session (legacy — no longer needed)
+
+If you installed before the auto-start update, you can still double-click **`Start-Helper.cmd`** to start the helper manually. After running `Install-Helper.cmd` once, you no longer need to do this.
 
 ## Adjusting settings
 
@@ -47,8 +53,9 @@ Open `link-helper.ps1` in Notepad. The two settings near the top are:
 | File | Purpose |
 |---|---|
 | `link-helper.ps1` | The helper server script |
-| `Start-Helper.cmd` | Double-click to start the helper each session |
-| `Install-Helper.cmd` | Double-click once to download the required tools |
+| `start-hidden.vbs` | Launches the helper with no visible window (used by the Startup shortcut) |
+| `Start-Helper.cmd` | Double-click to start the helper manually each session (legacy) |
+| `Install-Helper.cmd` | Double-click once to download tools and register the auto-start shortcut |
 | `README.md` | This file |
 | `yt-dlp.exe` | Downloaded by Install-Helper.cmd — handles video links |
 | `gallery-dl.exe` | Downloaded by Install-Helper.cmd — handles image links |
