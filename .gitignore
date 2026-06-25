@@ -7,6 +7,9 @@ digital-space-spotlight.html
 # locally, or serve them from a licensed host, before relying on Graphik publicly.
 fonts/
 
+# Brainstorming visual-companion scratch (mockups, server state)
+.superpowers/
+
 # OS / editor cruft
 Thumbs.db
 .DS_Store
