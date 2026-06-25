@@ -354,10 +354,12 @@ const PDFJS_SRC = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.mi
 /* ----------------------------- constants ----------------------------- */
 
 const BANDS = {
-  PYP: { label: "PYP (Prep–Year 6)", years: ["Prep","Year 1","Year 2","Year 3","Year 4","Year 5","Year 6"] },
-  MYP: { label: "MYP (Years 7–10)", years: ["Year 7","Year 8","Year 9","Year 10"] },
-  Senior: { label: "Senior (Years 11–12)", years: ["Year 11","Year 12"] },
+  PYP:    { label: "PYP",                    years: ["Prep","Year 1","Year 2","Year 3","Year 4","Year 5","Year 6"] },
+  Middle: { label: "Middle school (7 – 9)",  years: ["Year 7","Year 8","Year 9"] },
+  Senior: { label: "Senior School (10 – 12)", years: ["Year 10","Year 11","Year 12"] },
 };
+const BAND_ORDER = ["PYP","Middle","Senior"];
+const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
 const APP_VERSION = "v1.1.3 · 2026-06-24";
@@ -373,9 +375,9 @@ const VIDEO_EMBED_MAX_BYTES = 25 * 1024 * 1024; // 25 MB
 const MAX_MEDIA = 10; // max images+videos in one provocation reel
 
 const BAND_GUIDANCE = {
-  PYP: "Audience: IB PYP (Prep–Year 6). Use concrete, simple, inquiry-based language. Short sentences, warm and curious. Centre noticing and wondering.",
-  MYP: "Audience: IB MYP (Years 7–10). Use analytical language with real scenarios and consequences.",
-  Senior: "Audience: IB Senior (Years 11–12). Use critical and ethical reasoning, nuance, and real-world stakes.",
+  PYP:    "Audience: IB PYP (Prep–Year 6). Use concrete, simple, inquiry-based language. Short warm sentences. Centre noticing and wondering; avoid abstraction and jargon.",
+  Middle: "Audience: Middle school (Years 7–9). Use analytical language grounded in real, relatable scenarios and their consequences. Ask students to weigh causes, effects and choices.",
+  Senior: "Audience: Senior School (Years 10–12). Use critical and ethical reasoning, nuance, stakeholder perspectives and real-world stakes. Push for justified positions and trade-offs.",
 };
 
 // Authentic Harvard Project Zero thinking routines (pz.harvard.edu/thinking-routines),
@@ -393,7 +395,7 @@ const ROUTINES = {
     { name: "Looking: Ten Times Two", moves: "Look quietly for a moment, then call out words or phrases you notice; look again and add more you missed the first time." },
     { name: "See, Think, Me, We", moves: "Talk it through: What do you notice? (See) What do you think? (Think) How does it connect to you? (Me) How does it connect to all of us? (We)" },
   ],
-  MYP: [
+  Middle: [
     { name: "Think–Pair–Share", moves: "Think briefly, talk it through with a partner, then share out to the group." },
     { name: "Connect–Extend–Challenge", moves: "Discuss: How does this connect to what you knew? What extends your thinking? What's challenging or puzzling?" },
     { name: "What Makes You Say That?", moves: "Rapid back-and-forth: What's going on here? What makes you say that?" },
@@ -700,6 +702,14 @@ function audienceStr(band, yearLevels) {
   return (yearLevels && yearLevels.length) ? `${yearLevels.join(", ")} (${label})` : label;
 }
 
+// Multi-band audience line: lists each selected band with its target year (if any).
+function audienceStrMulti(bands, yearsMap) {
+  return (bands || []).map(b => {
+    const y = yearsMap && yearsMap[b];
+    return y ? `${y} (${bandLabelOf(b)})` : bandLabelOf(b);
+  }).join("; ");
+}
+
 // Phase 1: broad event-spotting (no domain filter).
 function buildEventRequest({ model, band, yearLevels, month, categories }) {
   const cats = categories.map(c => c.label).join(", ");
@@ -817,7 +827,8 @@ function validateResourceUrls(cards, cset, trustedDomains) {
 // Expose pure helpers for console verification (harmless in production).
 window.DSS = { DISCOVERY_CATEGORIES, RESOURCE_DOMAINS, availableCategories, monthLabel,
   audienceStr, buildEventRequest, buildResourceRequest, extractResponseText,
-  citationSet, urlInCitations, mergeIssuesAndResources, validateResourceUrls };
+  citationSet, urlInCitations, mergeIssuesAndResources, validateResourceUrls,
+  BANDS, BAND_ORDER, bandLabelOf, audienceStrMulti };
 
 /* --------------------- Discovery: API orchestration --------------------- */
 
