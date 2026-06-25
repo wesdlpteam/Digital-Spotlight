@@ -1362,7 +1362,7 @@ function App() {
     im.src = dataUrl;
   });
 
-  async function addMediaFiles(fileList) {
+  async function addMediaFiles(fileList, meta = {}) {
     const files = Array.from(fileList || []);
     if (!files.length) return;
     setError(""); setMediaNote("");
@@ -1383,7 +1383,8 @@ function App() {
           const { frames, poster, width, height } = await extractVideoFrames(f, 4);
           const vidId = newId();
           setMedia(m => m.length >= MAX_MEDIA ? m : [...m, { id: vidId, kind: "video", dataUrl, name: f.name, sizeBytes: f.size,
-            poster, aspect: width && height ? width / height : 0, frames, text: "", transcribeState: apiKey.trim() ? "running" : "idle", transcribeNote: "" }]);
+            poster, aspect: width && height ? width / height : 0, frames, text: "", transcribeState: apiKey.trim() ? "running" : "idle", transcribeNote: "",
+            sharePointUrl: meta.sharePointUrl || "" }]);
           if (!frames.length) setMediaNote("Couldn't read frames from " + f.name + " — add a description under its thumbnail. It will still embed in the PowerPoint.");
           else if (f.size > VIDEO_EMBED_MAX_BYTES) setMediaNote(`${f.name} is large (${formatBytes(f.size)}) — the deck will use its first frame + a link instead of embedding.`);
           if (apiKey.trim()) {
@@ -1410,7 +1411,8 @@ function App() {
       if (data.error) { setError(data.error); return; }
       const bin = Uint8Array.from(atob(data.b64), c => c.charCodeAt(0));
       const file = new File([bin], data.name || "download", { type: data.mime || "application/octet-stream" });
-      await addMediaFiles([file]);   // reuses frame-extraction + auto-transcribe
+      await addMediaFiles([file], { sharePointUrl: data.sharePointUrl || "", posterB64: data.posterB64 || "" });
+      if (data.uploadPending) setMediaNote("Video uploading to SharePoint — give it a moment before sharing the deck.");
       setLinkUrl("");
     } catch (e) {
       setError("Couldn't reach the link helper. Make sure Start-Helper is running.");
