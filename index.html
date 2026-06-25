@@ -549,6 +549,43 @@ function extractVideoFrames(file, count = 4) {
   });
 }
 
+// Decode a media file's audio, downmix to 16 kHz mono, return a 16-bit PCM WAV Blob.
+// Caps at maxSeconds (truncating long clips) so the result stays under the API limit.
+async function videoFileToWav16k(file, maxSeconds = 780) {
+  const arrayBuf = await file.arrayBuffer();
+  const Ctx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+  const tmp = new (window.AudioContext || window.webkitAudioContext)();
+  let decoded;
+  try { decoded = await tmp.decodeAudioData(arrayBuf.slice(0)); }
+  finally { tmp.close && tmp.close(); }
+  const srcRate = decoded.sampleRate, outRate = 16000;
+  const wantSec = Math.min(decoded.duration, maxSeconds);
+  const truncated = decoded.duration > maxSeconds + 0.5;
+  const frames = Math.floor(wantSec * outRate);
+  const off = new Ctx(1, frames, outRate);
+  const buf = off.createBuffer(1, Math.floor(wantSec * srcRate), srcRate);
+  // mono downmix
+  const ch0 = decoded.getChannelData(0);
+  const ch1 = decoded.numberOfChannels > 1 ? decoded.getChannelData(1) : null;
+  const mono = buf.getChannelData(0);
+  for (let i = 0; i < mono.length; i++) mono[i] = ch1 ? (ch0[i] + ch1[i]) / 2 : ch0[i];
+  const node = off.createBufferSource(); node.buffer = buf; node.connect(off.destination); node.start();
+  const rendered = await off.startRendering();
+  const data = rendered.getChannelData(0);
+  // PCM16 WAV
+  const bytesPerSample = 2, blockAlign = bytesPerSample, byteRate = outRate * blockAlign;
+  const ab = new ArrayBuffer(44 + data.length * 2), view = new DataView(ab);
+  const wr = (o, s) => { for (let i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i)); };
+  wr(0, "RIFF"); view.setUint32(4, 36 + data.length * 2, true); wr(8, "WAVE"); wr(12, "fmt ");
+  view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+  view.setUint32(24, outRate, true); view.setUint32(28, byteRate, true);
+  view.setUint16(32, blockAlign, true); view.setUint16(34, 16, true); wr(36, "data");
+  view.setUint32(40, data.length * 2, true);
+  let off2 = 44;
+  for (let i = 0; i < data.length; i++) { let s = Math.max(-1, Math.min(1, data[i])); view.setInt16(off2, s < 0 ? s * 0x8000 : s * 0x7fff, true); off2 += 2; }
+  return { blob: new Blob([ab], { type: "audio/wav" }), truncated };
+}
+
 function readFileAsDataURL(file) {
   return new Promise((res, rej) => {
     const r = new FileReader();
@@ -867,7 +904,8 @@ function validateResourceUrls(cards, cset, trustedDomains) {
 window.DSS = { DISCOVERY_CATEGORIES, RESOURCE_DOMAINS, availableCategories, monthLabel,
   audienceStr, buildEventRequest, buildResourceRequest, extractResponseText,
   citationSet, urlInCitations, mergeIssuesAndResources, validateResourceUrls,
-  BANDS, BAND_ORDER, bandLabelOf, audienceStrMulti, shapeDeck, bandFileSlug };
+  BANDS, BAND_ORDER, bandLabelOf, audienceStrMulti, shapeDeck, bandFileSlug,
+  videoFileToWav16k };
 
 /* --------------------- Discovery: API orchestration --------------------- */
 
