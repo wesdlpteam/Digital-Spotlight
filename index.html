@@ -367,6 +367,24 @@ function loadScript(src) {
 const PPTX_SRC = "https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js";
 const PDFJS_SRC = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
 
+// Canvas-generated slide textures (no external asset files). Returns a PNG data-URL sized to
+// the slide so pptxgenjs can addImage it as a full-bleed background layer.
+function makeTexture(kind, opts) {
+  const o = Object.assign({ w: 1280, h: 720, color: "#C59F40", bg: null, dot: 16, alpha: 0.5 }, opts || {});
+  const c = document.createElement("canvas"); c.width = o.w; c.height = o.h;
+  const x = c.getContext("2d");
+  if (o.bg) { x.fillStyle = o.bg; x.fillRect(0, 0, o.w, o.h); }
+  x.globalAlpha = o.alpha; x.fillStyle = o.color;
+  if (kind === "halftone") {
+    const r = o.dot * 0.18;
+    for (let yy = o.dot; yy < o.h; yy += o.dot)
+      for (let xx = o.dot; xx < o.w; xx += o.dot) { x.beginPath(); x.arc(xx, yy, r, 0, 7); x.fill(); }
+  } else { // grain: scattered 1px specks
+    for (let i = 0; i < o.w * o.h * 0.03; i++) x.fillRect(Math.random()*o.w|0, Math.random()*o.h|0, 1, 1);
+  }
+  return c.toDataURL("image/png");
+}
+
 /* ---- SharePoint online-video post-processing ----
    pptxgenjs cannot emit a working SharePoint online-video object (its output
    corrupts). So for a video that has a sharePointUrl we export its first frame
