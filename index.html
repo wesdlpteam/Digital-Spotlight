@@ -328,9 +328,6 @@
     overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
   }
 
-  /* Link-import row: paste URL + "Add link" button side by side */
-  .link-import-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
-  .link-import-row input { min-width: 0; }
 
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
@@ -445,7 +442,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v1.3.0 · 2026-06-25";
+const APP_VERSION = "v1.5.0 · 2026-06-25";
 
 const THEMES = [
   "Privacy","Kindness online","Misinformation","Digital footprint",
@@ -455,8 +452,49 @@ const THEMES = [
 // Videos at or under this size are embedded directly in the .pptx; larger ones
 // fall back to a poster frame + link/QR so the deck stays portable.
 const VIDEO_EMBED_MAX_BYTES = 25 * 1024 * 1024; // 25 MB
-const HELPER_BASE = "http://127.0.0.1:7717"; // local link-helper server (loopback only)
 const MAX_MEDIA = 10; // max images+videos in one provocation reel
+
+// SharePoint Media library base — EDIT if the library moves. Uploaded videos become
+// online videos at this URL + their filename. The connected folder (see Connect button)
+// must be the local OneDrive-synced copy of this same library.
+const SHAREPOINT_BASE = "https://wesleycollegemelbourne.sharepoint.com/sites/DigitalSpotlight/Media/";
+
+// Persist the chosen FileSystemDirectoryHandle across sessions (handles are structured-cloneable).
+function idbOpen() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open("tsg-fs", 1);
+    req.onupgradeneeded = () => req.result.createObjectStore("handles");
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function idbSaveHandle(key, h) {
+  const db = await idbOpen();
+  return new Promise((res, rej) => { const tx = db.transaction("handles", "readwrite"); tx.objectStore("handles").put(h, key); tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
+}
+async function idbLoadHandle(key) {
+  const db = await idbOpen();
+  return new Promise((res) => { const tx = db.transaction("handles", "readonly"); const g = tx.objectStore("handles").get(key); g.onsuccess = () => res(g.result || null); g.onerror = () => res(null); });
+}
+
+// Collision-proof filename for the SharePoint folder; keeps it URL/file-safe.
+function sharePointFileName(original) {
+  const dot = original.lastIndexOf(".");
+  const base = (dot > 0 ? original.slice(0, dot) : original).replace(/[^A-Za-z0-9 _.+-]/g, "").replace(/\s+/g, " ").trim() || "video";
+  const ext = dot > 0 ? original.slice(dot).toLowerCase() : ".mp4";
+  const tag = Math.random().toString(16).slice(2, 8);
+  return base + "-" + tag + ext;
+}
+// Write a video into the connected folder and return its plain-path SharePoint URL.
+async function putVideoToSharePoint(dirHandle, file) {
+  const savedName = sharePointFileName(file.name);
+  const fh = await dirHandle.getFileHandle(savedName, { create: true });
+  const w = await fh.createWritable();
+  await w.write(file);
+  await w.close();
+  const url = SHAREPOINT_BASE + savedName.replace(/ /g, "%20"); // spaces -> %20, keep + literal
+  return { url, savedName };
+}
 
 const BAND_GUIDANCE = {
   PYP:    "Audience: IB PYP (Prep–Year 6). Use concrete, simple, inquiry-based language. Short warm sentences. Centre noticing and wondering; avoid abstraction and jargon.",
@@ -1374,15 +1412,72 @@ function App() {
   const [mediaNote, setMediaNote] = useState(""); // soft inline status under the dropzone
 
   // link helper — loopback server on 127.0.0.1:7717
-  const [helperUp, setHelperUp] = useState(false);
-  const [linkUrl, setLinkUrl] = useState("");
-  const [linkBusy, setLinkBusy] = useState(false);
+  const fsSupported = typeof window !== "undefined" && "showDirectoryPicker" in window;
+  const [folderHandle, setFolderHandle] = useState(null);
+  const [folderName, setFolderName] = useState("");
+  const [lessonsHandle, setLessonsHandle] = useState(null);
+  const [lessonsName, setLessonsName] = useState("");
   React.useEffect(() => {
-    let alive = true;
-    const ping = () => fetch(HELPER_BASE + "/health").then(r => r.ok).catch(() => false).then(ok => { if (alive) setHelperUp(ok); });
-    ping(); const t = setInterval(ping, 8000);
-    return () => { alive = false; clearInterval(t); };
+    if (!fsSupported) return;
+    idbLoadHandle("media").then(h => { if (h) { setFolderHandle(h); setFolderName(h.name || "folder"); } });
+    idbLoadHandle("lessons").then(h => { if (h) { setLessonsHandle(h); setLessonsName(h.name || "folder"); } });
   }, []);
+  async function connectMediaFolder() {
+    try {
+      if (folderHandle) {
+        // Re-grant the existing folder without re-picking (one click per session).
+        if ((await folderHandle.requestPermission({ mode: "readwrite" })) === "granted") {
+          setMediaNote('SharePoint folder ready: "' + folderName + '".'); return;
+        }
+      }
+      const h = await window.showDirectoryPicker({ mode: "readwrite" });
+      await idbSaveHandle("media", h);
+      setFolderHandle(h); setFolderName(h.name || "folder");
+      setMediaNote('Connected "' + (h.name || "folder") + '" — uploaded videos will auto-upload to SharePoint.');
+    } catch (_) { /* user cancelled the picker */ }
+  }
+  async function connectLessonsFolder() {
+    try {
+      if (lessonsHandle) {
+        if ((await lessonsHandle.requestPermission({ mode: "readwrite" })) === "granted") {
+          setMediaNote('Lessons folder ready: "' + lessonsName + '".'); return;
+        }
+      }
+      const h = await window.showDirectoryPicker({ mode: "readwrite" });
+      await idbSaveHandle("lessons", h);
+      setLessonsHandle(h); setLessonsName(h.name || "folder");
+      setMediaNote('Connected Lessons folder "' + (h.name || "folder") + '".');
+    } catch (_) { /* user cancelled the picker */ }
+  }
+  async function folderWritable(h) {
+    if (!h) return false;
+    try { return (await h.queryPermission({ mode: "readwrite" })) === "granted"; } catch (_) { return false; }
+  }
+  // Lesson filename: hook title (fallback to deck title, then "Lesson") + date, .pptx.
+  function lessonFileName(deck) {
+    const raw = (deck && (deck.hook || deck.title)) || "Lesson";
+    const base = raw.replace(/[^A-Za-z0-9 _.+-]/g, "").replace(/\s+/g, " ").trim() || "Lesson";
+    const d = new Date();
+    const date = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    return base + " (" + date + ").pptx";
+  }
+  async function saveLessonToSharePoint() {
+    if (!spot || !activeBand) return;
+    if (!(await folderWritable(lessonsHandle))) { setMediaNote('Click "Connect Lessons folder" to enable saving to SharePoint this session.'); return; }
+    setMediaNote("Saving lesson to SharePoint Lessons…");
+    try {
+      const finalBlob = await buildDeckBlob(activeBand, spots[activeBand]);
+      if (!finalBlob) return;
+      const name = lessonFileName(spots[activeBand]);
+      const fh = await lessonsHandle.getFileHandle(name, { create: true });
+      const w = await fh.createWritable();
+      await w.write(finalBlob);
+      await w.close();
+      setMediaNote('Saved to SharePoint Lessons ✓  "' + name + '"');
+    } catch (_) {
+      setMediaNote("Couldn't save the lesson to SharePoint — try Reconnect on the Lessons folder.");
+    }
+  }
 
   const mediaInput = useRef(null);
   const pdfInput = useRef(null);
@@ -1428,7 +1523,7 @@ function App() {
     im.src = dataUrl;
   });
 
-  async function addMediaFiles(fileList, meta = {}) {
+  async function addMediaFiles(fileList) {
     const files = Array.from(fileList || []);
     if (!files.length) return;
     setError(""); setMediaNote("");
@@ -1450,9 +1545,22 @@ function App() {
           const vidId = newId();
           setMedia(m => m.length >= MAX_MEDIA ? m : [...m, { id: vidId, kind: "video", dataUrl, name: f.name, sizeBytes: f.size,
             poster, aspect: width && height ? width / height : 0, frames, text: "", transcribeState: apiKey.trim() ? "running" : "idle", transcribeNote: "",
-            sharePointUrl: meta.sharePointUrl || "" }]);
+            sharePointUrl: "" }]);
           if (!frames.length) setMediaNote("Couldn't read frames from " + f.name + " — add a description under its thumbnail. It will still embed in the PowerPoint.");
           else if (f.size > VIDEO_EMBED_MAX_BYTES) setMediaNote(`${f.name} is large (${formatBytes(f.size)}) — the deck will use its first frame + a link instead of embedding.`);
+          // Auto-upload to the connected SharePoint Media folder (background, non-blocking).
+          if (folderHandle) {
+            (async () => {
+              try {
+                if (!(await folderWritable(folderHandle))) { setMediaNote('Click "Reconnect" to let videos upload to SharePoint this session.'); return; }
+                setMediaNote("Uploading video to SharePoint — give it a moment before sharing the deck.");
+                const { url } = await putVideoToSharePoint(folderHandle, f);
+                setMedia(m => m.map(x => x.id === vidId ? { ...x, sharePointUrl: url } : x));
+              } catch (_) {
+                setMediaNote("Couldn't save to SharePoint — the clip will embed with a link/QR instead.");
+              }
+            })();
+          }
           if (apiKey.trim()) {
             (async () => {
               try {
@@ -1467,22 +1575,6 @@ function App() {
         finally { setExtractingVideo(false); }
       }
     }
-  }
-  async function importFromLink(url) {
-    if (!url.trim()) return;
-    setLinkBusy(true); setError(""); setMediaNote("");
-    try {
-      const r = await fetch(HELPER_BASE + "/fetch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: url.trim() }) });
-      const data = await r.json();
-      if (data.error) { setError(data.error); return; }
-      const bin = Uint8Array.from(atob(data.b64), c => c.charCodeAt(0));
-      const file = new File([bin], data.name || "download", { type: data.mime || "application/octet-stream" });
-      await addMediaFiles([file], { sharePointUrl: data.sharePointUrl || "", posterB64: data.posterB64 || "" });
-      if (data.uploadPending) setMediaNote("Video uploading to SharePoint — give it a moment before sharing the deck.");
-      setLinkUrl("");
-    } catch (e) {
-      setError("Couldn't reach the link helper. Make sure Start-Helper is running.");
-    } finally { setLinkBusy(false); }
   }
 
   function onMedia(e) { addMediaFiles(e.target.files); e.target.value = ""; }
@@ -1736,8 +1828,8 @@ function App() {
   /* ------- export ------- */
   // Build + save one deck. Shadows spot/band/year/bandLabel so the ~150-line body
   // below operates on the passed deck instead of the active-band view.
-  async function buildAndSaveDeck(bandKey, deck) {
-    if (!deck) return;
+  async function buildDeckBlob(bandKey, deck) {
+    if (!deck) return null;
     const spot = deck;                       // body reads spot.*
     const band = bandKey;
     const year = years[bandKey] || "";
@@ -1897,17 +1989,24 @@ function App() {
       if (spot.learnerProfile.filter(Boolean).length)
         s6.addText("IB Learner Profile: " + spot.learnerProfile.filter(Boolean).join(", "), { x: 1.1, y: 5.4, w: W - 2.2, h: 0.4, fontSize: 14, italic: true, color: T.titleSub, align: "center", fontFace: bFont });
 
-      // Build to a blob, post-process any SharePoint videos, then download.
+      // Build to a blob and post-process any SharePoint videos. Caller saves it.
       const blob = await pptx.write({ outputType: "blob" });
-      const finalBlob = await injectOnlineVideos(blob, videoMarks);
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(finalBlob);
-      a.download = `Tech-Spotlight-${bandFileSlug(bandKey)}.pptx`;
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      return await injectOnlineVideos(blob, videoMarks);
     } catch (err) {
       setError("PowerPoint export failed: " + (err.message || String(err)));
+      return null;
     }
+  }
+
+  // Build one band's deck and download it as a .pptx.
+  async function buildAndSaveDeck(bandKey, deck) {
+    const finalBlob = await buildDeckBlob(bandKey, deck);
+    if (!finalBlob) return;
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(finalBlob);
+    a.download = `Tech-Spotlight-${bandFileSlug(bandKey)}.pptx`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   }
 
   // Export one .pptx per generated band, staggered so browsers don't drop files.
@@ -2053,21 +2152,26 @@ function App() {
                 </div>
               )}
 
-              <div className="link-import" style={{ marginTop: 10 }}>
-                {helperUp ? (
-                  <React.Fragment>
-                    <div className="link-import-row">
-                      <input type="url" value={linkUrl} placeholder="Paste an Instagram / YouTube / image link" onChange={e => setLinkUrl(e.target.value)} onKeyDown={e => { if (e.key === "Enter") importFromLink(linkUrl); }} />
-                      <button type="button" className="btn ghost" disabled={linkBusy || !linkUrl.trim()} onClick={() => importFromLink(linkUrl)}>
-                        {linkBusy ? <React.Fragment><span className="spinner sm dark"></span> Fetching…</React.Fragment> : "Add link"}
-                      </button>
+              {fsSupported && (
+                <div className="link-import" style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+                  {folderHandle ? (
+                    <div className="hint">
+                      Media folder: <b>{folderName}</b> — uploaded videos auto-upload &amp; embed.{" "}
+                      <button type="button" className="btn ghost" style={{ width: "auto", padding: "4px 10px", marginLeft: 6 }} onClick={connectMediaFolder}>Reconnect</button>
                     </div>
-                    <div className="hint" style={{ color: "var(--good-ink)" }}>Link helper connected ✓</div>
-                  </React.Fragment>
-                ) : (
-                  <div className="hint">Want to paste a link? Start the link helper (see <a href="link-helper/README.md" target="_blank" rel="noopener">link-helper/README.md</a>) and it will appear here.</div>
-                )}
-              </div>
+                  ) : (
+                    <button type="button" className="btn ghost" style={{ width: "auto" }} onClick={connectMediaFolder}>Connect SharePoint Media folder</button>
+                  )}
+                  {lessonsHandle ? (
+                    <div className="hint">
+                      Lessons folder: <b>{lessonsName}</b> — for saving finished decks.{" "}
+                      <button type="button" className="btn ghost" style={{ width: "auto", padding: "4px 10px", marginLeft: 6 }} onClick={connectLessonsFolder}>Reconnect</button>
+                    </div>
+                  ) : (
+                    <button type="button" className="btn ghost" style={{ width: "auto" }} onClick={connectLessonsFolder}>Connect Lessons folder</button>
+                  )}
+                </div>
+              )}
 
               <div className="group" style={{ marginTop: 10 }}>
                 <label className="cap" htmlFor="f-mlink">Link (optional — becomes a QR code)</label>
@@ -2190,6 +2294,11 @@ function App() {
               <div className="toolbar">
                 <button type="button" className="btn ghost" disabled={loading} onClick={generate}><Icon d={I.refresh} size={16} stroke /> Regenerate</button>
                 <button type="button" className="btn primary" onClick={download}><Icon d={I.download} size={16} stroke /> Download PowerPoint</button>
+                {fsSupported && lessonsHandle && (
+                  <button type="button" className="btn ghost" onClick={saveLessonToSharePoint} title="Save this lesson's .pptx to the SharePoint Lessons library">
+                    <Icon d={I.upload || I.download} size={16} stroke /> Save to SharePoint Lessons
+                  </button>
+                )}
               </div>
 
               {/* Export-template picker + live themed cover preview */}
