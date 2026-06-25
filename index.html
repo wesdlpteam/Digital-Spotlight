@@ -818,6 +818,27 @@ function mergeIssuesAndResources(issues, resources) {
   });
 }
 
+// Shape a parsed model deck into the editable spotlight object, pitched per band.
+// Pure (uses only stripMd + ROUTINES, both module-level) so one Generate can build
+// one deck per selected band.
+function shapeDeck(parsed, { band, title }) {
+  const steps = Array.isArray(parsed.steps) && parsed.steps.length
+    ? parsed.steps.map(s => ({ name: stripMd(s.name || "Step"), minutes: Number(s.minutes) || 1, prompt: stripMd(s.prompt || ""), responses: stripMd(s.responses || "") }))
+    : [{ name: "Discuss", minutes: 5, prompt: "", responses: "" }];
+  return {
+    hook: stripMd(parsed.hook || ""),
+    title: stripMd(parsed.title || title || "Digital Life Spotlight"),
+    summary: stripMd(parsed.summary || ""),
+    framing: stripMd(parsed.framing || ""),
+    routineName: stripMd(parsed.routineName || ROUTINES[band][0].name),
+    routineIntro: stripMd(parsed.routineIntro || ""),
+    steps,
+    guidingQuestions: Array.isArray(parsed.guidingQuestions) && parsed.guidingQuestions.length ? parsed.guidingQuestions.map(stripMd) : ["", "", ""],
+    studentAction: stripMd(parsed.studentAction || ""),
+    learnerProfile: Array.isArray(parsed.learnerProfile) ? parsed.learnerProfile.map(stripMd) : [],
+  };
+}
+
 function hostOf(u) { try { return new URL(u).host.toLowerCase(); } catch (_) { return ""; } }
 
 // Drop a card's resource (but keep the card) unless its URL is either really
@@ -837,7 +858,7 @@ function validateResourceUrls(cards, cset, trustedDomains) {
 window.DSS = { DISCOVERY_CATEGORIES, RESOURCE_DOMAINS, availableCategories, monthLabel,
   audienceStr, buildEventRequest, buildResourceRequest, extractResponseText,
   citationSet, urlInCitations, mergeIssuesAndResources, validateResourceUrls,
-  BANDS, BAND_ORDER, bandLabelOf, audienceStrMulti };
+  BANDS, BAND_ORDER, bandLabelOf, audienceStrMulti, shapeDeck };
 
 /* --------------------- Discovery: API orchestration --------------------- */
 
@@ -1191,6 +1212,7 @@ function App() {
   // generation
   const [loading, setLoading] = useState(false);
   const [genProgress, setGenProgress] = useState(0); // 0-100, eased estimate while generating
+  const [genStatus, setGenStatus] = useState(""); // per-band progress line while generating multiple decks
   const [regenSlide, setRegenSlide] = useState(null);   // which slide is regenerating: "title" | "provocation" | "takeaway"
   const [routineChoice, setRoutineChoice] = useState(""); // "" = let AI choose; else an exact routine name
   const [suggestingTheme, setSuggestingTheme] = useState(false);
@@ -1360,31 +1382,22 @@ function App() {
     setGenProgress(3);
     const progTick = setInterval(() => setGenProgress(p => (p < 92 ? p + (92 - p) * 0.06 : p)), 250);
     try {
+      if (!bands.length) { setError("Pick at least one band first."); setLoading(false); clearInterval(progTick); return; }
       const sourceText = mode === "article" ? articleText : "";
-      const { parsed, raw } = await generateSpotlight({
-        apiKey: apiKey.trim(), model, mode, band, year, theme,
-        title: title.trim(), media, sourceText,
-      });
-
-      // Build the editable spotlight, merging model output with user-chosen facts.
-      const steps = Array.isArray(parsed.steps) && parsed.steps.length
-        ? parsed.steps.map(s => ({ name: stripMd(s.name || "Step"), minutes: Number(s.minutes) || 1, prompt: stripMd(s.prompt || ""), responses: stripMd(s.responses || "") }))
-        : [{ name: "Discuss", minutes: 5, prompt: "", responses: "" }];
-
-      setSpot({
-        hook: stripMd(parsed.hook || ""),
-        title: stripMd(parsed.title || title || "Digital Life Spotlight"),
-        summary: stripMd(parsed.summary || ""),
-        framing: stripMd(parsed.framing || MODE_FRAMING[mode]),
-        routineName: stripMd(parsed.routineName || ROUTINES[band][0].name),
-        routineIntro: stripMd(parsed.routineIntro || ""),
-        steps,
-        guidingQuestions: Array.isArray(parsed.guidingQuestions) && parsed.guidingQuestions.length
-          ? parsed.guidingQuestions.map(stripMd) : ["", "", ""],
-        studentAction: stripMd(parsed.studentAction || ""),
-        learnerProfile: Array.isArray(parsed.learnerProfile) ? parsed.learnerProfile.map(stripMd) : [],
-      });
-      setRawDump(raw);
+      const built = {};
+      for (let i = 0; i < bands.length; i++) {
+        const b = bands[i];
+        setGenStatus(`Generating ${bandLabelOf(b)}… ${i + 1} of ${bands.length}`);
+        const { parsed, raw } = await generateSpotlight({
+          apiKey: apiKey.trim(), model, mode, band: b, year: years[b] || "", theme,
+          title: title.trim(), media, sourceText,
+        });
+        built[b] = shapeDeck(parsed, { band: b, title });
+        if (i === bands.length - 1) setRawDump(raw);
+        if (!built[b].framing) built[b].framing = MODE_FRAMING[mode];
+      }
+      setSpots(built);
+      setActiveBand(bands[0]);
       setGenProgress(100);
     } catch (err) {
       setError(err.message || String(err));
@@ -1392,6 +1405,7 @@ function App() {
     } finally {
       clearInterval(progTick);
       setLoading(false);
+      setGenStatus("");
       setTimeout(() => setGenProgress(0), 500);
     }
   }
@@ -1890,6 +1904,8 @@ function App() {
               : spot ? <React.Fragment><Icon d={I.refresh} size={16} stroke /> Regenerate</React.Fragment>
               : <React.Fragment><Icon d={I.generate} size={16} /> Generate Spotlight</React.Fragment>}
           </button>
+
+          {genStatus && <div className="hint">{genStatus}</div>}
 
           {/* Screen-reader-only live status: announces the generation lifecycle (the
               visible cue is the button text/spinner; errors are announced via role=alert). */}
