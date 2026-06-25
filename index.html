@@ -301,7 +301,7 @@
   .toolbar .btn { width: auto; flex: 1; }
 
   .design-row { display: flex; gap: 14px; align-items: center; margin-bottom: 16px; background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 12px; box-shadow: var(--shadow); }
-  .thumb-slide { width: 226px; height: 127px; flex: 0 0 auto; border-radius: 10px; padding: 12px; overflow: hidden; position: relative; box-shadow: var(--shadow); }
+  .thumb-slide { width: 226px; height: 127px; flex: 0 0 auto; border-radius: 10px; padding: 0; overflow: hidden; position: relative; box-shadow: var(--shadow); }
   .thumb-bar { position: absolute; top: 0; left: 0; right: 0; height: 5px; }
   .thumb-kick { font-size: 8px; letter-spacing: 1.5px; font-weight: 800; margin-top: 4px; }
   .thumb-title { font-size: 15px; font-weight: 800; line-height: 1.12; margin-top: 3px; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
@@ -1359,6 +1359,100 @@ const ProgressRing = ({ value, size = 18 }) => {
       <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"
         strokeDasharray={c} strokeDashoffset={off} style={{ transition: "stroke-dashoffset .25s linear" }} />
     </svg>
+  );
+};
+
+/* A miniature, faithful preview of a deck style's COVER — used both as the large selected-style
+   preview and as each small picker chip (big=false). Decorative (aria-hidden); the button carries
+   the accessible name. Mirrors the export's per-style cover composition so the thumbnail actually
+   looks like the deck you'll get, not just a colour chip. */
+const StyleCover = ({ styleKey, big = false, title = "", bandLabel = "", theme = "" }) => {
+  const st = STYLES[styleKey] || STYLES.classic;
+  const p = st.palette;
+  const cs = (s) => st.upper ? String(s || "").toUpperCase() : String(s || "");
+  const padX = big ? 12 : 6;
+  const titleFs = big ? 15 : 0;
+  const wrap = { position: "absolute", inset: 0, overflow: "hidden", borderRadius: "inherit", fontFamily: st.fonts.body };
+  const footer = <span style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: big ? 6 : 3, background: hx(p.bar) }} />;
+  // chip headline hint: two short bars suggesting a title, in a given colour
+  const bars = (col) => (<React.Fragment>
+    <span style={{ position: "absolute", left: padX, top: "42%", width: "62%", height: 4, borderRadius: 2, background: col }} />
+    <span style={{ position: "absolute", left: padX, top: "62%", width: "40%", height: 4, borderRadius: 2, background: col, opacity: .6 }} />
+  </React.Fragment>);
+
+  if (st.layout === "cyberpunk") {
+    const glow = `0 0 ${big ? 8 : 4}px ${hx(p.titleKick)}`;
+    return (
+      <span aria-hidden="true" style={{ ...wrap, background: `radial-gradient(120% 100% at 70% 0%, #2a1530 0%, ${hx(p.titleBg)} 70%)` }}>
+        <span style={{ position: "absolute", inset: big ? 6 : 3, border: `1px solid ${hx(p.titleKick)}88`, borderRadius: 4 }} />
+        <span style={{ position: "absolute", left: 0, right: 0, top: 0, height: big ? 9 : 4, background: "#0d060f" }} />
+        <span style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: big ? 9 : 4, background: "#0d060f" }} />
+        {big ? <React.Fragment>
+          <span style={{ position: "absolute", left: padX, top: 18, fontFamily: "Consolas, monospace", fontSize: 7, letterSpacing: 2, color: hx(p.titleKick), textShadow: glow }}>// DIGITAL LIFE SPOTLIGHT</span>
+          <span style={{ position: "absolute", left: padX, right: padX, top: 36, fontSize: titleFs, fontWeight: 800, lineHeight: 1.1, color: "#fff", textShadow: glow }}>{cs(title)}</span>
+          <span style={{ position: "absolute", left: padX, bottom: 13, fontFamily: "Consolas, monospace", fontSize: 7, letterSpacing: 1, color: hx(p.titleSub) }}>{bandLabel} · {theme}</span>
+        </React.Fragment> : <React.Fragment>
+          <span style={{ position: "absolute", left: padX, top: "40%", width: "60%", height: 4, borderRadius: 2, background: hx(p.titleKick), boxShadow: glow }} />
+          <span style={{ position: "absolute", left: padX, top: "60%", width: "38%", height: 4, borderRadius: 2, background: "#ffffff", opacity: .85 }} />
+        </React.Fragment>}
+      </span>
+    );
+  }
+
+  if (st.layout === "brutalist") {
+    const bw = big ? 3 : 2, sh = big ? 4 : 2;
+    return (
+      <span aria-hidden="true" style={{ ...wrap, background: hx(p.titleBg), border: `${bw}px solid ${hx(p.ink)}` }}>
+        {big
+          ? <span style={{ position: "absolute", left: padX, top: 26, right: padX, fontSize: 17, fontWeight: 800, lineHeight: 1.02, letterSpacing: "-.3px", color: hx(p.ink) }}>{cs(title)}</span>
+          : bars(hx(p.ink))}
+        <span style={{ position: "absolute", left: padX, bottom: big ? 14 : 6, width: big ? "52%" : "55%", height: big ? 16 : 8, background: hx(p.accent), border: `${big ? 2 : 1}px solid ${hx(p.ink)}`, boxShadow: `${sh}px ${sh}px 0 ${hx(p.accent2)}` }} />
+      </span>
+    );
+  }
+
+  if (st.layout === "editorial") {
+    return (
+      <span aria-hidden="true" style={{ ...wrap, background: hx(p.titleBg) }}>
+        <span style={{ position: "absolute", left: padX, right: padX, top: big ? 14 : 7, height: big ? 2 : 1.5, background: hx(p.accent2) }} />
+        {big && <span style={{ position: "absolute", left: padX, top: 18, fontSize: 7, letterSpacing: 3, color: hx(p.titleFoot), fontWeight: 700 }}>DIGITAL LIFE SPOTLIGHT</span>}
+        {big
+          ? <span style={{ position: "absolute", left: padX, right: padX, top: 34, fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 18, fontWeight: 700, lineHeight: 1.06, color: hx(p.titleInk) }}>{cs(title)}</span>
+          : <React.Fragment>
+              <span style={{ position: "absolute", left: padX, top: "46%", width: "66%", height: 4, borderRadius: 2, background: hx(p.titleInk) }} />
+              <span style={{ position: "absolute", left: padX, top: "66%", width: "44%", height: 4, borderRadius: 2, background: hx(p.titleInk), opacity: .55 }} />
+            </React.Fragment>}
+        {big && <span style={{ position: "absolute", left: padX, bottom: 12, fontFamily: "Georgia, serif", fontStyle: "italic", fontSize: 8, color: hx(p.titleSub) }}>{bandLabel} · {theme}</span>}
+        <span style={{ position: "absolute", right: padX, bottom: big ? 12 : 6, width: big ? 8 : 5, height: big ? 8 : 5, borderRadius: "50%", background: hx(p.accent2) }} />
+      </span>
+    );
+  }
+
+  if (st.layout === "popart") {
+    const dotSz = big ? 11 : 6;
+    const star = "polygon(50% 0,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%)";
+    return (
+      <span aria-hidden="true" style={{ ...wrap, background: hx(p.titleBg), backgroundImage: "radial-gradient(circle, #cbdaff 1.5px, transparent 2px)", backgroundSize: `${dotSz}px ${dotSz}px`, border: `${big ? 3 : 2}px solid ${hx(p.ink)}` }}>
+        {big
+          ? <span style={{ position: "absolute", left: padX, top: 30, right: big ? 58 : padX, fontSize: 18, fontWeight: 800, lineHeight: 1.0, color: hx(p.titleInk), WebkitTextStroke: `1px ${hx(p.ink)}` }}>{cs(title)}</span>
+          : bars(hx(p.titleInk))}
+        <span style={{ position: "absolute", right: big ? 10 : 4, top: big ? 8 : 4, width: big ? 36 : 18, height: big ? 36 : 18, background: hx("e83534"), clipPath: star, display: "grid", placeItems: "center", color: "#fff", fontSize: big ? 9 : 0, fontWeight: 800 }}>{big ? "5-MIN" : ""}</span>
+        {big && <span style={{ position: "absolute", left: padX, bottom: 12, background: "#fff", border: `2px solid ${hx(p.ink)}`, borderRadius: 12, padding: "2px 8px", fontSize: 8, fontWeight: 800, color: hx(p.accent) }}>{bandLabel} · {theme}</span>}
+        {footer}
+      </span>
+    );
+  }
+
+  // classic (default): purple cover, gold crest, headline, meta, footer band
+  return (
+    <span aria-hidden="true" style={{ ...wrap, background: hx(p.titleBg), color: hx(p.titleInk) }}>
+      <span style={{ position: "absolute", right: padX, top: big ? 10 : 5, width: big ? 14 : 8, height: big ? 9 : 5, borderRadius: 2, background: hx(p.accent2) }} />
+      {big
+        ? <span style={{ position: "absolute", left: padX, right: padX, top: 32, fontFamily: st.fonts.display, fontSize: titleFs, fontWeight: 800, lineHeight: 1.12, textTransform: st.upper ? "uppercase" : "none", color: hx(p.titleInk) }}>{cs(title)}</span>
+        : bars(hx(p.titleInk))}
+      {big && <span style={{ position: "absolute", left: padX, bottom: 12, fontSize: 8, color: hx(p.titleSub) }}>{bandLabel} · {theme}</span>}
+      {footer}
+    </span>
   );
 };
 
@@ -2448,11 +2542,8 @@ function App() {
 
               {/* Export-template picker + live themed cover preview */}
               <div className="design-row">
-                <div className="thumb-slide" style={{ background: hx(T.titleBg), color: hx(T.titleInk), fontFamily: ST.fonts.body }}>
-                  <div className="thumb-bar" style={{ background: hx(T.bar) }}></div>
-                  <div className="thumb-kick" style={{ color: hx(T.titleKick) }}>HOOK</div>
-                  <div className="thumb-title" style={{ fontFamily: ST.fonts.display, textTransform: ST.upper ? "uppercase" : "none" }}>{spot.hook || spot.title}</div>
-                  <div className="thumb-meta" style={{ color: hx(T.titleSub) }}><span className={"band-dot band-" + band.toLowerCase()}></span>{bandLabel} · {theme}</div>
+                <div className="thumb-slide">
+                  <StyleCover big styleKey={design} title={spot.hook || spot.title} bandLabel={bandLabel} theme={theme} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <label className="cap">Deck style</label>
@@ -2463,8 +2554,8 @@ function App() {
                       return (
                         <button key={key} type="button" role="radio" aria-checked={design === key} title={s.blurb}
                           className={"tpl-swatch" + (design === key ? " on" : "")} onClick={() => setDesign(key)}>
-                          <span className="tpl-cover" style={{ background: hx(s.palette.titleBg) }}>
-                            <span className="tpl-bar" style={{ background: hx(s.palette.bar) }}></span>
+                          <span className="tpl-cover">
+                            <StyleCover styleKey={key} />
                           </span>
                           <span className="tpl-name">{s.label}</span>
                         </button>
