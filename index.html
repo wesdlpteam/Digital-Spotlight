@@ -64,6 +64,7 @@
     /* Band identity — Wesley Secondary spectrum, categorical (never interactive) */
     --band-pyp: #7ca3ff; --band-pyp-bg: #cbdaff; --band-pyp-ink: #4242a1;
     --band-myp: #86c791; --band-myp-bg: #cfe9d3; --band-myp-ink: #636656;
+    --band-middle: #86c791; --band-middle-bg: #cfe9d3; --band-middle-ink: #636656;
     --band-senior: #dfab57; --band-senior-bg: #ffedbc; --band-senior-ink: #7a5012;
 
     /* Typography — Wesley three-tier: Graphik primary, Avenir Black secondary (display
@@ -217,11 +218,19 @@
   /* Band identity — categorical, never an interactive cue */
   .chip.band-pyp    { background: var(--band-pyp-bg);    color: var(--band-pyp-ink); }
   .chip.band-myp    { background: var(--band-myp-bg);    color: var(--band-myp-ink); }
+  .chip.band-middle { background: var(--band-middle-bg); color: var(--band-middle-ink); }
   .chip.band-senior { background: var(--band-senior-bg); color: var(--band-senior-ink); }
   .band-dot { display: inline-block; width: 8px; height: 8px; border-radius: 999px; margin-right: 5px; vertical-align: middle; }
   .band-dot.band-pyp    { background: var(--band-pyp); }
   .band-dot.band-myp    { background: var(--band-myp); }
+  .band-dot.band-middle { background: var(--band-middle); }
   .band-dot.band-senior { background: var(--band-senior); }
+
+  .band-multi { display: flex; flex-direction: column; gap: 8px; }
+  .band-opt { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+  .band-opt.on { border-color: var(--accent-soft); background: var(--wash); }
+  .band-check { display: flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer; }
+  .band-opt select { width: auto; min-width: 130px; }
 
   .theme-picks { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
   .theme-picks .pick { border: 1px solid transparent; background: var(--bg); color: var(--ink); border-radius: 999px; padding: 3px 10px; font: inherit; font-size: 12px; cursor: pointer; transition: .15s; }
@@ -1159,8 +1168,9 @@ function App() {
   const [pdfName, setPdfName] = useState("");
   const [title, setTitle] = useState("");
   const [link, setLink] = useState("");
-  const [band, setBand] = useState("PYP");
-  const [year, setYear] = useState("");
+  const [bands, setBands] = useState(["PYP"]);       // selected bands, ordered
+  const [years, setYears] = useState({});            // { [band]: yearLevel }
+  const [activeBand, setActiveBand] = useState(null);// which generated deck is shown
   const [theme, setTheme] = useState(THEMES[0]);
   const [design, setDesign] = useState("purple");
 
@@ -1199,6 +1209,18 @@ function App() {
 
   // First item's still image — keeps legacy single-image AI/PPTX paths working.
   const firstStill = media[0] ? (media[0].kind === "image" ? media[0].dataUrl : media[0].poster) : "";
+
+  // Active band drives the (single) preview/edit/export view; before generation
+  // it falls back to the first selected band so chips/labels still resolve.
+  const band = activeBand || bands[0] || "PYP";
+  const year = years[band] || "";
+  const bandLabel = bandLabelOf(band);
+  const toggleBand = (b) => setBands(prev => {
+    const has = prev.includes(b);
+    const next = has ? prev.filter(x => x !== b) : [...prev, b];
+    return BAND_ORDER.filter(x => next.includes(x)); // keep canonical order
+  });
+  const setBandYear = (b, y) => setYears(prev => ({ ...prev, [b]: y }));
 
   // Keep reelIndex in range whenever the reel shrinks.
   React.useEffect(() => { if (reelIndex > Math.max(0, media.length - 1)) setReelIndex(0); }, [media.length]);
@@ -1483,7 +1505,6 @@ function App() {
 
   const totalMins = useMemo(() => spot ? spot.steps.reduce((a, s) => a + (Number(s.minutes) || 0), 0) : 0, [spot]);
 
-  const bandLabel = BANDS[band].label;
   const T = THEME_DESIGNS[design];
   const barStyle = { background: hx(T.accent) };
   const RegenButton = ({ scope }) => (
@@ -1813,15 +1834,26 @@ function App() {
           </div>
 
           <div className="group">
-            <label className="cap" htmlFor="f-band">Band &amp; year</label>
-            <div className="row2">
-              <select id="f-band" value={band} onChange={e => { setBand(e.target.value); setYear(""); setRoutineChoice(""); }}>
-                {Object.keys(BANDS).map(b => <option key={b} value={b}>{BANDS[b].label}</option>)}
-              </select>
-              <select aria-label="Year level" value={year} onChange={e => setYear(e.target.value)}>
-                <option value="">Whole band</option>
-                {BANDS[band].years.map(y => <option key={y} value={y}>{y}</option>)}
-              </select>
+            <label className="cap">Band &amp; year <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0, color: "var(--muted)" }}>· tick one or more</span></label>
+            <div className="band-multi">
+              {BAND_ORDER.map(b => {
+                const on = bands.includes(b);
+                return (
+                  <div key={b} className={"band-opt" + (on ? " on" : "")}>
+                    <label className="band-check">
+                      <input type="checkbox" checked={on} onChange={() => { toggleBand(b); setRoutineChoice(""); }} />
+                      <span className={"band-dot band-" + b.toLowerCase()}></span>
+                      {bandLabelOf(b)}
+                    </label>
+                    {on && (
+                      <select aria-label={"Year level for " + bandLabelOf(b)} value={years[b] || ""} onChange={e => setBandYear(b, e.target.value)}>
+                        <option value="">Whole band</option>
+                        {BANDS[b].years.map(y => <option key={y} value={y}>{y}</option>)}
+                      </select>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
 
