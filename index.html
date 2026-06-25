@@ -1365,10 +1365,21 @@ function App() {
           let dataUrl = "";
           if (f.size <= VIDEO_EMBED_MAX_BYTES) { try { dataUrl = await readFileAsDataURL(f); } catch (_) {} }
           const { frames, poster, width, height } = await extractVideoFrames(f, 4);
-          setMedia(m => m.length >= MAX_MEDIA ? m : [...m, { id: newId(), kind: "video", dataUrl, name: f.name, sizeBytes: f.size,
-            poster, aspect: width && height ? width / height : 0, frames, text: "" }]);
+          const vidId = newId();
+          setMedia(m => m.length >= MAX_MEDIA ? m : [...m, { id: vidId, kind: "video", dataUrl, name: f.name, sizeBytes: f.size,
+            poster, aspect: width && height ? width / height : 0, frames, text: "", transcribeState: apiKey.trim() ? "running" : "idle", transcribeNote: "" }]);
           if (!frames.length) setMediaNote("Couldn't read frames from " + f.name + " — add a description under its thumbnail. It will still embed in the PowerPoint.");
           else if (f.size > VIDEO_EMBED_MAX_BYTES) setMediaNote(`${f.name} is large (${formatBytes(f.size)}) — the deck will use its first frame + a link instead of embedding.`);
+          if (apiKey.trim()) {
+            (async () => {
+              try {
+                const { text, truncated } = await transcribeMedia({ apiKey: apiKey.trim(), file: f });
+                setMedia(m => m.map(x => x.id === vidId ? { ...x, text, transcribeState: "done", transcribeNote: truncated ? "(transcript truncated)" : "" } : x));
+              } catch (_) {
+                setMedia(m => m.map(x => x.id === vidId ? { ...x, transcribeState: "failed", transcribeNote: "couldn't get transcript — frames will be used" } : x));
+              }
+            })();
+          }
         } catch (_) { setError("Could not read video: " + f.name); }
         finally { setExtractingVideo(false); }
       }
@@ -1910,6 +1921,13 @@ function App() {
                         <textarea className="media-text" rows={2} value={it.text}
                           placeholder="Transcript / what's in this clip (optional)"
                           onChange={e => setMediaText(it.id, e.target.value)} />
+                      )}
+                      {it.kind === "video" && (
+                        <div className="hint" aria-live="polite">
+                          {it.transcribeState === "running" && <React.Fragment><span className="spinner sm"></span> transcribing…</React.Fragment>}
+                          {it.transcribeState === "done" && `transcript ready (${(it.text ? it.text.trim().split(/\s+/).length : 0)} words) ${it.transcribeNote}`}
+                          {it.transcribeState === "failed" && it.transcribeNote}
+                        </div>
                       )}
                     </div>
                   ))}
