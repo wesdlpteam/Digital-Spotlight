@@ -206,6 +206,19 @@ while ($true) {
                     Copy-Item -LiteralPath $out.FullName -Destination $dest -Force
                     $spUrl = To-SharePointUrl $uniqueName
                 } catch { $spUrl = "" }
+                $uploadPending = $true
+                try {
+                    $stable = 0; $lastLen = -1
+                    for ($i = 0; $i -lt 30; $i++) {   # up to ~15s
+                        Start-Sleep -Milliseconds 500
+                        $fi = Get-Item -LiteralPath $dest -ErrorAction SilentlyContinue
+                        if ($fi) {
+                            if ($fi.Length -eq $lastLen) { $stable++ } else { $stable = 0; $lastLen = $fi.Length }
+                            # OneDrive clears the "offline/pinned" attribute area once uploaded; treat 3 stable reads as ready.
+                            if ($stable -ge 3) { $uploadPending = $false; break }
+                        }
+                    }
+                } catch { $uploadPending = $true }
                 # Poster: first frame via ffmpeg if available (best-effort).
                 # Runs in its own try/catch so a failure never clears $spUrl.
                 # Reads from the original temp file ($out.FullName), not the synced copy.
@@ -217,7 +230,7 @@ while ($true) {
                         if (Test-Path $posterPath) { $posterB64 = [System.Convert]::ToBase64String([System.IO.File]::ReadAllBytes($posterPath)) }
                     }
                 } catch { $posterB64 = "" }
-                $payload = @{ name = $out.Name; mime = $mime; b64 = $b64; sharePointUrl = $spUrl; posterB64 = $posterB64 } | ConvertTo-Json -Compress
+                $payload = @{ name = $out.Name; mime = $mime; b64 = $b64; sharePointUrl = $spUrl; posterB64 = $posterB64; uploadPending = $uploadPending } | ConvertTo-Json -Compress
                 Write-Response $ns "200 OK" (Utf8 $payload) "application/json" $allowOrigin
             } else {
                 $msg = "Could not fetch that link."
