@@ -905,7 +905,36 @@ window.DSS = { DISCOVERY_CATEGORIES, RESOURCE_DOMAINS, availableCategories, mont
   audienceStr, buildEventRequest, buildResourceRequest, extractResponseText,
   citationSet, urlInCitations, mergeIssuesAndResources, validateResourceUrls,
   BANDS, BAND_ORDER, bandLabelOf, audienceStrMulti, shapeDeck, bandFileSlug,
-  videoFileToWav16k };
+  videoFileToWav16k, transcribeMedia };
+
+const TRANSCRIBE_LIMIT = 25 * 1024 * 1024; // OpenAI audio endpoint per-file cap
+// Transcribe a video/audio File via OpenAI. Sends the file directly when small
+// enough; otherwise downsamples to 16 kHz mono WAV (and truncates very long clips).
+async function transcribeMedia({ apiKey, file }) {
+  let sendFile = file, truncated = false;
+  if (file.size > TRANSCRIBE_LIMIT) {
+    const { blob, truncated: t } = await videoFileToWav16k(file);
+    sendFile = new File([blob], "audio.wav", { type: "audio/wav" });
+    truncated = t;
+    if (sendFile.size > TRANSCRIBE_LIMIT) {
+      const { blob: b2, truncated: t2 } = await videoFileToWav16k(file, 600);
+      sendFile = new File([b2], "audio.wav", { type: "audio/wav" }); truncated = t2 || t;
+    }
+  }
+  const fd = new FormData();
+  fd.append("file", sendFile);
+  fd.append("model", "gpt-4o-transcribe");
+  fd.append("response_format", "text");
+  const resp = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+    method: "POST", headers: { Authorization: "Bearer " + apiKey }, body: fd,
+  });
+  if (!resp.ok) {
+    let detail = ""; try { detail = JSON.stringify((await resp.json()).error || {}); } catch (_) { detail = await resp.text().catch(() => ""); }
+    throw new Error(`Transcription failed (${resp.status}). ${detail}`);
+  }
+  const text = (await resp.text()).trim();
+  return { text, truncated };
+}
 
 /* --------------------- Discovery: API orchestration --------------------- */
 
