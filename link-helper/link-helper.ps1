@@ -21,8 +21,8 @@ $Port    = 7717
 $Browser = "chrome"   # cookies-from-browser source: chrome | edge | firefox
 
 # SharePoint pipeline settings (set these during install per teacher/site):
-$SyncFolder      = "$env:USERPROFILE\OneDrive - Wesley College\Images + Videos"   # local OneDrive-synced path
-$SharePointBase  = "https://wesleycollegemelbourne.sharepoint.com/sites/DigitalSpotlight/Shared%20Documents/Images%20+%20Videos/"
+$SyncFolder      = "$env:USERPROFILE\OneDrive - Wesley College\Digital Spotlight - Media"   # local OneDrive-synced path
+$SharePointBase  = "https://wesleycollegemelbourne.sharepoint.com/sites/DigitalSpotlight/Media/"
 
 function New-UniqueName($originalName) {
     # "InTruth.mp4" -> "InTruth-7f3a1c.mp4"; strips unsafe chars, adds a short hex tag.

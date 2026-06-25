@@ -8,10 +8,11 @@ if not exist ffmpeg.exe echo NOTE: ffmpeg.exe not bundled - some formats may nee
 echo.
 echo IMPORTANT - SharePoint video setup (one time):
 echo  1. Open link-helper.ps1 in Notepad and confirm the two settings near the top:
-echo       $SyncFolder      - your local OneDrive-synced "Images + Videos" folder
-echo       $SharePointBase  - the matching SharePoint folder URL
-echo  2. If the folder is not synced yet: open the "Images + Videos" library in
-echo     SharePoint, click "Add shortcut to OneDrive", and it will appear under
+echo       $SyncFolder      - your local OneDrive-synced "Media" library folder
+echo       $SharePointBase  - the matching SharePoint library URL
+echo  2. If the library is not synced yet: open the "Media" library on the
+echo     Digital Spotlight site in SharePoint, click "Sync" (or "Add shortcut to
+echo     OneDrive"), and it appears as "Digital Spotlight - Media" under
 echo     "OneDrive - Wesley College" in File Explorer.
 echo  3. Videos you paste will be copied there automatically and will play
 echo     inline in the generated PowerPoint decks.

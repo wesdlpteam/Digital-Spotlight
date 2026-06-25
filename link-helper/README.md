@@ -30,14 +30,14 @@ If you installed before the auto-start update, you can still double-click **`Sta
 
 ## SharePoint video setup
 
-Pasted videos can also upload automatically into the team's SharePoint **Images + Videos** library, so they play **inline and autoplay** when the deck is opened in PowerPoint for the web — no manual upload or download needed.
+Pasted videos can also upload automatically into the team's SharePoint **Media** library (on the Digital Spotlight site), so they play **inline and autoplay** when the deck is opened in PowerPoint for the web — no manual upload or download needed.
 
 Two one-time steps:
 
 1. **Run `Install-Helper.cmd` once** (see Setup above). It will print the two settings to confirm at the top of `link-helper.ps1` — `$SyncFolder` and `$SharePointBase`.
-2. **Sync the Images + Videos folder once.** Open the library in SharePoint, click **"Add shortcut to OneDrive"**, and it will appear under `OneDrive - Wesley College` in File Explorer. The path must match `$SyncFolder` in `link-helper.ps1`.
+2. **Sync the Media library once.** Open the **Media** library on the Digital Spotlight site in SharePoint, click **"Sync"** (or **"Add shortcut to OneDrive"**), and it appears as **`Digital Spotlight - Media`** under `OneDrive - Wesley College` in File Explorer. That path must match `$SyncFolder` in `link-helper.ps1`.
 
-**Access requirement:** the Images + Videos library must be viewable by every staff member who will open the generated decks — otherwise the embedded video will show a sign-in prompt instead of playing.
+**Access requirement:** the Media library must be viewable by every staff member who will open the generated decks — otherwise the embedded video will show a sign-in prompt instead of playing.
 
 Once both steps are done, any video you paste into the app is copied into that synced folder automatically, and the exported PowerPoint will embed it as an online video that plays inline and autoplays when the deck opens in PowerPoint for the web. If the helper isn't set up (or the video has no SharePoint URL yet), the deck falls back to a poster image with a link/QR code, exactly as before.
 
