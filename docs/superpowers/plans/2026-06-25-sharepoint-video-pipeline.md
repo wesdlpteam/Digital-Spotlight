@@ -341,41 +341,45 @@ git commit -m "feat: embed sharepoint online video in export"
 
 ---
 
-## Task 6: Autoplay on slide open (capture, inject, verify)
+## Task 6: Autoplay on slide open (inject the verified timing block)
+
+**Status:** Autoplay is **CONFIRMED to work in PPT-web** with the plain-path URL (verified during planning: a deck with the exact markup below autoplayed `InTruth.mp4` in PowerPoint-web). The markup is captured verbatim — no reference deck needed at execution time.
 
 **Files:**
-- Modify: `index.html` — extend `injectOnlineVideos` to add a `<p:timing>` autoplay block per slide that has a video.
+- Modify: `index.html` — extend `injectOnlineVideos` (Task 5) to add a `<p:timing>` autoplay block on each slide that got a video.
 
 **Interfaces:**
-- Consumes: the video `<p:pic>` shape id created in Task 5.
-- Produces: a `<p:timing>` autoplay node referencing that shape id; depends on the exact markup captured from the user's reference deck.
+- Consumes: the converted video `<p:pic>`'s `<p:cNvPr id="N">` (from pptxgenjs).
+- Produces: a `<p:timing>` node referencing `spid="N"`; `AUTOPLAY_TIMING_TEMPLATE` constant.
 
-**Dependency:** requires `AUTOPLAY-online-video.pptx` in the project root (user creates it: Insert Online Video → Playback → Start → Automatically → save). If absent, request it before starting this task.
-
-- [ ] **Step 1: Capture the reference markup.** Unzip `AUTOPLAY-online-video.pptx`; extract the `<p:timing>...</p:timing>` block from the slide that holds the video, and note how it references the video shape via `spid`. Record the exact XML (this is the template to inject). Command:
-
-```bash
-cd <scratch> && unzip -o ".../AUTOPLAY-online-video.pptx" -d apref && \
-  node -e 'const x=require("fs").readFileSync("apref/ppt/slides/slide2.xml","utf8");const i=x.indexOf("<p:timing>");console.log(i<0?"NO TIMING":x.slice(i,x.indexOf("</p:timing>")+11));'
-```
-
-- [ ] **Step 2: Ensure the video `<p:pic>` has a known `id`.** In Task 5's transform, assign each converted video pic a deterministic `<p:cNvPr id="...">` you control (e.g. a high fixed base + index) so the timing block's `spid` can reference it. Update the Task-5 transform to set/track that id and collect `{ slidePath, spid }` for each video.
-
-- [ ] **Step 3: Inject the captured `<p:timing>` block** into each slide XML that has a video, with the `spid` substituted to the matching pic id. Insert it immediately before `</p:cSld>`'s sibling close (timing is a child of `<p:sld>`, after `<p:clrMapOvr>` — i.e. just before `</p:sld>`). Add to `injectOnlineVideos` after the pic rewrite, per slide:
+- [ ] **Step 1: Add the verified timing template** near the top of the script (this is the EXACT markup PowerPoint wrote for Start→Automatically; `SPID_PLACEHOLDER` marks all 5 shape-id references):
 
 ```js
-// AUTOPLAY_TIMING_TEMPLATE is the exact block captured in Step 1, with `SPID_PLACEHOLDER` where the spid goes.
-if (slideHadVideo) {
-  const timing = AUTOPLAY_TIMING_TEMPLATE.replace(/SPID_PLACEHOLDER/g, String(videoSpid));
-  xml = xml.replace(/<\/p:sld>\s*$/, timing + "</p:sld>");
+const AUTOPLAY_TIMING_TEMPLATE = `<p:timing><p:tnLst><p:par><p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot"><p:childTnLst><p:seq concurrent="1" nextAc="seek"><p:cTn id="2" dur="indefinite" nodeType="mainSeq"><p:childTnLst><p:par><p:cTn id="3" fill="hold"><p:stCondLst><p:cond delay="indefinite"/><p:cond evt="onBegin" delay="0"><p:tn val="2"/></p:cond></p:stCondLst><p:childTnLst><p:par><p:cTn id="4" fill="hold"><p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst><p:par><p:cTn id="5" presetID="1" presetClass="mediacall" presetSubtype="0" fill="hold" nodeType="afterEffect"><p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst><p:cmd type="call" cmd="playFrom(0.0)"><p:cBhvr><p:cTn id="6" dur="1" fill="hold"/><p:tgtEl><p:spTgt spid="SPID_PLACEHOLDER"/></p:tgtEl></p:cBhvr></p:cmd></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn><p:prevCondLst><p:cond evt="onPrev" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:prevCondLst><p:nextCondLst><p:cond evt="onNext" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:nextCondLst></p:seq><p:video><p:cMediaNode vol="80000"><p:cTn id="7" fill="hold" display="0"><p:stCondLst><p:cond delay="indefinite"/></p:stCondLst></p:cTn><p:tgtEl><p:spTgt spid="SPID_PLACEHOLDER"/></p:tgtEl></p:cMediaNode></p:video><p:seq concurrent="1" nextAc="seek"><p:cTn id="8" restart="whenNotActive" fill="hold" evtFilter="cancelBubble" nodeType="interactiveSeq"><p:stCondLst><p:cond evt="onClick" delay="0"><p:tgtEl><p:spTgt spid="SPID_PLACEHOLDER"/></p:tgtEl></p:cond></p:stCondLst><p:endSync evt="end" delay="0"><p:rtn val="all"/></p:endSync><p:childTnLst><p:par><p:cTn id="9" fill="hold"><p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst><p:par><p:cTn id="10" fill="hold"><p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst><p:par><p:cTn id="11" presetID="2" presetClass="mediacall" presetSubtype="0" fill="hold" nodeType="clickEffect"><p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst><p:cmd type="call" cmd="togglePause"><p:cBhvr><p:cTn id="12" dur="1" fill="hold"/><p:tgtEl><p:spTgt spid="SPID_PLACEHOLDER"/></p:tgtEl></p:cBhvr></p:cmd></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn><p:nextCondLst><p:cond evt="onClick" delay="0"><p:tgtEl><p:spTgt spid="SPID_PLACEHOLDER"/></p:tgtEl></p:cond></p:nextCondLst></p:seq></p:childTnLst></p:cTn></p:par></p:tnLst></p:timing>`;
+```
+
+- [ ] **Step 2: Track the converted pic's id in `injectOnlineVideos`.** In Task 5's per-pic transform, capture the pic's id and remember it per slide:
+
+```js
+// inside the pic .replace callback, after matching the marker:
+const idm = pic.match(/<p:cNvPr\s+id="(\d+)"/);
+if (idm) lastVideoSpid = idm[1];      // declare `let lastVideoSpid = null;` per slide before the replace
+```
+
+- [ ] **Step 3: Inject the timing block before `</p:sld>`** when the slide had a video (after `xml = xml.replace(...pics...)`, before `zip.file(sp, xml)`):
+
+```js
+if (lastVideoSpid) {
+  const timing = AUTOPLAY_TIMING_TEMPLATE.replace(/SPID_PLACEHOLDER/g, lastVideoSpid);
+  xml = xml.replace(/<\/p:sld>/, timing + "</p:sld>");
 }
 ```
 
-(Define `AUTOPLAY_TIMING_TEMPLATE` as the captured XML string near the top of the script. Do not invent it — paste the captured markup.)
+(One video per provocation slide, so one timing block per slide. `spid` must equal the converted video pic's `<p:cNvPr id>` — that's why Step 2 reads it rather than hard-coding `2`.)
 
-- [ ] **Step 4: Verify (Babel parse).** Transpile → PARSE OK.
+- [ ] **Step 4: Verify (Babel parse).** Transpile the `text/babel` block → PARSE OK.
 
-- [ ] **Step 5: Manual acceptance (the autoplay test).** Generate a deck, open in **PowerPoint-web**, confirm the video **starts on its own when the slide opens** (no click). If PPT-web does NOT autoplay it, leave the click-to-play object from Task 5 in place and document the limitation in the README — do NOT let autoplay markup break inline playback (verify the video still plays on click). Report which outcome occurred.
+- [ ] **Step 5: Manual acceptance.** Generate a deck, open in **PowerPoint-web**, confirm the video **autoplays on slide open** (no click) AND the poster shown is the correct video's first frame. (Autoplay itself is already proven; this confirms the app reproduces it.) If a future PPT-web change ever stops autoplay, the click-to-play object from Task 5 still plays — verify that too. Report result.
 
 - [ ] **Step 6: Commit**
 
@@ -422,7 +426,7 @@ git commit -m "chore: sharepoint setup docs + v1.3.0"
 - Config values, access requirement, setup docs → Tasks 2, 7 ✓
 - Acceptance: app-generated deck plays + autoplays in PPT-web → Task 5 Step 7, Task 6 Step 5 ✓
 
-**Placeholder scan:** Task 6 deliberately defers the exact `<p:timing>` XML to capture-from-reference (Step 1) — this is a real procedure with a named dependency (`AUTOPLAY-online-video.pptx`), not a hand-wave; `AUTOPLAY_TIMING_TEMPLATE` is filled from the captured markup, never invented. No other placeholders.
+**Placeholder scan:** None. Task 6's `AUTOPLAY_TIMING_TEMPLATE` is the exact verified markup (autoplay was proven in PPT-web during planning), with `SPID_PLACEHOLDER` substituted at runtime from the converted pic's real id.
 
 **Type consistency:** `sharePointUrl` (media item field), `injectOnlineVideos(blob, videoMarks)→Blob`, `videoMarks` `[{url,name}]`, `VIDEO_MARK_PREFIX="TSG-VIDEO::"`, helper JSON `{name,mime,b64,sharePointUrl,posterB64,uploadPending}`, `New-UniqueName`/`To-SharePointUrl` (PowerShell) — used consistently across tasks.
 
