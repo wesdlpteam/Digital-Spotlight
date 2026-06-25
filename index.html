@@ -2289,18 +2289,21 @@ function App() {
                   <div className="thumb-meta" style={{ color: hx(T.titleSub) }}><span className={"band-dot band-" + band.toLowerCase()}></span>{bandLabel} · {theme}</div>
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700 }}>Export template — {ST.label}</div>
+                  <label className="cap">Deck style</label>
                   <div className="hint">{ST.blurb} The Wesley crest sits on every slide — pick a look, then download.</div>
-                  <div className="tpl-picks" role="radiogroup" aria-label="Export template">
-                    {STYLE_ORDER.map(key => [key, STYLES[key]]).map(([key, d]) => (
-                      <button key={key} type="button" role="radio" aria-checked={design === key} title={d.blurb}
-                        className={"tpl-swatch" + (design === key ? " on" : "")} onClick={() => setDesign(key)}>
-                        <span className="tpl-cover" style={{ background: hx(d.palette.titleBg) }}>
-                          <span className="tpl-bar" style={{ background: hx(d.palette.bar) }}></span>
-                        </span>
-                        <span className="tpl-name">{d.label}</span>
-                      </button>
-                    ))}
+                  <div className="tpl-picks" role="radiogroup" aria-label="Deck style">
+                    {STYLE_ORDER.map((key) => {
+                      const s = STYLES[key];
+                      return (
+                        <button key={key} type="button" role="radio" aria-checked={design === key} title={s.blurb}
+                          className={"tpl-swatch" + (design === key ? " on" : "")} onClick={() => setDesign(key)}>
+                          <span className="tpl-cover" style={{ background: hx(s.palette.titleBg) }}>
+                            <span className="tpl-bar" style={{ background: hx(s.palette.bar) }}></span>
+                          </span>
+                          <span className="tpl-name">{s.label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
