@@ -1870,11 +1870,6 @@ function App() {
       };
       const kicker = (s, txt, col) => s.addText(String(txt).toUpperCase(), { x: 0.8, y: 0.55, w: W - 1.6, h: 0.4, fontSize: 13, bold: true, color: col || accent, charSpacing: 2, fontFace: bFont });
 
-      /* Slide 1 — TITLE (catchy headline; also carries band/theme) */
-      const s1 = newSlide("title");
-      s1.addText(tCase(spot.hook || spot.title), { x: 0.9, y: 1.6, w: W - 2.6, h: 3.8, fontSize: 44, bold: true, color: T.titleInk, valign: "middle", fontFace: tFont });
-      s1.addText(`${bandLabel}${year ? " · " + year : ""}   ·   ${theme}   ·   5-minute discussion`, { x: 0.9, y: 5.7, w: W - 1.8, h: 0.4, fontSize: 14, color: T.titleSub, fontFace: bFont });
-
       const drawRoutine = (s, rx2, rw2, colY, colH) => {
         let ry = colY;
         s.addText(tCase(spot.routineName), { x: rx2, y: ry, w: rw2, h: 0.5, fontSize: 18, bold: true, color: ink, fontFace: tFont }); ry += 0.55;
@@ -1899,6 +1894,39 @@ function App() {
       const hasLink = !!link.trim();
       const mediaH = hasLink ? colH - 0.5 : colH;
 
+      // Per-style visual layer: each skin renders cover/provocation-chrome/takeaway differently;
+      // shared media/video/QR/routine logic below stays identical across all styles. Dark styles
+      // get a dark content background automatically via newSlide's T.contentBg (set per-style).
+      const SKINS = {
+        classic: {
+          cover(s, c) {
+            s.addText(c.tCase(c.spot.hook || c.spot.title), { x: 0.9, y: 1.6, w: c.W - 2.6, h: 3.8, fontSize: 44, bold: true, color: c.T.titleInk, valign: "middle", fontFace: c.tFont });
+            s.addText(`${c.bandLabel}${c.year ? " · " + c.year : ""}   ·   ${c.theme}   ·   5-minute discussion`, { x: 0.9, y: 5.7, w: c.W - 1.8, h: 0.4, fontSize: 14, color: c.T.titleSub, fontFace: c.bFont });
+          },
+          provChrome(s, c, idx, reelLen) {
+            c.kicker(s, reelLen > 1 ? `Provocation · ${idx + 1}/${reelLen}` : "Provocation");
+            s.addText(c.spot.framing, { x: 0.8, y: 1.0, w: c.W - 1.6, h: 0.7, fontSize: 22, bold: true, color: c.ink, fontFace: c.tFont });
+          },
+          takeaway(s, c) {
+            c.kicker(s, "Your key takeaway", c.T.titleKick);
+            s.addShape(c.pptx.ShapeType.roundRect, { x: 1.1, y: 2.2, w: c.W - 2.2, h: 2.8, fill: { color: c.T.cardBg }, rectRadius: 0.18 });
+            s.addText(c.spot.studentAction || "—", { x: 1.7, y: 2.4, w: c.W - 3.4, h: 2.4, fontSize: 26, bold: true, color: c.T.cardInk, valign: "middle", align: "center", fontFace: c.tFont });
+            if (c.spot.learnerProfile.filter(Boolean).length)
+              s.addText("IB Learner Profile: " + c.spot.learnerProfile.filter(Boolean).join(", "), { x: 1.1, y: 5.4, w: c.W - 2.2, h: 0.4, fontSize: 14, italic: true, color: c.T.titleSub, align: "center", fontFace: c.bFont });
+          },
+        },
+      };
+      const skin = SKINS[ST.layout] || SKINS.classic;
+      const ctx = {
+        pptx, ST, T, W, H, n: () => n, total, spot, bandLabel, year, theme, mode,
+        accent, accent2, bar, ink, muted, tFont, bFont, tCase, kicker, drawRoutine, newSlide,
+        geom: { colY, colH, lx, lw2, rx2, rw2, mediaH, hasLink },
+      };
+
+      /* Slide 1 — TITLE (catchy headline; also carries band/theme) */
+      const s1 = newSlide("title");
+      skin.cover(s1, ctx);
+
       // For article mode, keep a single provocation slide (reuse the legacy single-stimulus path).
       const reel = (mode === "media" && media.length) ? media : [null]; // [null] = non-media single slide
       const provFirst = 2;               // title is slide 1
@@ -1907,8 +1935,7 @@ function App() {
       for (let idx = 0; idx < reel.length; idx++) {
         const item = reel[idx];
         const s3 = newSlide("content");
-        kicker(s3, reel.length > 1 ? `Provocation · ${idx + 1}/${reel.length}` : "Provocation");
-        s3.addText(spot.framing, { x: 0.8, y: 1.0, w: W - 1.6, h: 0.7, fontSize: 22, bold: true, color: ink, fontFace: tFont });
+        skin.provChrome(s3, ctx, idx, reel.length);
 
         // LEFT: this item's media (or article/summary on the single non-media slide).
         if (item && item.kind === "image") {
@@ -1980,11 +2007,7 @@ function App() {
 
       /* STUDENT KEY TAKEAWAY */
       const s6 = newSlide("title");
-      kicker(s6, "Your key takeaway", T.titleKick);
-      s6.addShape(pptx.ShapeType.roundRect, { x: 1.1, y: 2.2, w: W - 2.2, h: 2.8, fill: { color: T.cardBg }, rectRadius: 0.18 });
-      s6.addText(spot.studentAction || "—", { x: 1.7, y: 2.4, w: W - 3.4, h: 2.4, fontSize: 26, bold: true, color: T.cardInk, valign: "middle", align: "center", fontFace: tFont });
-      if (spot.learnerProfile.filter(Boolean).length)
-        s6.addText("IB Learner Profile: " + spot.learnerProfile.filter(Boolean).join(", "), { x: 1.1, y: 5.4, w: W - 2.2, h: 0.4, fontSize: 14, italic: true, color: T.titleSub, align: "center", fontFace: bFont });
+      skin.takeaway(s6, ctx);
 
       // Build to a blob and post-process any SharePoint videos. Caller saves it.
       const blob = await pptx.write({ outputType: "blob" });
