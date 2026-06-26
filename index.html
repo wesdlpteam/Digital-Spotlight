@@ -231,6 +231,10 @@
   .advisory-chip.on { background: var(--accent, #4F2759); color: #fff; border-color: var(--accent, #4F2759); }
   .advisory-chip:focus-visible { outline: 2px solid var(--accent, #4F2759); outline-offset: 2px; }
   @media (prefers-reduced-motion: no-preference) { .advisory-chip { transition: background .15s, color .15s; } }
+  .advisory-card { background: #1A1320; color: #F7F2EA; border-radius: 12px; padding: 22px 24px; }
+  .advisory-head { font-weight: 800; font-size: 26px; color: #E4D1A1; margin-bottom: 10px; }
+  .advisory-line { font-size: 16px; margin: 0 0 10px; }
+  .advisory-reassure { font-size: 14px; font-style: italic; opacity: .92; margin: 0; }
   .band-dot { display: inline-block; width: 8px; height: 8px; border-radius: 999px; margin-right: 5px; vertical-align: middle; }
   .band-dot.band-pyp    { background: var(--band-pyp); }
   .band-dot.band-myp    { background: var(--band-myp); }
@@ -2546,6 +2550,17 @@ function App() {
               </div>
 
               <div className="slides">
+                {/* Advisory — shown first in the deck when enabled */}
+                {spot.advisoryShow && (
+                  <div className="slide advisory-slide"><div className="bar" style={barStyle}></div><div className="body">
+                    <div className="slide-head"><div className="slide-tag"><span className="n">!</span> Content advisory <span className="aside">· shown first in the deck</span></div></div>
+                    <div className="advisory-card">
+                      <div className="advisory-head">Heads up</div>
+                      <p className="advisory-line">Today's spotlight touches on some things that might feel heavy — <b>{advisoryThemeLine(spot.advisoryCats || [])}</b>.</p>
+                      <p className="advisory-reassure">If you'd rather step out for this one, just quietly let your teacher know. That's completely okay.</p>
+                    </div>
+                  </div></div>
+                )}
                 {/* Slide 1 — Hook */}
                 <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
                   <div className="slide-head"><div className="slide-tag"><span className="n">1</span> Title <span className="aside">· a short, catchy headline · band &amp; theme shown here</span></div><RegenButton scope="title" /></div>
