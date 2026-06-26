@@ -2101,16 +2101,19 @@ function App() {
       if (showAdv) {
         n++;
         const ADV_BG = "1A1320", ADV_INK = "F7F2EA", ADV_GOLD = "E4D1A1";
+        // Fixed Wesley brand fonts (not the per-style tFont/bFont) so the advisory
+        // reads identically sober across all five deck styles.
+        const ADV_DISPLAY = "Avenir Black", ADV_BODY = "Graphik";
         const sa = pptx.addSlide();
         sa.background = { color: ADV_BG };
         sa.addShape(pptx.ShapeType.rect, { x: 0, y: H - 0.18, w: W, h: 0.18, fill: { color: ADV_GOLD } });
         const lw = 2.3, lh = lw / 4.991;
         sa.addImage({ data: WESLEY_LOGO_HORIZ, x: W - 0.6 - lw, y: H - 0.62 - lh, w: lw, h: lh });
-        sa.addText(`Digital Life Spotlight · 5-minute discussion · ${n}/${total}`, { x: 0.6, y: H - 0.6, w: W - 3.4, h: 0.3, fontSize: 9, color: ADV_INK, fontFace: bFont });
+        sa.addText(`Digital Life Spotlight · 5-minute discussion · ${n}/${total}`, { x: 0.6, y: H - 0.6, w: W - 3.4, h: 0.3, fontSize: 9, color: ADV_INK, fontFace: ADV_BODY });
         const themeLine = advisoryThemeLine(spot.advisoryCats || []);
-        sa.addText("Heads up", { x: 0.9, y: 1.6, w: W - 1.8, h: 1.0, fontSize: 44, bold: true, color: ADV_GOLD, fontFace: tFont });
-        sa.addText(`Today's spotlight touches on some things that might feel heavy — ${themeLine}.`, { x: 0.9, y: 2.9, w: W - 1.8, h: 1.4, fontSize: 22, color: ADV_INK, valign: "top", fontFace: bFont, lineSpacingMultiple: 1.15 });
-        sa.addText("If you'd rather step out for this one, just quietly let your teacher know. That's completely okay.", { x: 0.9, y: 4.6, w: W - 1.8, h: 1.3, fontSize: 16, italic: true, color: ADV_INK, valign: "top", fontFace: bFont, lineSpacingMultiple: 1.2 });
+        sa.addText("Heads up", { x: 0.9, y: 1.6, w: W - 1.8, h: 1.0, fontSize: 44, bold: true, color: ADV_GOLD, fontFace: ADV_DISPLAY });
+        sa.addText(`Today's spotlight touches on some things that might feel heavy — ${themeLine}.`, { x: 0.9, y: 2.9, w: W - 1.8, h: 1.4, fontSize: 22, color: ADV_INK, valign: "top", fontFace: ADV_BODY, lineSpacingMultiple: 1.15 });
+        sa.addText("If you'd rather step out for this one, just quietly let your teacher know. That's completely okay.", { x: 0.9, y: 4.6, w: W - 1.8, h: 1.3, fontSize: 16, italic: true, color: ADV_INK, valign: "top", fontFace: ADV_BODY, lineSpacingMultiple: 1.2 });
       }
 
       /* Slide 1 — TITLE (catchy headline; also carries band/theme) */
