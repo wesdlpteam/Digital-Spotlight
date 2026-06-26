@@ -1028,6 +1028,25 @@ function bandFileSlug(bandKey) {
   return ({ PYP: "PYP", Middle: "Middle-7-9", Senior: "Senior-10-12" })[bandKey] || bandKey;
 }
 
+// Content-advisory categories the model can flag, and how each reads on the
+// teacher's chip vs. the (briefer) advisory-slide theme line.
+const ADVISORY_CATEGORIES = {
+  "sexual":      { chip: "Nudity / mature themes",   theme: "mature themes" },
+  "confronting": { chip: "Violence or distressing",  theme: "confronting themes" },
+  "self-harm":   { chip: "Self-harm",                theme: "self-harm" },
+  "substance":   { chip: "Drugs, alcohol or illegal", theme: "drugs or alcohol" },
+};
+const ADVISORY_ORDER = ["sexual", "confronting", "self-harm", "substance"];
+
+// Brief, student-facing theme line for the advisory slide, built from selected
+// category keys (deduped, in canonical order). Empty selection -> gentle generic.
+function advisoryThemeLine(cats) {
+  const set = Array.isArray(cats) ? cats.filter(c => ADVISORY_CATEGORIES[c]) : [];
+  const ordered = ADVISORY_ORDER.filter(c => set.includes(c));
+  if (!ordered.length) return "a few sensitive topics";
+  return ordered.map(c => ADVISORY_CATEGORIES[c].theme).join(" · ");
+}
+
 function hostOf(u) { try { return new URL(u).host.toLowerCase(); } catch (_) { return ""; } }
 
 // Drop a card's resource (but keep the card) unless its URL is either really
@@ -1048,7 +1067,8 @@ window.DSS = { DISCOVERY_CATEGORIES, RESOURCE_DOMAINS, availableCategories, mont
   audienceStr, buildEventRequest, buildResourceRequest, extractResponseText,
   citationSet, urlInCitations, mergeIssuesAndResources, validateResourceUrls,
   BANDS, BAND_ORDER, bandLabelOf, audienceStrMulti, shapeDeck, bandFileSlug,
-  videoFileToWav16k, transcribeMedia, injectOnlineVideos, VIDEO_MARK_PREFIX };
+  videoFileToWav16k, transcribeMedia, injectOnlineVideos, VIDEO_MARK_PREFIX,
+  ADVISORY_CATEGORIES, advisoryThemeLine };
 
 const TRANSCRIBE_LIMIT = 25 * 1024 * 1024; // OpenAI audio endpoint per-file cap
 // Transcribe a video/audio File via OpenAI. Sends the file directly when small
