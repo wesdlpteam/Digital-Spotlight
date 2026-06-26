@@ -1020,6 +1020,14 @@ function shapeDeck(parsed, { band, title }) {
     guidingQuestions: Array.isArray(parsed.guidingQuestions) && parsed.guidingQuestions.length ? parsed.guidingQuestions.map(stripMd) : ["", "", ""],
     studentAction: stripMd(parsed.studentAction || ""),
     learnerProfile: Array.isArray(parsed.learnerProfile) ? parsed.learnerProfile.map(stripMd) : [],
+    contentAdvisory: (() => {
+      const a = parsed.contentAdvisory || {};
+      const cats = Array.isArray(a.categories) ? a.categories.filter(c => ADVISORY_CATEGORIES[c]) : [];
+      return { flag: !!a.flag, categories: cats, note: stripMd(a.note || "") };
+    })(),
+    // teacher-controlled state, seeded from the AI's assessment
+    advisoryShow: !!(parsed.contentAdvisory && parsed.contentAdvisory.flag),
+    advisoryCats: (Array.isArray(parsed.contentAdvisory?.categories) ? parsed.contentAdvisory.categories.filter(c => ADVISORY_CATEGORIES[c]) : []),
   };
 }
 
@@ -1187,9 +1195,10 @@ async function generateSpotlight({ apiKey, model, mode, band, year, theme, title
     guidingQuestions: `"guidingQuestions": ["3 to 4 guiding questions pitched to the band"]`,
     studentAction: `"studentAction": "string — one concrete action or takeaway a student leaves with"`,
     learnerProfile: `"learnerProfile": ["1 to 3 IB Learner Profile attributes that fit, e.g. 'Thinker', 'Principled', 'Caring'"]`,
+    contentAdvisory: `"contentAdvisory": { "flag": true or false, "categories": [any of "sexual","confronting","self-harm","substance" that genuinely apply], "note": "string — if flag is true, ONE short, warm, plain-text line naming the sensitive themes, pitched to the band (gentler and simpler for PYP, more direct for Senior); empty string if flag is false" }`,
   };
   const SCOPES = {
-    all: ["hook", "title", "summary", "framing", "routineRationale", "routineName", "routineIntro", "steps", "guidingQuestions", "studentAction", "learnerProfile"],
+    all: ["hook", "title", "summary", "framing", "routineRationale", "routineName", "routineIntro", "steps", "guidingQuestions", "studentAction", "learnerProfile", "contentAdvisory"],
     title: ["hook", "title"],
     provocation: chosen ? ["routineName", "routineIntro", "steps", "guidingQuestions"] : ["routineRationale", "routineName", "routineIntro", "steps", "guidingQuestions"],
     takeaway: ["studentAction", "learnerProfile"],
@@ -1227,6 +1236,11 @@ Write every field in PLAIN TEXT — no markdown, no asterisks, no #, no backtick
     titleInstruction,
     `Stimulus mode: ${mode}.`,
   ];
+  // Only ask for a sensitivity assessment on a full generate (the scoped
+  // regenerates below don't include the contentAdvisory field in their schema).
+  if (keys.indexOf("contentAdvisory") !== -1) {
+    textParts.push(`Also assess this stimulus and the discussion you are creating for content some students may find sensitive — sexual/mature, violence or distressing, self-harm/suicide, or drugs/alcohol/illegal — and report it in "contentAdvisory". Be accurate, not alarmist: flag only what genuinely applies. This drives an optional, teacher-controlled content-advisory slide; it never blocks the lesson.`);
+  }
 
   const userContent = [];
   const mediaItems = Array.isArray(media) ? media : [];
