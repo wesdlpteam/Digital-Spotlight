@@ -222,6 +222,15 @@
   .chip.band-myp    { background: var(--band-myp-bg);    color: var(--band-myp-ink); }
   .chip.band-middle { background: var(--band-middle-bg); color: var(--band-middle-ink); }
   .chip.band-senior { background: var(--band-senior-bg); color: var(--band-senior-ink); }
+  .advisory-ctl { margin: 10px 0; }
+  .advisory-check { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer; }
+  .advisory-check input { width: 16px; height: 16px; }
+  .advisory-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .advisory-chip { border: 1px solid var(--line, #cdbfe0); background: transparent; color: inherit;
+    border-radius: 999px; padding: 5px 12px; font-size: 13px; cursor: pointer; }
+  .advisory-chip.on { background: var(--accent, #4F2759); color: #fff; border-color: var(--accent, #4F2759); }
+  .advisory-chip:focus-visible { outline: 2px solid var(--accent, #4F2759); outline-offset: 2px; }
+  @media (prefers-reduced-motion: no-preference) { .advisory-chip { transition: background .15s, color .15s; } }
   .band-dot { display: inline-block; width: 8px; height: 8px; border-radius: 999px; margin-right: 5px; vertical-align: middle; }
   .band-dot.band-pyp    { background: var(--band-pyp); }
   .band-dot.band-myp    { background: var(--band-myp); }
@@ -2477,6 +2486,34 @@ function App() {
                   <button type="button" className="btn ghost" onClick={saveLessonToSharePoint} title="Save this lesson's .pptx to the SharePoint Lessons library">
                     <Icon d={I.upload || I.download} size={16} stroke /> Save to SharePoint Lessons
                   </button>
+                )}
+              </div>
+
+              {/* Content advisory — AI suggests, teacher confirms; chips drive the slide's theme line */}
+              <div className="advisory-ctl">
+                <label className="advisory-check">
+                  <input type="checkbox" checked={!!spot.advisoryShow}
+                    onChange={e => patch({ advisoryShow: e.target.checked })} />
+                  <span>Add content advisory slide</span>
+                </label>
+                {spot.contentAdvisory && spot.contentAdvisory.flag && spot.contentAdvisory.note && (
+                  <div className="hint">Suggested by AI — {spot.contentAdvisory.note}</div>
+                )}
+                {spot.advisoryShow && (
+                  <div className="advisory-chips" role="group" aria-label="Content themes to warn about">
+                    {ADVISORY_ORDER.map(key => {
+                      const on = (spot.advisoryCats || []).includes(key);
+                      return (
+                        <button key={key} type="button" aria-pressed={on}
+                          className={"advisory-chip" + (on ? " on" : "")}
+                          onClick={() => patch({ advisoryCats: on
+                            ? (spot.advisoryCats || []).filter(c => c !== key)
+                            : [...(spot.advisoryCats || []), key] })}>
+                          {ADVISORY_CATEGORIES[key].chip}
+                        </button>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
 
