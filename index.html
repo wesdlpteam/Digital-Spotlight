@@ -550,7 +550,7 @@ const bandSpCode = (k) => BAND_SP[k] || k;
 // so the band is visible in the library AND trivially parseable by a Power Automate
 // flow. Band + Theme are also written as custom document properties (see stampDocProps).
 // Flip this to true to also fold the Theme into the suffix: "[SS · Digital Balance]".
-const INCLUDE_THEME_IN_FILENAME = false;
+const INCLUDE_THEME_IN_FILENAME = true;
 
 // Videos at or under this size are embedded directly in the .pptx; larger ones
 // fall back to a poster frame + link/QR so the deck stays portable.
