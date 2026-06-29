@@ -2203,19 +2203,51 @@ function App() {
       };
       const kicker = (s, txt, col) => s.addText(String(txt).toUpperCase(), { x: 0.8, y: 0.55, w: W - 1.6, h: 0.4, fontSize: 13, bold: true, color: col || accent, charSpacing: 2, fontFace: bFont });
 
+      // Estimate the wrapped height (inches) of text in a box of width w at a given
+      // font size. Fixed row heights used to overflow on long prompts — steps squished
+      // together and the source line touched the last step — so we flow by measured
+      // height and shrink the font when a routine's content runs long. Factors are
+      // deliberately generous (more lines / taller lines) so we never under-allocate.
+      const cpl = (fs, w) => Math.max(8, Math.floor(w / (fs * 0.0072)));     // chars per line
+      const txtH = (text, fs, w) => {
+        const per = cpl(fs, w), lh = fs * 0.018;                            // line height (in)
+        const lines = String(text || "").split("\n")
+          .reduce((n, ln) => n + Math.max(1, Math.ceil(ln.length / per)), 0);
+        return lines * lh;
+      };
       const drawRoutine = (s, rx2, rw2, colY, colH) => {
+        const stepText = (st) => `${st.minutes} min   ${st.name}` + (st.prompt ? `\n${st.prompt}` : "");
+        const gap = 0.12, srcH = 0.28;
+        // Total column height at scale k; shrink fonts until the routine fits its column.
+        const measure = (k) => {
+          let h = txtH(tCase(spot.routineName), 18 * k, rw2) + gap;
+          if (spot.routineIntro) h += txtH(spot.routineIntro, 12 * k, rw2) + gap;
+          spot.steps.forEach((st) => { h += txtH(stepText(st), 12.5 * k, rw2) + gap; });
+          return h + srcH;
+        };
+        let k = 1;
+        while (k > 0.78 && measure(k) > colH) k -= 0.04;
+        const nameFs = 18 * k, introFs = 12 * k, stepFs = 12.5 * k;
+
         let ry = colY;
-        s.addText(tCase(spot.routineName), { x: rx2, y: ry, w: rw2, h: 0.5, fontSize: 18, bold: true, color: ink, fontFace: tFont }); ry += 0.55;
-        if (spot.routineIntro) { s.addText(spot.routineIntro, { x: rx2, y: ry, w: rw2, h: 0.5, fontSize: 12, italic: true, color: muted, fontFace: bFont }); ry += 0.5; }
+        const nameH = txtH(tCase(spot.routineName), nameFs, rw2);
+        s.addText(tCase(spot.routineName), { x: rx2, y: ry, w: rw2, h: nameH + 0.08, fontSize: nameFs, bold: true, color: ink, valign: "top", fontFace: tFont });
+        ry += nameH + gap;
+        if (spot.routineIntro) {
+          const ih = txtH(spot.routineIntro, introFs, rw2);
+          s.addText(spot.routineIntro, { x: rx2, y: ry, w: rw2, h: ih + 0.08, fontSize: introFs, italic: true, color: muted, valign: "top", fontFace: bFont });
+          ry += ih + gap;
+        }
         spot.steps.forEach((st) => {
+          const sh = txtH(stepText(st), stepFs, rw2);
           s.addText([
             { text: `${st.minutes} min   `, options: { bold: true, color: accent } },
             { text: st.name, options: { bold: true, color: ink } },
             { text: st.prompt ? `\n${st.prompt}` : "", options: { color: ink } },
-          ], { x: rx2, y: ry, w: rw2, h: 1.0, fontSize: 12.5, valign: "top", fontFace: bFont });
-          ry += 1.05;
+          ], { x: rx2, y: ry, w: rw2, h: sh + 0.08, fontSize: stepFs, valign: "top", fontFace: bFont });
+          ry += sh + gap;
         });
-        s.addText(ROUTINE_SOURCE, { x: rx2, y: Math.min(ry, colY + colH - 0.05), w: 2.6, h: 0.25, fontSize: 8, italic: true, color: muted, fontFace: bFont });
+        s.addText(ROUTINE_SOURCE, { x: rx2, y: Math.min(ry, colY + colH - srcH), w: rw2, h: srcH, fontSize: 8, italic: true, color: muted, valign: "top", fontFace: bFont });
       };
 
       /* Slide 2..(1+N) — PROVOCATION + THINKING ROUTINE, one slide per media item.
