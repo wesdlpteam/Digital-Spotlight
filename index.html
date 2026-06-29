@@ -463,6 +463,51 @@ async function injectOnlineVideos(blob, videoMarks) {
   return await zip.generateAsync({ type: "blob" });
 }
 
+/* ---- SharePoint metadata stamping ----
+   Writes Band + Theme into the .pptx as custom document properties (docProps/custom.xml)
+   so a Power Automate "When a file is created" flow can read them and set the SharePoint
+   "Band"/"Theme" columns automatically (Theme lives only here; Band is also in the
+   filename). Each prop is a plain string. No-op if JSZip is missing or no props given. */
+const DOCPROPS_FMTID = "{D5CDD505-2E9C-101B-9397-08002B2CF9AE}"; // standard custom-props fmtid
+function xmlEsc(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+}
+async function stampDocProps(blob, props) {
+  const entries = Object.entries(props || {}).filter(([, v]) => v != null && String(v).length);
+  if (!entries.length || typeof JSZip === "undefined") return blob;
+  const zip = await JSZip.loadAsync(blob);
+
+  // 1) docProps/custom.xml — one <property> per Band/Theme/etc. (pid starts at 2).
+  const body = entries.map(([name, val], i) =>
+    `<property fmtid="${DOCPROPS_FMTID}" pid="${i + 2}" name="${xmlEsc(name)}"><vt:lpwstr>${xmlEsc(val)}</vt:lpwstr></property>`
+  ).join("");
+  zip.file("docProps/custom.xml",
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+    `<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/custom-properties" ` +
+    `xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">${body}</Properties>`);
+
+  // 2) [Content_Types].xml — declare the custom-properties part (once).
+  const ctPath = "[Content_Types].xml";
+  let ct = await zip.file(ctPath).async("string");
+  if (ct.indexOf("docProps/custom.xml") === -1) {
+    ct = ct.replace("</Types>",
+      `<Override PartName="/docProps/custom.xml" ContentType="application/vnd.openxmlformats-officedocument.custom-properties+xml"/></Types>`);
+    zip.file(ctPath, ct);
+  }
+
+  // 3) _rels/.rels — relate the package to the custom-properties part (once).
+  const relPath = "_rels/.rels";
+  let rels = await zip.file(relPath).async("string");
+  if (rels.indexOf("docProps/custom.xml") === -1) {
+    rels = rels.replace("</Relationships>",
+      `<Relationship Id="rIdCustomProps" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/custom-properties" Target="docProps/custom.xml"/></Relationships>`);
+    zip.file(relPath, rels);
+  }
+  return await zip.generateAsync({ type: "blob" });
+}
+
 /* ----------------------------- constants ----------------------------- */
 
 const BANDS = {
@@ -474,12 +519,38 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v1.6.0 · 2026-06-25";
+const APP_VERSION = "v1.7.0 · 2026-06-29";
 
+// Closed theme taxonomy — every spotlight (and the "Suggest" button) must resolve
+// to exactly one of these so the SharePoint "Theme" column stays a tidy, filterable
+// set. Order is roughly: wellbeing · conduct · data · truth · AI · safety · money.
+// EDIT this list to match your SharePoint "Theme" choice column verbatim.
 const THEMES = [
-  "Privacy","Kindness online","Misinformation","Digital footprint",
-  "Screen balance","AI ethics","Online reputation",
+  "Digital Balance",
+  "Online Kindness",
+  "Privacy & Data",
+  "Digital Footprint",
+  "Misinformation",
+  "Verifying AI Claims",
+  "Ethical AI Learning",
+  "AI Ad Transparency",
+  "Scams & Fraud",
+  "Staying Safe Online",
+  "Healthy Gaming",
+  "Online Trends & Pressure",
 ];
+
+// Generator band key -> the code used by the SharePoint "Band" column (e.g. SS, MS).
+// EDIT the values to match your column. PYP defaults to "JS" (Junior School).
+const BAND_SP = { PYP: "JS", Middle: "MS", Senior: "SS" };
+const bandSpCode = (k) => BAND_SP[k] || k;
+
+// Saved Lessons filenames always carry the Band as a "[SS]" suffix, e.g.
+//   "Addiction by Design (2026-06-29) [SS].pptx"
+// so the band is visible in the library AND trivially parseable by a Power Automate
+// flow. Band + Theme are also written as custom document properties (see stampDocProps).
+// Flip this to true to also fold the Theme into the suffix: "[SS · Digital Balance]".
+const INCLUDE_THEME_IN_FILENAME = false;
 
 // Videos at or under this size are embedded directly in the .pptx; larger ones
 // fall back to a poster frame + link/QR so the deck stays portable.
@@ -1358,9 +1429,28 @@ function mergeScopedFields(spot, scope, p) {
 // Ask the model for ONE short focus-theme phrase based on the current stimulus.
 // Sends the same content kinds generate() would (text + any image/frames) but asks
 // only for a 2-4 word theme. Returns a cleaned phrase, or "" on empty.
+// Snap any free text to the closest canonical THEME so the SharePoint "Theme"
+// column only ever sees values from our closed set. Match is case-insensitive:
+// exact first, then word-overlap, else the first theme as a safe default.
+function snapToTheme(raw) {
+  const s = String(raw || "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+  if (!s) return THEMES[0];
+  const exact = THEMES.find(t => t.toLowerCase() === s);
+  if (exact) return exact;
+  const words = new Set(s.split(" ").filter(w => w.length > 2));
+  let best = THEMES[0], bestScore = 0;
+  for (const t of THEMES) {
+    const tw = t.toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(" ").filter(w => w.length > 2);
+    const score = tw.reduce((n, w) => n + (words.has(w) ? 1 : 0), 0);
+    if (score > bestScore) { bestScore = score; best = t; }
+  }
+  return best;
+}
+
 async function suggestThemeFromStimulus({ apiKey, model, mode, media = [], sourceText = "" }) {
-  const sys = "You are an IB digital-citizenship coach. You name the single best FOCUS THEME for a 5-minute cyber-safety / digital-citizenship discussion built on the given stimulus. Reply with ONLY the theme: 2-4 words, Title Case, no quotes, no punctuation, no explanation.";
-  const ask = "Suggest ONE focus theme (2-4 words) for a cyber-safety / digital-citizenship discussion based on this stimulus.";
+  const list = THEMES.map(t => `"${t}"`).join(", ");
+  const sys = `You are an IB digital-citizenship coach. Pick the single best FOCUS THEME for a 5-minute cyber-safety / digital-citizenship discussion built on the given stimulus. You MUST choose EXACTLY ONE theme from this fixed list and reply with ONLY that theme, copied verbatim (exact spelling and capitalisation), with no quotes, punctuation, or explanation:\n${list}`;
+  const ask = `Choose the ONE best-fitting theme from the allowed list for a cyber-safety / digital-citizenship discussion based on this stimulus. Reply with only the theme text, exactly as written in the list.`;
   const userContent = [];
   if (mode === "media" && media.length) {
     userContent.push({ type: "text", text: ask + ` The stimulus is a reel of ${media.length} item(s).` });
@@ -1388,8 +1478,10 @@ async function suggestThemeFromStimulus({ apiKey, model, mode, media = [], sourc
   }
   const data = await resp.json();
   const raw = (data?.choices?.[0]?.message?.content || "").trim();
-  // Keep the first line, strip wrapping quotes / trailing punctuation, cap length.
-  return raw.split("\n")[0].replace(/^["'`]+|["'`.]+$/g, "").trim().slice(0, 60);
+  // Keep the first line, then snap it to the closest canonical THEME so the result
+  // is always a member of the closed set (never free-form drift).
+  const first = raw.split("\n")[0].replace(/^["'`]+|["'`.]+$/g, "").trim();
+  return snapToTheme(first);
 }
 
 /* ------------------------------ Icons ------------------------------ */
@@ -1653,7 +1745,10 @@ function App() {
     const base = raw.replace(/[^A-Za-z0-9 _.+-]/g, "").replace(/\s+/g, " ").trim() || "Lesson";
     const d = new Date();
     const date = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
-    return base + " (" + date + ").pptx";
+    // Band (always) + optional Theme as a bracketed, filename-safe, parseable suffix.
+    const band = bandSpCode(activeBand);
+    const tag = INCLUDE_THEME_IN_FILENAME && theme ? band + " · " + theme : band;
+    return base + " (" + date + ") [" + tag + "].pptx";
   }
   async function saveLessonToSharePoint() {
     if (!spot || !activeBand) return;
@@ -2115,7 +2210,7 @@ function App() {
           takeaway(s, c) {
             c.kicker(s, "Your key takeaway", c.T.titleKick);
             s.addShape(c.pptx.ShapeType.roundRect, { x: 1.1, y: 2.2, w: c.W - 2.2, h: 2.8, fill: { color: c.T.cardBg }, rectRadius: 0.18 });
-            s.addText(c.spot.studentAction || "—", { x: 1.7, y: 2.4, w: c.W - 3.4, h: 2.4, fontSize: 26, bold: true, color: c.T.cardInk, valign: "middle", align: "center", fontFace: c.tFont });
+            s.addText(c.spot.studentAction || "—", { x: 1.7, y: 2.4, w: c.W - 3.4, h: 2.4, fontSize: 26, bold: true, color: c.T.cardInk, valign: "middle", align: "center", fontFace: c.tFont, fit: "shrink" });
             if (c.spot.learnerProfile.filter(Boolean).length)
               s.addText("IB Learner Profile: " + c.spot.learnerProfile.filter(Boolean).join(", "), { x: 1.1, y: 5.4, w: c.W - 2.2, h: 0.4, fontSize: 14, italic: true, color: c.T.titleSub, align: "center", fontFace: c.bFont });
           },
@@ -2140,7 +2235,7 @@ function App() {
           takeaway(s, c) {
             s.addShape(c.pptx.ShapeType.rect, { x:0.18, y:0.18, w:c.W-0.36, h:c.H-0.36, fill:{type:"none"}, line:{ color:"E4D1A1", width:0.75, transparency:55 } });
             s.addText("YOUR KEY TAKEAWAY", { x:0.8, y:1.4, w:c.W-1.6, h:0.4, fontSize:13, color:"E4D1A1", charSpacing:3, align:"center", fontFace:"Consolas" });
-            s.addText(c.spot.studentAction || "—", { x:1.2, y:2.3, w:c.W-2.4, h:2.6, fontSize:34, bold:true, color:"E4D1A1", align:"center", valign:"middle", fontFace:c.tFont, shadow:{type:"outer",color:"E4D1A1",blur:22,offset:0,opacity:0.55} });
+            s.addText(c.spot.studentAction || "—", { x:1.2, y:2.3, w:c.W-2.4, h:2.6, fontSize:34, bold:true, color:"E4D1A1", align:"center", valign:"middle", fontFace:c.tFont, fit:"shrink", shadow:{type:"outer",color:"E4D1A1",blur:22,offset:0,opacity:0.55} });
             if (c.spot.learnerProfile.filter(Boolean).length)
               s.addText("IB Learner Profile: " + c.spot.learnerProfile.filter(Boolean).join(", "), { x:1.1, y:5.6, w:c.W-2.2, h:0.4, fontSize:13, italic:true, color:c.T.titleFoot, align:"center", fontFace:c.bFont });
           },
@@ -2159,7 +2254,7 @@ function App() {
           takeaway(s, c) {
             s.addText("YOUR KEY TAKEAWAY", { x:0.8, y:1.2, w:c.W-1.6, h:0.4, fontSize:13, bold:true, color:"1A1320", fontFace:"Consolas", charSpacing:2 });
             s.addShape(c.pptx.ShapeType.rect, { x:1.1, y:2.1, w:c.W-2.2, h:3.0, fill:{color:"4F2759"}, line:{color:"1A1320", width:3.5}, shadow:HARD("C59F40") });
-            s.addText(c.spot.studentAction || "—", { x:1.6, y:2.3, w:c.W-3.2, h:2.6, fontSize:28, bold:true, color:"FFFFFF", align:"center", valign:"middle", fontFace:c.tFont });
+            s.addText(c.spot.studentAction || "—", { x:1.6, y:2.3, w:c.W-3.2, h:2.6, fontSize:28, bold:true, color:"FFFFFF", align:"center", valign:"middle", fontFace:c.tFont, fit:"shrink" });
           },
         },
         editorial: {
@@ -2175,11 +2270,13 @@ function App() {
             s.addText(c.spot.framing, { x:0.8, y:1.0, w:c.W-1.6, h:0.7, fontSize:22, bold:true, color:"4F2759", fontFace:"Georgia" });
           },
           takeaway(s, c) {
-            s.addText("“", { x:0.9, y:1.1, w:1.5, h:1.2, fontSize:90, color:"C59F40", fontFace:"Georgia" });
-            s.addText(c.spot.studentAction || "—", { x:1.4, y:2.3, w:c.W-2.8, h:2.4, fontSize:34, italic:true, bold:true, color:"4F2759", valign:"middle", fontFace:"Georgia" });
-            s.addShape(c.pptx.ShapeType.line, { x:1.4, y:5.0, w:2.2, h:0, line:{color:"C59F40", width:1.5} });
+            s.addText("“", { x:0.9, y:1.0, w:1.5, h:1.2, fontSize:90, color:"C59F40", fontFace:"Georgia" });
+            // Quote box owns the whole mid-band (y 2.0–5.4) and shrinks to fit, so a long
+            // student action can never overflow into the gold rule / IB line below it.
+            s.addText(c.spot.studentAction || "—", { x:1.4, y:2.0, w:c.W-2.8, h:3.4, fontSize:34, italic:true, bold:true, color:"4F2759", valign:"middle", fontFace:"Georgia", fit:"shrink" });
+            s.addShape(c.pptx.ShapeType.line, { x:1.4, y:5.7, w:2.2, h:0, line:{color:"C59F40", width:1.5} });
             if (c.spot.learnerProfile.filter(Boolean).length)
-              s.addText("IB Learner Profile: " + c.spot.learnerProfile.filter(Boolean).join(", "), { x:1.4, y:5.2, w:c.W-2.8, h:0.4, fontSize:13, italic:true, color:c.muted, fontFace:c.bFont });
+              s.addText("IB Learner Profile: " + c.spot.learnerProfile.filter(Boolean).join(", "), { x:1.4, y:5.9, w:c.W-2.8, h:0.4, fontSize:13, italic:true, color:c.muted, fontFace:c.bFont });
           },
         },
         popart: {
@@ -2200,7 +2297,7 @@ function App() {
             // hook), so the Wesley footer band + crest survive. Skin only draws the speech card.
             s.addShape(c.pptx.ShapeType.roundRect, { x:1.2, y:1.9, w:c.W-2.4, h:3.2, fill:{color:"FFFFFF"}, line:{color:"1A1320", width:3}, rectRadius:0.3 });
             s.addText(c.tCase("Your key takeaway"), { x:1.6, y:2.1, w:c.W-3.2, h:0.4, fontSize:13, bold:true, color:"4F2759", fontFace:c.tFont, charSpacing:1 });
-            s.addText((c.spot.studentAction || "—") + "!", { x:1.6, y:2.6, w:c.W-3.2, h:2.0, fontSize:26, bold:true, color:"4F2759", valign:"middle", fontFace:c.tFont });
+            s.addText((c.spot.studentAction || "—") + "!", { x:1.6, y:2.6, w:c.W-3.2, h:2.0, fontSize:26, bold:true, color:"4F2759", valign:"middle", fontFace:c.tFont, fit:"shrink" });
           },
         },
         layered: {
@@ -2220,7 +2317,7 @@ function App() {
           takeaway(s, c) {
             s.addShape(c.pptx.ShapeType.roundRect, { x:1.4, y:1.9, w:c.W-2.8, h:3.2, fill:{color:c.T.paper}, rectRadius:0.1, shadow:{type:"outer",color:"000000",blur:12,offset:3,angle:90,opacity:0.32} });
             s.addText("your key takeaway", { x:1.9, y:2.15, w:c.W-3.8, h:0.4, fontSize:15, italic:true, color:c.muted, fontFace:c.ST.fonts.script });
-            s.addText(c.spot.studentAction || "—", { x:1.9, y:2.7, w:c.W-3.8, h:2.1, fontSize:28, color:c.T.paperInk, valign:"middle", fontFace:c.tFont });
+            s.addText(c.spot.studentAction || "—", { x:1.9, y:2.7, w:c.W-3.8, h:2.1, fontSize:28, color:c.T.paperInk, valign:"middle", fontFace:c.tFont, fit:"shrink" });
             if (c.spot.learnerProfile.filter(Boolean).length)
               s.addText("IB Learner Profile: " + c.spot.learnerProfile.filter(Boolean).join(", "), { x:1.1, y:5.5, w:c.W-2.2, h:0.4, fontSize:13, italic:true, color:c.T.titleSub, align:"center", fontFace:c.bFont });
           },
@@ -2239,7 +2336,7 @@ function App() {
           takeaway(s, c) {
             s.addText(c.tCase("Your key takeaway"), { x:0.8, y:1.4, w:c.W-1.6, h:0.6, fontSize:20, color:c.accent2, fontFace:c.tFont, charSpacing:-0.5 });
             s.addShape(c.pptx.ShapeType.line, { x:0.8, y:2.15, w:3.0, h:0, line:{color:c.accent2, width:4} });
-            s.addText(c.tCase(c.spot.studentAction || "—"), { x:0.8, y:2.5, w:c.W-1.6, h:2.4, fontSize:40, color:c.T.titleInk, valign:"middle", fontFace:c.tFont, charSpacing:-1 });
+            s.addText(c.tCase(c.spot.studentAction || "—"), { x:0.8, y:2.5, w:c.W-1.6, h:2.4, fontSize:40, color:c.T.titleInk, valign:"middle", fontFace:c.tFont, charSpacing:-1, fit:"shrink" });
           },
         },
       };
@@ -2360,9 +2457,20 @@ function App() {
       const s6 = newSlide("title", T.takeawayBg);
       skin.takeaway(s6, ctx);
 
-      // Build to a blob and post-process any SharePoint videos. Caller saves it.
+      // Core document properties (surface in PowerPoint's File ▸ Info and most tools).
+      const lessonTitle = spot.title || spot.hook || "Digital Life Spotlight";
+      const spTheme = theme || "";   // same focus theme printed on the deck (component state)
+      const spBand = bandSpCode(bandKey);
+      pptx.title = lessonTitle;
+      pptx.subject = [spBand, spTheme].filter(Boolean).join(" · ");
+      pptx.company = "Wesley College — Digital Spotlight";
+      pptx.author = "Digital Spotlight Generator";
+
+      // Build to a blob, post-process any SharePoint videos, then stamp Band + Theme as
+      // custom doc properties for the Power Automate flow that fills the SharePoint columns.
       const blob = await pptx.write({ outputType: "blob" });
-      return await injectOnlineVideos(blob, videoMarks);
+      const withVideos = await injectOnlineVideos(blob, videoMarks);
+      return await stampDocProps(withVideos, { Band: spBand, Theme: spTheme, Title: lessonTitle });
     } catch (err) {
       setError("PowerPoint export failed: " + (err.message || String(err)));
       return null;
