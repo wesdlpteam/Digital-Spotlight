@@ -519,7 +519,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v1.8.1 · 2026-06-29";
+const APP_VERSION = "v1.8.2 · 2026-06-29";
 
 // Closed theme taxonomy — every spotlight (and the "Suggest" button) must resolve
 // to exactly one of these so the SharePoint "Theme" column stays a tidy, filterable
@@ -1605,6 +1605,41 @@ const StyleCover = ({ styleKey, big = false, title = "", bandLabel = "", theme =
           : bars(hx(p.titleInk))}
         {big && <span style={{ position: "absolute", left: padX, bottom: 11, background: "#fff", border: `2px solid ${hx(p.ink)}`, borderRadius: 12, padding: "2px 8px", fontSize: 8, fontWeight: 800, color: hx(p.accent) }}>{bandLabel} · {theme}</span>}
         {footer}
+      </span>
+    );
+  }
+
+  if (st.layout === "layered") {
+    return (
+      <span aria-hidden="true" style={{ ...wrap, background: hx(p.titleBg) }}>
+        {big && <span style={{ position: "absolute", right: 10, top: 14, bottom: 26, width: "26%", background: "#fff", borderRadius: 2, boxShadow: "0 2px 8px rgba(0,0,0,.5)", transform: "rotate(3deg)" }} />}
+        <span style={{ position: "absolute", left: big ? 10 : 5, top: big ? 8 : 4, bottom: big ? 8 : 4, right: big ? "36%" : "30%", background: hx(p.paper), borderRadius: big ? 6 : 3, boxShadow: "0 2px 8px rgba(0,0,0,.45)" }} />
+        {Array.from({ length: big ? 7 : 4 }).map((_, i) => (
+          <span key={i} style={{ position: "absolute", left: big ? 7 : 3.5, top: `${(big ? 16 : 12) + i * (big ? 14 : 9)}px`, width: big ? 8 : 4, height: big ? 4 : 2.5, borderRadius: "50%", background: hx(p.spiral) }} />
+        ))}
+        {big
+          ? <span style={{ position: "absolute", left: 22, right: "40%", top: 16, fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 17, fontWeight: 700, lineHeight: 1.06, color: hx(p.paperInk) }}>{title}</span>
+          : <React.Fragment>
+              <span style={{ position: "absolute", left: 14, top: "40%", width: "44%", height: 4, borderRadius: 2, background: hx(p.paperInk) }} />
+              <span style={{ position: "absolute", left: 14, top: "60%", width: "30%", height: 4, borderRadius: 2, background: hx(p.paperInk), opacity: .55 }} />
+            </React.Fragment>}
+        {big && <span style={{ position: "absolute", left: 22, bottom: 30, width: 58, height: 14, background: hx(p.tape), opacity: .6, transform: "rotate(-5deg)" }} />}
+        {big && <span style={{ position: "absolute", left: 22, bottom: 13, fontFamily: "'Brush Script MT', cursive", fontSize: 12, color: hx(p.accent) }}>every layer tells our story</span>}
+      </span>
+    );
+  }
+
+  if (st.layout === "retro") {
+    return (
+      <span aria-hidden="true" style={{ ...wrap, background: hx(p.titleBg), backgroundImage: `radial-gradient(${hx(p.accent)}14 0.5px, transparent 0.6px)`, backgroundSize: big ? "4px 4px" : "3px 3px" }}>
+        {big
+          ? <span style={{ position: "absolute", left: padX, right: padX, top: 22, fontFamily: "Impact, 'Arial Narrow', sans-serif", fontSize: 34, lineHeight: .9, letterSpacing: "-1px", color: hx(p.titleInk), display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{cs(title)}</span>
+          : <React.Fragment>
+              <span style={{ position: "absolute", left: padX, top: "32%", width: "72%", height: 6, background: hx(p.titleInk) }} />
+              <span style={{ position: "absolute", left: padX, top: "54%", width: "52%", height: 6, background: hx(p.titleInk) }} />
+            </React.Fragment>}
+        <span style={{ position: "absolute", left: padX, top: big ? "70%" : "76%", width: big ? "46%" : "42%", height: big ? 4 : 3, background: hx(p.accent2) }} />
+        {big && <span style={{ position: "absolute", left: padX, bottom: 11, fontFamily: "'Brush Script MT', cursive", fontSize: 13, color: hx(p.accent) }}>{bandLabel} · {theme}</span>}
       </span>
     );
   }
