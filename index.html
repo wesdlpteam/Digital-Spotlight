@@ -286,8 +286,7 @@
     color: #fff; display: grid; place-items: center; box-shadow: var(--shadow); pointer-events: none; }
   .vbadge svg { width: 20px; height: 20px; margin-left: 2px; }
 
-  .prov-cols { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 18px; align-items: start; margin-top: 8px; }
-  @media (max-width: 720px) { .prov-cols { grid-template-columns: 1fr; } }
+  .reel-wrap { max-width: 420px; margin: 8px auto 0; }
   .reel { position: relative; outline: none; }
   .reel:focus-visible { box-shadow: 0 0 0 3px var(--accent-soft); border-radius: 12px; }
   .reel-frame { position: relative; aspect-ratio: 4 / 3; background: var(--wash); border-radius: 10px; overflow: hidden; display: grid; place-items: center; box-shadow: var(--shadow); }
@@ -2761,9 +2760,8 @@ function App() {
                     </React.Fragment>
                   )}
                   {mode === "media" && media.length >= 2 && (
-                    <div className="prov-cols">
+                    <div className="reel-wrap">
                       <MediaCarousel items={media} index={Math.min(reelIndex, media.length - 1)} setIndex={setReelIndex} />
-                      <div className="prov-routine">{routineBlockJsx}</div>
                     </div>
                   )}
                   {mode === "media" && media.length === 1 && (
@@ -2780,7 +2778,7 @@ function App() {
                   {mode !== "media" && link.trim() && <StimLink url={link.trim()} verb={MODE_VERB[mode]} />}
                   {mode === "article" && !link.trim() && !articleImageUrl && <div className="hint">Tip: add a link on the left for a clickable link + QR code, or fetch an article to pull in its lead image.</div>}
 
-                  {!(mode === "media" && media.length >= 2) && routineBlockJsx}
+                  {routineBlockJsx}
                 </div></div>
 
                 {/* Slide 3 — Student key takeaway */}
