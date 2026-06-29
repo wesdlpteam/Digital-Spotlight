@@ -519,7 +519,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v1.7.0 · 2026-06-29";
+const APP_VERSION = "v1.8.0 · 2026-06-29";
 
 // Closed theme taxonomy — every spotlight (and the "Suggest" button) must resolve
 // to exactly one of these so the SharePoint "Theme" column stays a tidy, filterable
@@ -545,6 +545,13 @@ const THEMES = [
 // EDIT the values to match your column. PYP defaults to "JS" (Junior School).
 const BAND_SP = { PYP: "JS", Middle: "MS", Senior: "SS" };
 const bandSpCode = (k) => BAND_SP[k] || k;
+
+// A "combined" deck serves several bands at once (one deck, shared language). It is
+// stored under its LOWEST band key so all the per-band machinery still works, and
+// carries deck.comboBands = ["Middle","Senior"] to drive its label/filename/metadata.
+const BAND_SHORT = { PYP: "PYP", Middle: "Middle", Senior: "Senior" };
+const comboBandLabel = (keys) => (keys || []).map(k => BAND_SHORT[k] || bandLabelOf(k)).join(" & ");
+const comboBandCode  = (keys) => (keys || []).map(bandSpCode).join("+"); // e.g. "MS+SS"
 
 // Saved Lessons filenames always carry the Band as a "[SS]" suffix, e.g.
 //   "Addiction by Design (2026-06-29) [SS].pptx"
@@ -1663,6 +1670,7 @@ function App() {
   const [title, setTitle] = useState("");
   const [link, setLink] = useState("");
   const [bands, setBands] = useState(["PYP"]);       // selected bands, ordered
+  const [combine, setCombine] = useState(false);     // make ONE shared deck for all selected bands
   const [years, setYears] = useState({});            // { [band]: yearLevel }
   const [activeBand, setActiveBand] = useState(null);// which generated deck is shown
   const [theme, setTheme] = useState(THEMES[0]);
@@ -1747,7 +1755,8 @@ function App() {
     const d = new Date();
     const date = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
     // Band (always) + optional Theme as a bracketed, filename-safe, parseable suffix.
-    const band = bandSpCode(activeBand);
+    // Combined decks carry both codes, e.g. "[MS+SS · Living with AI]".
+    const band = (deck && deck.comboBands) ? comboBandCode(deck.comboBands) : bandSpCode(activeBand);
     const tag = INCLUDE_THEME_IN_FILENAME && theme ? band + " · " + theme : band;
     return base + " (" + date + ") [" + tag + "].pptx";
   }
@@ -1780,7 +1789,9 @@ function App() {
   // it falls back to the first selected band so chips/labels still resolve.
   const band = activeBand || bands[0] || "PYP";
   const year = years[band] || "";
-  const bandLabel = bandLabelOf(band);
+  // If the active deck is a combined one, its cover/label reads "Middle & Senior".
+  const activeCombo = (spots[activeBand] && spots[activeBand].comboBands) || null;
+  const bandLabel = activeCombo ? comboBandLabel(activeCombo) : bandLabelOf(band);
   const toggleBand = (b) => setBands(prev => {
     const has = prev.includes(b);
     const next = has ? prev.filter(x => x !== b) : [...prev, b];
@@ -1955,19 +1966,39 @@ function App() {
       if (!bands.length) { setError("Pick at least one band first."); setLoading(false); clearInterval(progTick); return; }
       const sourceText = mode === "article" ? articleText : "";
       const built = {};
-      for (let i = 0; i < bands.length; i++) {
-        const b = bands[i];
-        setGenStatus(`Generating ${bandLabelOf(b)}… ${i + 1} of ${bands.length}`);
+      if (combine && bands.length > 1) {
+        // ONE shared deck for all selected bands. Pitch + thinking routine come from the
+        // LOWEST band (accessible to everyone); the deck is stored under that key and
+        // tagged with comboBands so its label/filename/metadata read as combined.
+        const ordered = BAND_ORDER.filter(b => bands.includes(b));
+        const genBand = ordered[0];
+        setGenStatus(`Generating combined ${comboBandLabel(ordered)}…`);
         const { parsed, raw } = await generateSpotlight({
-          apiKey: apiKey.trim(), model, mode, band: b, year: years[b] || "", theme,
+          apiKey: apiKey.trim(), model, mode, band: genBand, year: "", theme,
           title: title.trim(), media, sourceText,
         });
-        built[b] = shapeDeck(parsed, { band: b, title });
-        if (i === bands.length - 1) setRawDump(raw);
-        if (!built[b].framing) built[b].framing = MODE_FRAMING[mode];
+        const deck = shapeDeck(parsed, { band: genBand, title });
+        deck.comboBands = ordered;
+        if (!deck.framing) deck.framing = MODE_FRAMING[mode];
+        built[genBand] = deck;
+        setRawDump(raw);
+        setSpots(built);
+        setActiveBand(genBand);
+      } else {
+        for (let i = 0; i < bands.length; i++) {
+          const b = bands[i];
+          setGenStatus(`Generating ${bandLabelOf(b)}… ${i + 1} of ${bands.length}`);
+          const { parsed, raw } = await generateSpotlight({
+            apiKey: apiKey.trim(), model, mode, band: b, year: years[b] || "", theme,
+            title: title.trim(), media, sourceText,
+          });
+          built[b] = shapeDeck(parsed, { band: b, title });
+          if (i === bands.length - 1) setRawDump(raw);
+          if (!built[b].framing) built[b].framing = MODE_FRAMING[mode];
+        }
+        setSpots(built);
+        setActiveBand(bands[0]);
       }
-      setSpots(built);
-      setActiveBand(bands[0]);
       setGenProgress(100);
     } catch (err) {
       setError(err.message || String(err));
@@ -2123,8 +2154,9 @@ function App() {
     if (!deck) return null;
     const spot = deck;                       // body reads spot.*
     const band = bandKey;
-    const year = years[bandKey] || "";
-    const bandLabel = bandLabelOf(bandKey);
+    // A combined deck shows no single year and reads "Middle & Senior" on its slides.
+    const year = deck.comboBands ? "" : (years[bandKey] || "");
+    const bandLabel = deck.comboBands ? comboBandLabel(deck.comboBands) : bandLabelOf(bandKey);
     try {
       // SharePoint online-video markers recorded during the build; applied to the
       // .pptx blob post-build by injectOnlineVideos(). Scoped per band/call.
@@ -2461,7 +2493,7 @@ function App() {
       // Core document properties (surface in PowerPoint's File ▸ Info and most tools).
       const lessonTitle = spot.title || spot.hook || "Digital Life Spotlight";
       const spTheme = theme || "";   // same focus theme printed on the deck (component state)
-      const spBand = bandSpCode(bandKey);
+      const spBand = deck.comboBands ? comboBandCode(deck.comboBands) : bandSpCode(bandKey);
       pptx.title = lessonTitle;
       pptx.subject = [spBand, spTheme].filter(Boolean).join(" · ");
       pptx.company = "Wesley College — Digital Spotlight";
@@ -2710,6 +2742,17 @@ function App() {
                 );
               })}
             </div>
+            {bands.length > 1 && (
+              <label className="band-check" style={{ marginTop: 10 }}>
+                <input type="checkbox" checked={combine} onChange={() => setCombine(c => !c)} />
+                <span>Combine into <b>one shared deck</b> for {comboBandLabel(BAND_ORDER.filter(b => bands.includes(b)))}</span>
+              </label>
+            )}
+            {bands.length > 1 && (
+              <div className="hint">{combine
+                ? "One deck, shared language (pitched to the youngest band) — saved as a single file tagged with every selected band."
+                : "Off = a separate deck per band. Tick to make one deck that fits them all."}</div>
+            )}
           </div>
 
           <div className="group">
