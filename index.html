@@ -519,7 +519,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v1.8.0 · 2026-06-29";
+const APP_VERSION = "v1.8.1 · 2026-06-29";
 
 // Closed theme taxonomy — every spotlight (and the "Suggest" button) must resolve
 // to exactly one of these so the SharePoint "Theme" column stays a tidy, filterable
@@ -1753,7 +1753,8 @@ function App() {
     const raw = (deck && (deck.hook || deck.title)) || "Lesson";
     const base = raw.replace(/[^A-Za-z0-9 _.+-]/g, "").replace(/\s+/g, " ").trim() || "Lesson";
     const d = new Date();
-    const date = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    // Australian day-month-year, e.g. "29-06-2026".
+    const date = String(d.getDate()).padStart(2, "0") + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + d.getFullYear();
     // Band (always) + optional Theme as a bracketed, filename-safe, parseable suffix.
     // Combined decks carry both codes, e.g. "[MS+SS · Living with AI]".
     const band = (deck && deck.comboBands) ? comboBandCode(deck.comboBands) : bandSpCode(activeBand);
