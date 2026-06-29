@@ -519,7 +519,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v1.8.2 · 2026-06-29";
+const APP_VERSION = "v1.8.3 · 2026-06-29";
 
 // Closed theme taxonomy — every spotlight (and the "Suggest" button) must resolve
 // to exactly one of these so the SharePoint "Theme" column stays a tidy, filterable
@@ -2425,10 +2425,11 @@ function App() {
         },
         retro: {
           cover(s, c) {
-            s.addText(c.tCase(c.spot.hook || c.spot.title), { x:0.7, y:1.3, w:c.W-1.6, h:3.3, fontSize:54, color:c.T.titleInk, valign:"middle", fontFace:c.tFont, charSpacing:-1 });
-            s.addShape(c.pptx.ShapeType.line, { x:0.8, y:4.85, w:5.8, h:0, line:{color:c.accent2, width:4} });
-            s.addText(`${c.bandLabel}${c.year?" · "+c.year:""}  ·  ${c.theme}`, { x:0.8, y:5.15, w:c.W-1.6, h:0.5, fontSize:15, bold:true, color:c.ink, fontFace:c.bFont });
-            s.addText("Digital Life Spotlight", { x:0.8, y:6.05, w:6.0, h:0.5, fontSize:16, italic:true, color:c.accent, fontFace:c.ST.fonts.script });
+            // Big condensed headline that FILLS the slide (was 54pt vertically-centred — left the
+            // cover looking small/empty). Top-anchored, auto-shrinks for long titles.
+            s.addText(c.tCase(c.spot.hook || c.spot.title), { x:0.7, y:0.8, w:c.W-1.4, h:4.6, fontSize:96, color:c.T.titleInk, valign:"top", fontFace:c.tFont, charSpacing:-2, lineSpacingMultiple:0.92, fit:"shrink" });
+            s.addShape(c.pptx.ShapeType.line, { x:0.8, y:5.7, w:8.2, h:0, line:{color:c.accent2, width:5} });
+            s.addText(`${c.bandLabel}${c.year?" · "+c.year:""}  ·  ${c.theme}`, { x:0.8, y:5.95, w:c.W-1.6, h:0.6, fontSize:18, bold:true, color:c.ink, fontFace:c.bFont });
           },
           provChrome(s, c, idx, reelLen) {
             s.addText(c.tCase(reelLen>1?`Provocation ${idx+1}/${reelLen}`:"Provocation"), { x:0.8, y:0.5, w:c.W-1.6, h:0.5, fontSize:18, color:c.accent, fontFace:c.tFont, charSpacing:-0.5 });
