@@ -525,7 +525,7 @@ const APP_VERSION = "v1.9.3 · 2026-06-30";
 // to exactly one of these so the SharePoint "Theme" column stays a tidy, filterable
 // set. Order is roughly: wellbeing · conduct · data · truth · AI · safety · money.
 // EDIT this list to match your SharePoint "Theme" choice column verbatim.
-const THEMES = [
+const DEFAULT_THEMES = [
   "Digital Balance",
   "Online Kindness",
   "Cyberbullying",
@@ -544,6 +544,36 @@ const THEMES = [
   "Healthy Gaming",
   "Online Trends & Pressure",
 ];
+
+// The cybersafety theme presets are user-editable (see the Focus-theme picker) and
+// shared via themes.json in a connected SharePoint folder. THEMES is the live list
+// read at call-time by the AI prompt builders and snapToTheme; DEFAULT_THEMES is the
+// always-available fallback. Resolution order: themes.json > localStorage > defaults.
+const THEMES_STORE = "tsg-themes";
+function normalizeThemes(arr) {
+  const out = [], seen = new Set();
+  for (const raw of (Array.isArray(arr) ? arr : [])) {
+    const t = String(raw == null ? "" : raw).replace(/\s+/g, " ").trim();
+    if (!t || t.length > 60) continue;
+    const k = t.toLowerCase();
+    if (seen.has(k)) continue;
+    seen.add(k); out.push(t);
+  }
+  return out;
+}
+function loadCachedThemes() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(THEMES_STORE) || "null");
+    const arr = Array.isArray(raw) ? raw : (raw && Array.isArray(raw.themes) ? raw.themes : null);
+    if (!arr) return null;
+    const clean = normalizeThemes(arr);
+    return clean.length ? clean : null;
+  } catch (_) { return null; }
+}
+function saveCachedThemes(themes) {
+  try { localStorage.setItem(THEMES_STORE, JSON.stringify(themes)); } catch (_) {}
+}
+let THEMES = loadCachedThemes() || DEFAULT_THEMES.slice();
 
 // Generator band key -> the code used by the SharePoint "Band" column (e.g. SS, MS).
 // EDIT the values to match your column. PYP defaults to "JS" (Junior School).
