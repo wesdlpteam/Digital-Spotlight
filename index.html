@@ -519,7 +519,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v1.9.2 · 2026-06-30";
+const APP_VERSION = "v1.9.3 · 2026-06-30";
 
 // Closed theme taxonomy — every spotlight (and the "Suggest" button) must resolve
 // to exactly one of these so the SharePoint "Theme" column stays a tidy, filterable
@@ -1675,38 +1675,45 @@ function App() {
   const fsSupported = typeof window !== "undefined" && "showDirectoryPicker" in window;
   const [folderHandle, setFolderHandle] = useState(null);
   const [folderName, setFolderName] = useState("");
+  const [folderReady, setFolderReady] = useState(false);   // write permission actually granted right now
   const [lessonsHandle, setLessonsHandle] = useState(null);
   const [lessonsName, setLessonsName] = useState("");
+  const [lessonsReady, setLessonsReady] = useState(false);
   React.useEffect(() => {
     if (!fsSupported) return;
-    idbLoadHandle("media").then(h => { if (h) { setFolderHandle(h); setFolderName(h.name || "folder"); } });
-    idbLoadHandle("lessons").then(h => { if (h) { setLessonsHandle(h); setLessonsName(h.name || "folder"); } });
+    // Restore the remembered folders AND check whether write permission still persists
+    // (Chrome 122+ "Allow on every visit" / installed-PWA grants survive a reload), so the
+    // UI can show "ready" instead of nagging "Reconnect" when no click is actually needed.
+    idbLoadHandle("media").then(async h => { if (h) { setFolderHandle(h); setFolderName(h.name || "folder"); setFolderReady(await folderWritable(h)); } });
+    idbLoadHandle("lessons").then(async h => { if (h) { setLessonsHandle(h); setLessonsName(h.name || "folder"); setLessonsReady(await folderWritable(h)); } });
   }, []);
+  // Shown after a grant so teachers know how to stop reconnecting each session.
+  const PERSIST_TIP = ' Tip: choose "Allow on every visit" in the browser prompt so you don\'t reconnect next time.';
   async function connectMediaFolder() {
     try {
       if (folderHandle) {
         // Re-grant the existing folder without re-picking (one click per session).
         if ((await folderHandle.requestPermission({ mode: "readwrite" })) === "granted") {
-          setMediaNote('SharePoint folder ready: "' + folderName + '".'); return;
+          setFolderReady(true); setMediaNote('SharePoint Media folder ready: "' + folderName + '".' + PERSIST_TIP); return;
         }
       }
       const h = await window.showDirectoryPicker({ mode: "readwrite" });
       await idbSaveHandle("media", h);
-      setFolderHandle(h); setFolderName(h.name || "folder");
-      setMediaNote('Connected "' + (h.name || "folder") + '" — uploaded videos will auto-upload to SharePoint.');
+      setFolderHandle(h); setFolderName(h.name || "folder"); setFolderReady(true);
+      setMediaNote('Connected "' + (h.name || "folder") + '" — uploaded videos will auto-upload to SharePoint.' + PERSIST_TIP);
     } catch (_) { /* user cancelled the picker */ }
   }
   async function connectLessonsFolder() {
     try {
       if (lessonsHandle) {
         if ((await lessonsHandle.requestPermission({ mode: "readwrite" })) === "granted") {
-          setMediaNote('Lessons folder ready: "' + lessonsName + '".'); return;
+          setLessonsReady(true); setMediaNote('Lessons folder ready: "' + lessonsName + '".' + PERSIST_TIP); return;
         }
       }
       const h = await window.showDirectoryPicker({ mode: "readwrite" });
       await idbSaveHandle("lessons", h);
-      setLessonsHandle(h); setLessonsName(h.name || "folder");
-      setMediaNote('Connected Lessons folder "' + (h.name || "folder") + '".');
+      setLessonsHandle(h); setLessonsName(h.name || "folder"); setLessonsReady(true);
+      setMediaNote('Connected Lessons folder "' + (h.name || "folder") + '".' + PERSIST_TIP);
     } catch (_) { /* user cancelled the picker */ }
   }
   async function folderWritable(h) {
@@ -1728,7 +1735,8 @@ function App() {
   }
   async function saveLessonToSharePoint() {
     if (!spot || !activeBand) return;
-    if (!(await folderWritable(lessonsHandle))) { setMediaNote('Click "Connect Lessons folder" to enable saving to SharePoint this session.'); return; }
+    if (!(await folderWritable(lessonsHandle))) { setLessonsReady(false); setMediaNote(lessonsHandle ? 'Click "Reconnect" on the Lessons folder to enable saving this session.' : "Connect a Lessons folder first to save to SharePoint."); return; }
+    setLessonsReady(true);
     setMediaNote("Saving lesson to SharePoint Lessons…");
     try {
       const finalBlob = await buildDeckBlob(activeBand, spots[activeBand]);
@@ -1819,7 +1827,8 @@ function App() {
           if (folderHandle) {
             (async () => {
               try {
-                if (!(await folderWritable(folderHandle))) { setMediaNote('Click "Reconnect" to let videos upload to SharePoint this session.'); return; }
+                if (!(await folderWritable(folderHandle))) { setFolderReady(false); setMediaNote('Click "Reconnect" on the Media folder to let videos upload to SharePoint this session.'); return; }
+                setFolderReady(true);
                 setMediaNote("Uploading video to SharePoint — give it a moment before sharing the deck.");
                 const { url } = await putVideoToSharePoint(folderHandle, f);
                 setMedia(m => m.map(x => x.id === vidId ? { ...x, sharePointUrl: url } : x));
@@ -2641,21 +2650,27 @@ function App() {
             <div className="group">
               <label className="cap">SharePoint folders</label>
               <div className="link-import" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {folderHandle ? (
-                  <div className="hint">
-                    Media folder: <b>{folderName}</b> — uploaded videos auto-upload &amp; embed.{" "}
-                    <button type="button" className="btn ghost" style={{ width: "auto", padding: "4px 10px", marginLeft: 6 }} onClick={connectMediaFolder}>Reconnect</button>
-                  </div>
-                ) : (
+                {!folderHandle ? (
                   <button type="button" className="btn ghost" style={{ width: "auto" }} onClick={connectMediaFolder}>Connect SharePoint Media folder</button>
-                )}
-                {lessonsHandle ? (
-                  <div className="hint">
-                    Lessons folder: <b>{lessonsName}</b> — for saving finished decks.{" "}
-                    <button type="button" className="btn ghost" style={{ width: "auto", padding: "4px 10px", marginLeft: 6 }} onClick={connectLessonsFolder}>Reconnect</button>
-                  </div>
+                ) : folderReady ? (
+                  <div className="hint">✓ Media folder ready: <b>{folderName}</b> — videos auto-upload &amp; embed.</div>
                 ) : (
+                  <div className="hint">
+                    Media folder <b>{folderName}</b> remembered — click{" "}
+                    <button type="button" className="btn ghost" style={{ width: "auto", padding: "4px 10px" }} onClick={connectMediaFolder}>Reconnect</button>{" "}
+                    to re-enable this session.
+                  </div>
+                )}
+                {!lessonsHandle ? (
                   <button type="button" className="btn ghost" style={{ width: "auto" }} onClick={connectLessonsFolder}>Connect Lessons folder</button>
+                ) : lessonsReady ? (
+                  <div className="hint">✓ Lessons folder ready: <b>{lessonsName}</b> — for saving finished decks.</div>
+                ) : (
+                  <div className="hint">
+                    Lessons folder <b>{lessonsName}</b> remembered — click{" "}
+                    <button type="button" className="btn ghost" style={{ width: "auto", padding: "4px 10px" }} onClick={connectLessonsFolder}>Reconnect</button>{" "}
+                    to re-enable this session.
+                  </div>
                 )}
               </div>
             </div>
