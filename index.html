@@ -519,7 +519,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v1.8.3 · 2026-06-29";
+const APP_VERSION = "v1.9.0 · 2026-06-30";
 
 // Closed theme taxonomy — every spotlight (and the "Suggest" button) must resolve
 // to exactly one of these so the SharePoint "Theme" column stays a tidy, filterable
@@ -528,15 +528,18 @@ const APP_VERSION = "v1.8.3 · 2026-06-29";
 const THEMES = [
   "Digital Balance",
   "Online Kindness",
+  "Cyberbullying",
   "Privacy & Data",
   "Digital Footprint",
   "Misinformation",
+  "Academic Integrity",
   "Verifying AI Claims",
   "Ethical AI Learning",
   "AI Ad Transparency",
   "Living with AI",
   "Scams & Fraud",
   "Staying Safe Online",
+  "Respect & Relationships Online",
   "Healthy Gaming",
   "Online Trends & Pressure",
 ];
@@ -968,6 +971,16 @@ function stripMd(s) {
     .trim();
 }
 
+// Normalise guiding questions to { q, responses } objects. Accepts the model's
+// new object shape ({ question, responses }) or a plain string (legacy / fallback),
+// so older saved content and either prompt shape still load cleanly.
+function normGuiding(arr) {
+  if (!Array.isArray(arr) || !arr.length) return [{ q: "", responses: "" }, { q: "", responses: "" }, { q: "", responses: "" }];
+  return arr.map(it => typeof it === "string"
+    ? { q: stripMd(it), responses: "" }
+    : { q: stripMd((it && (it.question || it.q)) || ""), responses: stripMd((it && it.responses) || "") });
+}
+
 /* --------------------- Discovery: constants + pure helpers --------------------- */
 
 const DISCOVERY_CATEGORIES = [
@@ -1130,7 +1143,7 @@ function shapeDeck(parsed, { band, title }) {
     routineName: stripMd(parsed.routineName || ROUTINES[band][0].name),
     routineIntro: stripMd(parsed.routineIntro || ""),
     steps,
-    guidingQuestions: Array.isArray(parsed.guidingQuestions) && parsed.guidingQuestions.length ? parsed.guidingQuestions.map(stripMd) : ["", "", ""],
+    guidingQuestions: normGuiding(parsed.guidingQuestions),
     studentAction: stripMd(parsed.studentAction || ""),
     learnerProfile: Array.isArray(parsed.learnerProfile) ? parsed.learnerProfile.map(stripMd) : [],
     contentAdvisory: (() => {
@@ -1305,7 +1318,7 @@ async function generateSpotlight({ apiKey, model, mode, band, year, theme, title
       : `"routineName": "string — the EXACT name of the ONE thinking routine from the list below that your rationale concluded is the BEST fit for this stimulus"`,
     routineIntro: `"routineIntro": "string — one warm sentence introducing the routine to the class"`,
     steps: `"steps": [\n    { "name": "string — short step label", "minutes": 1, "prompt": "string — a punchy, provocative discussion prompt the teacher poses at this step", "responses": "string — 2 or 3 SHORT examples of what students at this band might actually say in response, so the teacher can anticipate the discussion (e.g. 'Some may say…; others might argue…')" }\n  ]`,
-    guidingQuestions: `"guidingQuestions": ["3 to 4 guiding questions pitched to the band"]`,
+    guidingQuestions: `"guidingQuestions": [ { "question": "string — a guiding question the teacher can ask, pitched to the band", "responses": "string — 2 or 3 SHORT examples of how students at this band might actually answer it, so the teacher can anticipate the discussion (e.g. 'Some may say…; others might argue…')" } ]  — give 3 to 4 of these objects`,
     studentAction: `"studentAction": "string — one concrete action or takeaway a student leaves with"`,
     learnerProfile: `"learnerProfile": ["1 to 3 IB Learner Profile attributes that fit, e.g. 'Thinker', 'Principled', 'Caring'"]`,
     contentAdvisory: `"contentAdvisory": { "flag": true or false, "categories": [any of "sexual","confronting","self-harm","substance" that genuinely apply], "note": "string — if flag is true, ONE short, warm, plain-text line naming the sensitive themes, pitched to the band (gentler and simpler for PYP, more direct for Senior); empty string if flag is false" }`,
@@ -1426,7 +1439,7 @@ function mergeScopedFields(spot, scope, p) {
     if (Array.isArray(p.steps) && p.steps.length)
       out.steps = p.steps.map(s => ({ name: stripMd(s.name || "Step"), minutes: Number(s.minutes) || 1, prompt: stripMd(s.prompt || ""), responses: stripMd(s.responses || "") }));
     if (Array.isArray(p.guidingQuestions) && p.guidingQuestions.length)
-      out.guidingQuestions = p.guidingQuestions.map(stripMd);
+      out.guidingQuestions = normGuiding(p.guidingQuestions);
   } else if (scope === "takeaway") {
     if (p.studentAction) out.studentAction = norm(p.studentAction);
     if (Array.isArray(p.learnerProfile)) out.learnerProfile = p.learnerProfile.map(stripMd);
@@ -2162,8 +2175,8 @@ function App() {
   const patchStep = (i, obj) => setSpot(s => { const steps = s.steps.slice(); steps[i] = { ...steps[i], ...obj }; return { ...s, steps }; });
   const addStep = () => setSpot(s => ({ ...s, steps: [...s.steps, { name: "New step", minutes: 1, prompt: "" }] }));
   const delStep = (i) => setSpot(s => ({ ...s, steps: s.steps.filter((_, j) => j !== i) }));
-  const patchQ = (i, v) => setSpot(s => { const q = s.guidingQuestions.slice(); q[i] = v; return { ...s, guidingQuestions: q }; });
-  const addQ = () => setSpot(s => ({ ...s, guidingQuestions: [...s.guidingQuestions, ""] }));
+  const patchQ = (i, obj) => setSpot(s => { const q = s.guidingQuestions.slice(); q[i] = { ...q[i], ...obj }; return { ...s, guidingQuestions: q }; });
+  const addQ = () => setSpot(s => ({ ...s, guidingQuestions: [...s.guidingQuestions, { q: "", responses: "" }] }));
   const delQ = (i) => setSpot(s => ({ ...s, guidingQuestions: s.guidingQuestions.filter((_, j) => j !== i) }));
 
   const totalMins = useMemo(() => spot ? spot.steps.reduce((a, s) => a + (Number(s.minutes) || 0), 0) : 0, [spot]);
@@ -2513,7 +2526,9 @@ function App() {
           if (mode === "article" && articleImageUrl) stimImg = await urlToDataUrl(articleImageUrl);
           let ay = colY, aAvail = mediaH;
           if (stimImg) { const ih = +(aAvail * 0.5).toFixed(2); s3.addImage({ data: stimImg, x: lx, y: ay, w: lw2, h: ih, sizing: { type: "contain", w: lw2, h: ih } }); ay += ih + 0.15; aAvail -= ih + 0.15; }
-          if (spot.summary && spot.summary.trim()) s3.addText(spot.summary, { x: lx, y: ay, w: lw2, h: aAvail, fontSize: 13, color: ink, valign: "top", fontFace: bFont, lineSpacingMultiple: 1.1 });
+          // Cap the box 0.15" above the link/QR row and shrink-to-fit so a long
+          // summary can never overflow its box and collide with the link + QR below.
+          if (spot.summary && spot.summary.trim()) s3.addText(spot.summary, { x: lx, y: ay, w: lw2, h: Math.max(0.6, aAvail - (hasLink ? 0.15 : 0)), fontSize: 13, color: ink, valign: "top", fontFace: bFont, lineSpacingMultiple: 1.1, fit: "shrink" });
           else if (!stimImg) s3.addText("(Share the stimulus with students directly.)", { x: lx, y: ay, w: lw2, h: 0.6, fontSize: 14, italic: true, color: muted, fontFace: bFont });
         }
 
@@ -2542,11 +2557,11 @@ function App() {
         }
 
         // Speaker notes on every item-slide.
-        const gq = spot.guidingQuestions.filter(q => q.trim());
+        const gq = spot.guidingQuestions.filter(g => (g.q || "").trim());
         const respLines = spot.steps.map((st, i) => `Step ${i + 1} — ${st.name}: ${st.responses || "(none generated — add your own)"}`);
         s3.addNotes(
-          (gq.length ? "Guiding questions:\n" + gq.map(q => "• " + q).join("\n") : "") +
-          (respLines.length ? (gq.length ? "\n\n" : "") + "Likely student responses:\n" + respLines.join("\n") : "")
+          (gq.length ? "Guiding questions:\n" + gq.map(g => "• " + g.q + ((g.responses || "").trim() ? "\n    ↳ Possible responses: " + g.responses : "")).join("\n") : "") +
+          (respLines.length ? (gq.length ? "\n\n" : "") + "Likely student responses (per step):\n" + respLines.join("\n") : "")
         );
       }
 
@@ -2626,10 +2641,16 @@ function App() {
 
       <div className="cap" style={{ marginTop: 14 }}>Guiding questions <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0, color: "var(--muted)" }}>· speaker notes (not shown on the slide)</span></div>
       <ul className="ql">
-        {spot.guidingQuestions.map((q, i) => (
+        {spot.guidingQuestions.map((item, i) => (
           <li key={i}>
             <span className="num" style={{ background: hx(T.accent) }}>{i + 1}</span>
-            <textarea className="editable" rows={1} aria-label={"Guiding question " + (i + 1)} value={q} onChange={e => patchQ(i, e.target.value)} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <textarea className="editable" rows={1} aria-label={"Guiding question " + (i + 1)} value={item.q} onChange={e => patchQ(i, { q: e.target.value })} />
+              <div className="resp-note">
+                <span className="resp-cap">Possible student responses <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0 }}>(speaker notes)</span></span>
+                <textarea className="editable" rows={2} value={item.responses || ""} placeholder="How students might answer…" onChange={e => patchQ(i, { responses: e.target.value })} />
+              </div>
+            </div>
             <button type="button" className="iconbtn" aria-label={"Remove guiding question " + (i + 1)} title="Remove" onClick={() => delQ(i)}><Icon d={I.close} size={14} stroke /></button>
           </li>
         ))}
@@ -2728,27 +2749,6 @@ function App() {
                 </div>
               )}
 
-              {fsSupported && (
-                <div className="link-import" style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
-                  {folderHandle ? (
-                    <div className="hint">
-                      Media folder: <b>{folderName}</b> — uploaded videos auto-upload &amp; embed.{" "}
-                      <button type="button" className="btn ghost" style={{ width: "auto", padding: "4px 10px", marginLeft: 6 }} onClick={connectMediaFolder}>Reconnect</button>
-                    </div>
-                  ) : (
-                    <button type="button" className="btn ghost" style={{ width: "auto" }} onClick={connectMediaFolder}>Connect SharePoint Media folder</button>
-                  )}
-                  {lessonsHandle ? (
-                    <div className="hint">
-                      Lessons folder: <b>{lessonsName}</b> — for saving finished decks.{" "}
-                      <button type="button" className="btn ghost" style={{ width: "auto", padding: "4px 10px", marginLeft: 6 }} onClick={connectLessonsFolder}>Reconnect</button>
-                    </div>
-                  ) : (
-                    <button type="button" className="btn ghost" style={{ width: "auto" }} onClick={connectLessonsFolder}>Connect Lessons folder</button>
-                  )}
-                </div>
-              )}
-
               <div className="group" style={{ marginTop: 10 }}>
                 <label className="cap" htmlFor="f-mlink">Link (optional — becomes a QR code)</label>
                 <input id="f-mlink" type="text" value={link} placeholder="https://…" onChange={e => setLink(e.target.value)} />
@@ -2778,6 +2778,31 @@ function App() {
             </div>
           )}
 
+          {/* SharePoint folders — shown in BOTH modes so an article deck can still be
+              saved to the Lessons library (these used to be trapped in media mode). */}
+          {fsSupported && (
+            <div className="group">
+              <label className="cap">SharePoint folders</label>
+              <div className="link-import" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {folderHandle ? (
+                  <div className="hint">
+                    Media folder: <b>{folderName}</b> — uploaded videos auto-upload &amp; embed.{" "}
+                    <button type="button" className="btn ghost" style={{ width: "auto", padding: "4px 10px", marginLeft: 6 }} onClick={connectMediaFolder}>Reconnect</button>
+                  </div>
+                ) : (
+                  <button type="button" className="btn ghost" style={{ width: "auto" }} onClick={connectMediaFolder}>Connect SharePoint Media folder</button>
+                )}
+                {lessonsHandle ? (
+                  <div className="hint">
+                    Lessons folder: <b>{lessonsName}</b> — for saving finished decks.{" "}
+                    <button type="button" className="btn ghost" style={{ width: "auto", padding: "4px 10px", marginLeft: 6 }} onClick={connectLessonsFolder}>Reconnect</button>
+                  </div>
+                ) : (
+                  <button type="button" className="btn ghost" style={{ width: "auto" }} onClick={connectLessonsFolder}>Connect Lessons folder</button>
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="group">
             <label className="cap" htmlFor="f-title">Title (optional)</label>
