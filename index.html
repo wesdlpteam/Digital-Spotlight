@@ -262,6 +262,15 @@
   .theme-picks .pick.tint-4 { background: var(--gold-soft); color: var(--accent-2-ink); }
   .theme-picks .pick:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
   .theme-picks .pick.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .theme-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .theme-edit-toggle { background: none; border: 0; color: var(--accent); font: inherit; font-size: 12px; cursor: pointer; padding: 2px 4px; }
+  .theme-edit-toggle:hover { text-decoration: underline; }
+  .pick-wrap { display: inline-flex; align-items: center; }
+  .pick-wrap .pick-x { margin-left: -4px; border: 0; background: transparent; color: var(--muted); font-size: 14px; line-height: 1; cursor: pointer; padding: 0 5px; border-radius: 999px; }
+  .pick-wrap .pick-x:hover { color: var(--bad-ink); background: var(--bad-bg); }
+  .theme-add { display: inline-flex; align-items: center; gap: 4px; }
+  .theme-add input { font: inherit; font-size: 12px; padding: 3px 8px; border-radius: 999px; border: 1px solid var(--accent); }
+  .theme-add .btn.ghost { width: auto; padding: 3px 10px; }
 
   .step { display: grid; grid-template-columns: 56px 1fr auto; gap: 8px; align-items: start; margin-bottom: 8px; }
   .step .mins { display: flex; align-items: center; gap: 3px; }
@@ -1669,6 +1678,10 @@ function App() {
   const [years, setYears] = useState({});            // { [band]: yearLevel }
   const [activeBand, setActiveBand] = useState(null);// which generated deck is shown
   const [theme, setTheme] = useState(THEMES[0]);
+  const [themeList, setThemeList] = useState(THEMES);
+  const [editThemes, setEditThemes] = useState(false);
+  const [newTheme, setNewTheme] = useState("");
+  const [themeMsg, setThemeMsg] = useState("");
   const [design, setDesign] = useState("classic");
 
   // discovery
@@ -1717,6 +1730,29 @@ function App() {
     idbLoadHandle("media").then(async h => { if (h) { setFolderHandle(h); setFolderName(h.name || "folder"); setFolderReady(await folderWritable(h)); } });
     idbLoadHandle("lessons").then(async h => { if (h) { setLessonsHandle(h); setLessonsName(h.name || "folder"); setLessonsReady(await folderWritable(h)); } });
   }, []);
+  // Single place that mutates the theme list: normalize -> live THEMES -> state -> cache.
+  // (writeFile is wired to themes.json in Task 3.)
+  function applyThemes(next, writeFile = true) {
+    const clean = normalizeThemes(next);
+    if (!clean.length) return;            // never wipe the list to empty
+    THEMES = clean;                       // module-level; AI/prompt/snap fns read this at call-time
+    setThemeList(clean);
+    saveCachedThemes(clean);
+  }
+  function addTheme() {
+    const name = newTheme.replace(/\s+/g, " ").trim();
+    if (!name) return;
+    if (name.length > 60) { setThemeMsg("Keep theme names under 60 characters."); return; }
+    if (themeList.some(t => t.toLowerCase() === name.toLowerCase())) { setThemeMsg('"' + name + '" is already in the list.'); return; }
+    applyThemes([...themeList, name]);
+    setNewTheme(""); setThemeMsg("");
+  }
+  function removeTheme(name) {
+    if (themeList.length <= 1) { setThemeMsg("Keep at least one theme."); return; }
+    applyThemes(themeList.filter(t => t !== name));
+    setThemeMsg("");
+  }
+
   // Shown after a grant so teachers know how to stop reconnecting each session.
   const PERSIST_TIP = ' Tip: choose "Allow on every visit" in the browser prompt so you don\'t reconnect next time.';
   async function connectMediaFolder() {
@@ -2747,7 +2783,12 @@ function App() {
           </div>
 
           <div className="group">
-            <label className="cap" htmlFor="f-theme">Focus theme</label>
+            <div className="theme-head">
+              <label className="cap" htmlFor="f-theme">Focus theme</label>
+              <button type="button" className="theme-edit-toggle" onClick={() => { setEditThemes(v => !v); setThemeMsg(""); setNewTheme(""); }}>
+                {editThemes ? "Done" : "Edit themes"}
+              </button>
+            </div>
             <div style={{ display: "flex", gap: 6 }}>
               <input id="f-theme" type="text" value={theme} placeholder="Type a theme, tap a preset, or Suggest" onChange={e => setTheme(e.target.value)} />
               <button type="button" className="btn ghost" style={{ width: "auto", padding: "9px 12px", whiteSpace: "nowrap" }} disabled={suggestingTheme || !inputReady()} title="Suggest a theme from your stimulus" onClick={suggestTheme}>
@@ -2755,8 +2796,22 @@ function App() {
               </button>
             </div>
             <div className="theme-picks">
-              {THEMES.map((t, i) => <button key={t} type="button" className={"pick tint-" + (i % 5) + (theme === t ? " on" : "")} onClick={() => setTheme(t)}>{t}</button>)}
+              {themeList.map((t, i) => (
+                <span key={t} className={"pick-wrap" + (editThemes ? " editing" : "")}>
+                  <button type="button" className={"pick tint-" + (i % 5) + (theme === t ? " on" : "")} onClick={() => setTheme(t)}>{t}</button>
+                  {editThemes && <button type="button" className="pick-x" title={"Remove " + t} onClick={() => removeTheme(t)}>×</button>}
+                </span>
+              ))}
+              {editThemes && (
+                <span className="theme-add">
+                  <input type="text" value={newTheme} placeholder="New theme…" onChange={e => setNewTheme(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addTheme(); } }} />
+                  <button type="button" className="btn ghost" onClick={addTheme}>Add</button>
+                </span>
+              )}
             </div>
+            {editThemes && <div className="hint">Themes are shared with teachers who connect a SharePoint folder. A brand-new theme must also be added once to the SharePoint "Theme" column for it to be stored as itself in saved-deck metadata.</div>}
+            {themeMsg && <div className="hint" style={{ color: "var(--bad-ink)" }}>{themeMsg}</div>}
             <div className="hint">Type any theme, tap a preset above, or <b>Suggest</b> one from your stimulus.</div>
           </div>
 
