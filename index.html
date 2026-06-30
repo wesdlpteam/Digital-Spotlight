@@ -82,7 +82,7 @@
     margin: 0;
     font-family: var(--font-body);
     color: var(--ink);
-    background: linear-gradient(160deg, #f6f2fb 0%, #fbf7fd 100%);
+    background: linear-gradient(160deg, #f6f2fb 0%, #ffffff 100%);
     min-height: 100vh;
   }
   header.app {
@@ -226,13 +226,13 @@
   .advisory-check { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer; }
   .advisory-check input { width: 16px; height: 16px; }
   .advisory-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
-  .advisory-chip { border: 1px solid var(--line, #cdbfe0); background: transparent; color: inherit;
+  .advisory-chip { border: 1px solid var(--line, #E7E1EF); background: transparent; color: inherit;
     border-radius: 999px; padding: 5px 12px; font-size: 13px; cursor: pointer; }
   .advisory-chip.on { background: var(--accent, #4F2759); color: #fff; border-color: var(--accent, #4F2759); }
   .advisory-chip:focus-visible { outline: 2px solid var(--accent, #4F2759); outline-offset: 2px; }
   @media (prefers-reduced-motion: no-preference) { .advisory-chip { transition: background .15s, color .15s; } }
-  .advisory-card { background: #1A1320; color: #F7F2EA; border-radius: 12px; overflow: hidden; }
-  .advisory-warnhead { background: #E8A33D; color: #1A1320; font-weight: 800; font-size: 18px; letter-spacing: .08em; padding: 11px 22px; display: flex; align-items: center; gap: 9px; }
+  .advisory-card { background: #2B281F; color: #FFFFFF; border-radius: 12px; overflow: hidden; }
+  .advisory-warnhead { background: #F0A54F; color: #2B281F; font-weight: 800; font-size: 18px; letter-spacing: .08em; padding: 11px 22px; display: flex; align-items: center; gap: 9px; }
   .advisory-tri { font-size: 20px; line-height: 1; }
   .advisory-body { padding: 16px 22px 18px; }
   .advisory-line { font-size: 16px; margin: 0 0 10px; }
@@ -1549,18 +1549,17 @@ const StyleCover = ({ styleKey, big = false, title = "", bandLabel = "", theme =
   </React.Fragment>);
 
   if (st.layout === "cyberpunk") {
-    const glow = `0 0 ${big ? 8 : 4}px ${hx(p.titleKick)}`;
     return (
-      <span aria-hidden="true" style={{ ...wrap, background: `radial-gradient(120% 100% at 70% 0%, #2a1530 0%, ${hx(p.titleBg)} 70%)` }}>
+      <span aria-hidden="true" style={{ ...wrap, background: hx(p.titleBg) }}>
         <span style={{ position: "absolute", inset: big ? 6 : 3, border: `1px solid ${hx(p.titleKick)}88`, borderRadius: 4 }} />
-        <span style={{ position: "absolute", left: 0, right: 0, top: 0, height: big ? 9 : 4, background: "#0d060f" }} />
-        <span style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: big ? 9 : 4, background: "#0d060f" }} />
+        <span style={{ position: "absolute", left: 0, right: 0, top: 0, height: big ? 9 : 4, background: "#000000" }} />
+        <span style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: big ? 9 : 4, background: "#000000" }} />
         {big ? <React.Fragment>
-          <span style={{ position: "absolute", left: padX, top: 18, fontFamily: "Consolas, monospace", fontSize: 7, letterSpacing: 2, color: hx(p.titleKick), textShadow: glow }}>// DIGITAL LIFE SPOTLIGHT</span>
-          <span style={{ position: "absolute", left: padX, right: padX, top: 36, fontSize: titleFs, fontWeight: 800, lineHeight: 1.1, color: "#fff", textShadow: glow }}>{cs(title)}</span>
-          <span style={{ position: "absolute", left: padX, bottom: 13, fontFamily: "Consolas, monospace", fontSize: 7, letterSpacing: 1, color: hx(p.titleSub) }}>{bandLabel} · {theme}</span>
+          <span style={{ position: "absolute", left: padX, top: 18, fontFamily: "Arial, sans-serif", fontSize: 7, letterSpacing: 2, color: hx(p.titleKick) }}>DIGITAL LIFE SPOTLIGHT</span>
+          <span style={{ position: "absolute", left: padX, right: padX, top: 36, fontSize: titleFs, fontWeight: 800, lineHeight: 1.1, color: "#fff" }}>{cs(title)}</span>
+          <span style={{ position: "absolute", left: padX, bottom: 13, fontFamily: "Arial, sans-serif", fontSize: 7, letterSpacing: 1, color: hx(p.titleSub) }}>{bandLabel} · {theme}</span>
         </React.Fragment> : <React.Fragment>
-          <span style={{ position: "absolute", left: padX, top: "40%", width: "60%", height: 4, borderRadius: 2, background: hx(p.titleKick), boxShadow: glow }} />
+          <span style={{ position: "absolute", left: padX, top: "40%", width: "60%", height: 4, borderRadius: 2, background: hx(p.titleKick) }} />
           <span style={{ position: "absolute", left: padX, top: "60%", width: "38%", height: 4, borderRadius: 2, background: "#ffffff", opacity: .85 }} />
         </React.Fragment>}
       </span>
@@ -1585,12 +1584,12 @@ const StyleCover = ({ styleKey, big = false, title = "", bandLabel = "", theme =
         <span style={{ position: "absolute", left: padX, right: padX, top: big ? 14 : 7, height: big ? 2 : 1.5, background: hx(p.accent2) }} />
         {big && <span style={{ position: "absolute", left: padX, top: 18, fontSize: 7, letterSpacing: 3, color: hx(p.titleFoot), fontWeight: 700 }}>DIGITAL LIFE SPOTLIGHT</span>}
         {big
-          ? <span style={{ position: "absolute", left: padX, right: padX, top: 34, fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 18, fontWeight: 700, lineHeight: 1.06, color: hx(p.titleInk) }}>{cs(title)}</span>
+          ? <span style={{ position: "absolute", left: padX, right: padX, top: 34, fontFamily: "Arial, sans-serif", fontSize: 18, fontWeight: 700, lineHeight: 1.06, color: hx(p.titleInk) }}>{cs(title)}</span>
           : <React.Fragment>
               <span style={{ position: "absolute", left: padX, top: "46%", width: "66%", height: 4, borderRadius: 2, background: hx(p.titleInk) }} />
               <span style={{ position: "absolute", left: padX, top: "66%", width: "44%", height: 4, borderRadius: 2, background: hx(p.titleInk), opacity: .55 }} />
             </React.Fragment>}
-        {big && <span style={{ position: "absolute", left: padX, bottom: 12, fontFamily: "Georgia, serif", fontStyle: "italic", fontSize: 8, color: hx(p.titleSub) }}>{bandLabel} · {theme}</span>}
+        {big && <span style={{ position: "absolute", left: padX, bottom: 12, fontFamily: "Arial, sans-serif", fontStyle: "italic", fontSize: 8, color: hx(p.titleSub) }}>{bandLabel} · {theme}</span>}
         <span style={{ position: "absolute", right: padX, bottom: big ? 12 : 6, width: big ? 8 : 5, height: big ? 8 : 5, borderRadius: "50%", background: hx(p.accent2) }} />
       </span>
     );
@@ -1618,13 +1617,13 @@ const StyleCover = ({ styleKey, big = false, title = "", bandLabel = "", theme =
           <span key={i} style={{ position: "absolute", left: big ? 7 : 3.5, top: `${(big ? 16 : 12) + i * (big ? 14 : 9)}px`, width: big ? 8 : 4, height: big ? 4 : 2.5, borderRadius: "50%", background: hx(p.spiral) }} />
         ))}
         {big
-          ? <span style={{ position: "absolute", left: 22, right: "40%", top: 16, fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 17, fontWeight: 700, lineHeight: 1.06, color: hx(p.paperInk) }}>{title}</span>
+          ? <span style={{ position: "absolute", left: 22, right: "40%", top: 16, fontFamily: "Arial, sans-serif", fontSize: 17, fontWeight: 700, lineHeight: 1.06, color: hx(p.paperInk) }}>{title}</span>
           : <React.Fragment>
               <span style={{ position: "absolute", left: 14, top: "40%", width: "44%", height: 4, borderRadius: 2, background: hx(p.paperInk) }} />
               <span style={{ position: "absolute", left: 14, top: "60%", width: "30%", height: 4, borderRadius: 2, background: hx(p.paperInk), opacity: .55 }} />
             </React.Fragment>}
         {big && <span style={{ position: "absolute", left: 22, bottom: 30, width: 58, height: 14, background: hx(p.tape), opacity: .6, transform: "rotate(-5deg)" }} />}
-        {big && <span style={{ position: "absolute", left: 22, bottom: 13, fontFamily: "'Brush Script MT', cursive", fontSize: 12, color: hx(p.accent) }}>every layer tells our story</span>}
+        {big && <span style={{ position: "absolute", left: 22, bottom: 13, fontFamily: "Arial, sans-serif", fontStyle: "italic", fontSize: 12, color: hx(p.accent) }}>every layer tells our story</span>}
       </span>
     );
   }
@@ -1633,13 +1632,13 @@ const StyleCover = ({ styleKey, big = false, title = "", bandLabel = "", theme =
     return (
       <span aria-hidden="true" style={{ ...wrap, background: hx(p.titleBg), backgroundImage: `radial-gradient(${hx(p.accent)}14 0.5px, transparent 0.6px)`, backgroundSize: big ? "4px 4px" : "3px 3px" }}>
         {big
-          ? <span style={{ position: "absolute", left: padX, right: padX, top: 22, fontFamily: "Impact, 'Arial Narrow', sans-serif", fontSize: 34, lineHeight: .9, letterSpacing: "-1px", color: hx(p.titleInk), display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{cs(title)}</span>
+          ? <span style={{ position: "absolute", left: padX, right: padX, top: 22, fontFamily: "'Arial Black', Arial, sans-serif", fontSize: 34, lineHeight: .9, letterSpacing: "-1px", color: hx(p.titleInk), display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{cs(title)}</span>
           : <React.Fragment>
               <span style={{ position: "absolute", left: padX, top: "32%", width: "72%", height: 6, background: hx(p.titleInk) }} />
               <span style={{ position: "absolute", left: padX, top: "54%", width: "52%", height: 6, background: hx(p.titleInk) }} />
             </React.Fragment>}
         <span style={{ position: "absolute", left: padX, top: big ? "70%" : "76%", width: big ? "46%" : "42%", height: big ? 4 : 3, background: hx(p.accent2) }} />
-        {big && <span style={{ position: "absolute", left: padX, bottom: 11, fontFamily: "'Brush Script MT', cursive", fontSize: 13, color: hx(p.accent) }}>{bandLabel} · {theme}</span>}
+        {big && <span style={{ position: "absolute", left: padX, bottom: 11, fontFamily: "Arial, sans-serif", fontStyle: "italic", fontSize: 13, color: hx(p.accent) }}>{bandLabel} · {theme}</span>}
       </span>
     );
   }
@@ -2318,43 +2317,39 @@ function App() {
         },
         cyberpunk: {
           cover(s, c) {
-            // pptxgenjs MUTATES the shadow options object in place (angle/opacity -> OOXML units),
-            // so a shared object reused across addText calls corrupts the 2nd use (PowerPoint then
-            // can't read the file). Use a factory so every call gets a fresh, unmutated object.
-            const glow = () => ({ type:"outer", color:"E4D1A1", blur:18, offset:0, angle:0, opacity:0.5 });
-            s.addShape(c.pptx.ShapeType.rect, { x:0.18, y:0.18, w:c.W-0.36, h:c.H-0.36, fill:{type:"none"}, line:{ color:"E4D1A1", width:0.75, transparency:55 } });
-            s.addShape(c.pptx.ShapeType.rect, { x:0, y:0, w:c.W, h:0.28, fill:{color:"0D060F"} });
-            s.addShape(c.pptx.ShapeType.rect, { x:0, y:c.H-0.28, w:c.W, h:0.28, fill:{color:"0D060F"} });
-            s.addText("// DIGITAL LIFE SPOTLIGHT", { x:0.9, y:0.7, w:c.W-1.8, h:0.3, fontSize:11, color:"E4D1A1", charSpacing:3, fontFace:"Consolas", shadow:glow() });
-            s.addText(c.tCase(c.spot.hook || c.spot.title), { x:0.9, y:1.7, w:c.W-1.8, h:3.4, fontSize:44, bold:true, color:"FFFFFF", valign:"middle", fontFace:c.tFont, shadow:glow() });
-            s.addText(`${c.bandLabel}${c.year?" · "+c.year:""}  ·  ${c.theme}  ·  5-MIN`, { x:0.9, y:5.9, w:c.W-1.8, h:0.4, fontSize:13, color:"C9A86A", charSpacing:2, fontFace:"Consolas" });
+            s.addShape(c.pptx.ShapeType.rect, { x:0.18, y:0.18, w:c.W-0.36, h:c.H-0.36, fill:{type:"none"}, line:{ color:"C59F40", width:0.75, transparency:55 } });
+            s.addShape(c.pptx.ShapeType.rect, { x:0, y:0, w:c.W, h:0.28, fill:{color:"000000"} });
+            s.addShape(c.pptx.ShapeType.rect, { x:0, y:c.H-0.28, w:c.W, h:0.28, fill:{color:"000000"} });
+            s.addText("DIGITAL LIFE SPOTLIGHT", { x:0.9, y:0.7, w:c.W-1.8, h:0.3, fontSize:11, color:"E4D1A1", charSpacing:3, fontFace:"Arial" });
+            s.addText(c.tCase(c.spot.hook || c.spot.title), { x:0.9, y:1.7, w:c.W-1.8, h:3.4, fontSize:44, bold:true, color:"FFFFFF", valign:"middle", fontFace:c.tFont });
+            s.addText(`${c.bandLabel}${c.year?" · "+c.year:""}  ·  ${c.theme}  ·  5-MIN`, { x:0.9, y:5.9, w:c.W-1.8, h:0.4, fontSize:13, color:"E4D1A1", charSpacing:2, fontFace:"Arial" });
           },
           provChrome(s, c, idx, reelLen) {
-            s.addText((reelLen>1?`PROVOCATION · ${idx+1}/${reelLen}`:"PROVOCATION"), { x:0.8, y:0.55, w:c.W-1.6, h:0.4, fontSize:12, bold:true, color:"E4D1A1", charSpacing:2, fontFace:"Consolas", shadow:{type:"outer",color:"E4D1A1",blur:10,offset:0,opacity:0.5} });
+            s.addText((reelLen>1?`PROVOCATION · ${idx+1}/${reelLen}`:"PROVOCATION"), { x:0.8, y:0.55, w:c.W-1.6, h:0.4, fontSize:12, bold:true, color:"E4D1A1", charSpacing:2, fontFace:"Arial" });
             s.addText(c.spot.framing, { x:0.8, y:1.0, w:c.W-1.6, h:0.7, fontSize:22, bold:true, color:c.ink, fontFace:c.tFont });
           },
           takeaway(s, c) {
-            s.addShape(c.pptx.ShapeType.rect, { x:0.18, y:0.18, w:c.W-0.36, h:c.H-0.36, fill:{type:"none"}, line:{ color:"E4D1A1", width:0.75, transparency:55 } });
-            s.addText("YOUR KEY TAKEAWAY", { x:0.8, y:1.4, w:c.W-1.6, h:0.4, fontSize:13, color:"E4D1A1", charSpacing:3, align:"center", fontFace:"Consolas" });
-            s.addText(c.spot.studentAction || "—", { x:1.2, y:2.3, w:c.W-2.4, h:2.6, fontSize:34, bold:true, color:"E4D1A1", align:"center", valign:"middle", fontFace:c.tFont, fit:"shrink", shadow:{type:"outer",color:"E4D1A1",blur:22,offset:0,opacity:0.55} });
+            s.addShape(c.pptx.ShapeType.rect, { x:0.18, y:0.18, w:c.W-0.36, h:c.H-0.36, fill:{type:"none"}, line:{ color:"C59F40", width:0.75, transparency:55 } });
+            s.addText("YOUR KEY TAKEAWAY", { x:0.8, y:1.4, w:c.W-1.6, h:0.4, fontSize:13, color:"E4D1A1", charSpacing:3, align:"center", fontFace:"Arial" });
+            s.addText(c.spot.studentAction || "—", { x:1.2, y:2.3, w:c.W-2.4, h:2.6, fontSize:34, bold:true, color:"E4D1A1", align:"center", valign:"middle", fontFace:c.tFont, fit:"shrink" });
             if (c.spot.learnerProfile.filter(Boolean).length)
               s.addText("IB Learner Profile: " + c.spot.learnerProfile.filter(Boolean).join(", "), { x:1.1, y:5.6, w:c.W-2.2, h:0.4, fontSize:13, italic:true, color:c.T.titleFoot, align:"center", fontFace:c.bFont });
           },
         },
         brutalist: {
           cover(s, c) {
-            s.addText(" DIGITAL LIFE SPOTLIGHT ", { x:0.6, y:0.5, w:4.2, h:0.35, fontSize:11, bold:true, color:"E4D1A1", fill:{color:"1A1320"}, fontFace:"Consolas", charSpacing:1 });
-            s.addText(c.tCase(c.spot.hook || c.spot.title), { x:0.7, y:1.5, w:c.W-2.4, h:3.4, fontSize:46, bold:true, color:"1A1320", valign:"middle", fontFace:c.tFont, charSpacing:-0.5 });
-            s.addShape(c.pptx.ShapeType.rect, { x:0.7, y:5.6, w:6.2, h:0.7, fill:{color:"4F2759"}, line:{color:"1A1320", width:3}, shadow:HARD("C59F40") });
+            s.addText(" DIGITAL LIFE SPOTLIGHT ", { x:0.6, y:0.5, w:4.2, h:0.35, fontSize:11, bold:true, color:"E4D1A1", fill:{color:"000000"}, fontFace:"Arial", charSpacing:1 });
+            s.addText(c.tCase(c.spot.hook || c.spot.title), { x:0.7, y:1.5, w:c.W-2.4, h:3.4, fontSize:46, bold:true, color:"000000", valign:"middle", fontFace:c.tFont, charSpacing:-0.5 });
+            s.addShape(c.pptx.ShapeType.rect, { x:0.7, y:5.6, w:6.2, h:0.7, fill:{color:"4F2759"}, line:{color:"000000", width:3}, shadow:HARD("C59F40") });
             s.addText(`${c.bandLabel}${c.year?" · "+c.year:""}  ·  ${c.theme}  ·  5-MIN`, { x:0.7, y:5.6, w:6.2, h:0.7, fontSize:13, bold:true, color:"FFFFFF", align:"center", valign:"middle", fontFace:c.bFont });
           },
           provChrome(s, c, idx, reelLen) {
-            s.addText((reelLen>1?` PROVOCATION ${idx+1}/${reelLen} `:" PROVOCATION "), { x:0.8, y:0.5, w:3.2, h:0.35, fontSize:11, bold:true, color:"1A1320", fill:{color:"C59F40"}, fontFace:"Consolas" });
+            s.addText((reelLen>1?` PROVOCATION ${idx+1}/${reelLen} `:" PROVOCATION "), { x:0.8, y:0.5, w:3.2, h:0.35, fontSize:11, bold:true, color:"000000", fill:{color:"C59F40"}, fontFace:"Arial" });
             s.addText(c.spot.framing, { x:0.8, y:1.0, w:c.W-1.6, h:0.7, fontSize:22, bold:true, color:c.ink, fontFace:c.tFont });
           },
           takeaway(s, c) {
-            s.addText("YOUR KEY TAKEAWAY", { x:0.8, y:1.2, w:c.W-1.6, h:0.4, fontSize:13, bold:true, color:"1A1320", fontFace:"Consolas", charSpacing:2 });
-            s.addShape(c.pptx.ShapeType.rect, { x:1.1, y:2.1, w:c.W-2.2, h:3.0, fill:{color:"4F2759"}, line:{color:"1A1320", width:3.5}, shadow:HARD("C59F40") });
+            s.addText("YOUR KEY TAKEAWAY", { x:0.8, y:1.2, w:c.W-1.6, h:0.4, fontSize:13, bold:true, color:"000000", fontFace:"Arial", charSpacing:2 });
+            s.addShape(c.pptx.ShapeType.rect, { x:1.1, y:2.1, w:c.W-2.2, h:3.0, fill:{color:"4F2759"}, line:{color:"000000", width:3.5}, shadow:HARD("C59F40") });
             s.addText(c.spot.studentAction || "—", { x:1.6, y:2.3, w:c.W-3.2, h:2.6, fontSize:28, bold:true, color:"FFFFFF", align:"center", valign:"middle", fontFace:c.tFont, fit:"shrink" });
           },
         },
@@ -2362,19 +2357,19 @@ function App() {
           cover(s, c) {
             s.addShape(c.pptx.ShapeType.line, { x:0.9, y:0.95, w:c.W-1.8, h:0, line:{color:"C59F40", width:1.5} });
             s.addText("THE DIGITAL LIFE SPOTLIGHT", { x:0.9, y:1.05, w:c.W-1.8, h:0.35, fontSize:12, color:"6A5018", charSpacing:4, fontFace:c.bFont });
-            s.addText(c.spot.hook || c.spot.title, { x:0.9, y:1.9, w:c.W-2.2, h:2.8, fontSize:46, bold:true, color:"4F2759", valign:"top", fontFace:"Georgia" });
-            s.addText(`${c.bandLabel}${c.year?" · "+c.year:""}   ·   ${c.theme}   ·   a 5-minute discussion`, { x:0.9, y:5.9, w:c.W-1.8, h:0.4, fontSize:14, italic:true, color:c.T.titleSub, fontFace:"Georgia" });
+            s.addText(c.spot.hook || c.spot.title, { x:0.9, y:1.9, w:c.W-2.2, h:2.8, fontSize:46, bold:true, color:"4F2759", valign:"top", fontFace:"Arial" });
+            s.addText(`${c.bandLabel}${c.year?" · "+c.year:""}   ·   ${c.theme}   ·   a 5-minute discussion`, { x:0.9, y:5.9, w:c.W-1.8, h:0.4, fontSize:14, italic:true, color:c.T.titleSub, fontFace:"Arial" });
           },
           provChrome(s, c, idx, reelLen) {
             s.addText((reelLen>1?`PROVOCATION · ${idx+1}/${reelLen}`:"PROVOCATION"), { x:0.8, y:0.5, w:c.W-1.6, h:0.3, fontSize:11, color:"6A5018", charSpacing:3, fontFace:c.bFont });
             s.addShape(c.pptx.ShapeType.line, { x:0.8, y:0.85, w:1.2, h:0, line:{color:"C59F40", width:1} });
-            s.addText(c.spot.framing, { x:0.8, y:1.0, w:c.W-1.6, h:0.7, fontSize:22, bold:true, color:"4F2759", fontFace:"Georgia" });
+            s.addText(c.spot.framing, { x:0.8, y:1.0, w:c.W-1.6, h:0.7, fontSize:22, bold:true, color:"4F2759", fontFace:"Arial" });
           },
           takeaway(s, c) {
-            s.addText("“", { x:0.9, y:1.0, w:1.5, h:1.2, fontSize:90, color:"C59F40", fontFace:"Georgia" });
+            s.addText("“", { x:0.9, y:1.0, w:1.5, h:1.2, fontSize:90, color:"C59F40", fontFace:"Arial" });
             // Quote box owns the whole mid-band (y 2.0–5.4) and shrinks to fit, so a long
             // student action can never overflow into the gold rule / IB line below it.
-            s.addText(c.spot.studentAction || "—", { x:1.4, y:2.0, w:c.W-2.8, h:3.4, fontSize:34, italic:true, bold:true, color:"4F2759", valign:"middle", fontFace:"Georgia", fit:"shrink" });
+            s.addText(c.spot.studentAction || "—", { x:1.4, y:2.0, w:c.W-2.8, h:3.4, fontSize:34, italic:true, bold:true, color:"4F2759", valign:"middle", fontFace:"Arial", fit:"shrink" });
             s.addShape(c.pptx.ShapeType.line, { x:1.4, y:5.7, w:2.2, h:0, line:{color:"C59F40", width:1.5} });
             if (c.spot.learnerProfile.filter(Boolean).length)
               s.addText("IB Learner Profile: " + c.spot.learnerProfile.filter(Boolean).join(", "), { x:1.4, y:5.9, w:c.W-2.8, h:0.4, fontSize:13, italic:true, color:c.muted, fontFace:c.bFont });
@@ -2386,17 +2381,17 @@ function App() {
             // bold caps + subtle halftone + the speech-bubble meta chip. (pptxgenjs `line` on text
             // draws a BOX around the frame, not a glyph outline, so the headline stays unoutlined.)
             s.addText(c.tCase(c.spot.hook || c.spot.title), { x:0.7, y:1.3, w:c.W-1.6, h:3.5, fontSize:46, bold:true, color:"4F2759", valign:"middle", fontFace:c.tFont, charSpacing:-0.5 });
-            s.addShape(c.pptx.ShapeType.roundRect, { x:0.7, y:5.6, w:6.0, h:0.7, fill:{color:"FFFFFF"}, line:{color:"1A1320", width:2.5}, rectRadius:0.35 });
+            s.addShape(c.pptx.ShapeType.roundRect, { x:0.7, y:5.6, w:6.0, h:0.7, fill:{color:"FFFFFF"}, line:{color:"000000", width:2.5}, rectRadius:0.35 });
             s.addText(`${c.bandLabel}${c.year?" · "+c.year:""}  ·  ${c.theme}`, { x:0.7, y:5.6, w:6.0, h:0.7, fontSize:13, bold:true, color:"4F2759", align:"center", valign:"middle", fontFace:c.bFont });
           },
           provChrome(s, c, idx, reelLen) {
-            s.addText((reelLen>1?` PROVOCATION ${idx+1}/${reelLen} `:" PROVOCATION "), { x:0.8, y:0.5, w:3.2, h:0.4, fontSize:11, bold:true, color:"FFFFFF", fill:{color:"4F2759"}, line:{color:"1A1320", width:2}, align:"center", fontFace:c.tFont });
+            s.addText((reelLen>1?` PROVOCATION ${idx+1}/${reelLen} `:" PROVOCATION "), { x:0.8, y:0.5, w:3.2, h:0.4, fontSize:11, bold:true, color:"FFFFFF", fill:{color:"4F2759"}, line:{color:"000000", width:2}, align:"center", fontFace:c.tFont });
             s.addText(c.spot.framing, { x:0.8, y:1.05, w:c.W-1.6, h:0.7, fontSize:22, bold:true, color:c.ink, fontFace:c.tFont });
           },
           takeaway(s, c) {
             // The amber field + halftone now come from newSlide (takeawayBg override + texture
             // hook), so the Wesley footer band + crest survive. Skin only draws the speech card.
-            s.addShape(c.pptx.ShapeType.roundRect, { x:1.2, y:1.9, w:c.W-2.4, h:3.2, fill:{color:"FFFFFF"}, line:{color:"1A1320", width:3}, rectRadius:0.3 });
+            s.addShape(c.pptx.ShapeType.roundRect, { x:1.2, y:1.9, w:c.W-2.4, h:3.2, fill:{color:"FFFFFF"}, line:{color:"000000", width:3}, rectRadius:0.3 });
             s.addText(c.tCase("Your key takeaway"), { x:1.6, y:2.1, w:c.W-3.2, h:0.4, fontSize:13, bold:true, color:"4F2759", fontFace:c.tFont, charSpacing:1 });
             s.addText((c.spot.studentAction || "—") + "!", { x:1.6, y:2.6, w:c.W-3.2, h:2.0, fontSize:26, bold:true, color:"4F2759", valign:"middle", fontFace:c.tFont, fit:"shrink" });
           },
@@ -2452,7 +2447,7 @@ function App() {
       /* Advisory slide (slide 1) — unmistakable CONTENT WARNING, identical across all deck styles. */
       if (showAdv) {
         n++;
-        const ADV_BG = "1A1320", ADV_INK = "F7F2EA", ADV_GOLD = "E4D1A1", ADV_AMBER = "E8A33D";
+        const ADV_BG = "000000", ADV_INK = "F7F2EA", ADV_GOLD = "E4D1A1", ADV_AMBER = "E8A33D";
         // Fixed Wesley brand fonts (not the per-style tFont/bFont) so the advisory
         // reads identically across all deck styles.
         const ADV_DISPLAY = "Avenir Black", ADV_BODY = "Graphik";
