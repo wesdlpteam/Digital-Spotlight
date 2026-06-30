@@ -680,30 +680,30 @@ const STYLES = {
   },
   cyberpunk: {
     key:"cyberpunk", label:"Cyberpunk", layout:"cyberpunk", upper:true,
-    texture:{ kind:"grain", color:"#E4D1A1", alpha:0.12 },
-    blurb:"Near-black aubergine with gold neon glow and a cinematic frame. Immersive.",
+    texture:{ kind:"grain", color:"#C59F40", alpha:0.10 },
+    blurb:"Near-black with a restrained gold edge and a cinematic frame. Immersive.",
     fonts:{ display:"Arial", body:"Arial", mono:"Consolas" },
-    palette:{ // body E9DCF0 on 160B1A ~13:1; gold E4D1A1 on 160B1A ~10:1 — AA pass
-      titleBg:"160B1A", titleInk:"FFFFFF", titleSub:"E4D1A1", titleFoot:"BBA9C8", titleKick:"E4D1A1",
-      contentBg:"160B1A", ink:"E9DCF0", muted:"A99BB0",
-      accent:"E4D1A1", accent2:"C59F40", bar:"C59F40", cardBg:null, cardInk:"E4D1A1" },
+    palette:{ // white on 2B281F ~15:1; gold C59F40 on 2B281F ~5.8:1 — AA pass
+      titleBg:"2B281F", titleInk:"FFFFFF", titleSub:"E4D1A1", titleFoot:"C9B7D6", titleKick:"C59F40",
+      contentBg:"2B281F", ink:"FFFFFF", muted:"DAD7D1",
+      accent:"C59F40", accent2:"C59F40", bar:"C59F40", cardBg:null, cardInk:"C59F40" },
   },
   brutalist: {
     key:"brutalist", label:"Neo-Brutalist", layout:"brutalist", upper:true, texture:null,
     blurb:"Thick black borders, hard offset shadows and flat purple/gold blocks. Bold.",
     fonts:{ display:"Arial", body:"Arial", mono:"Consolas" },
-    palette:{ // black 1A1320 on F4EEF8 ~16:1; white on 4F2759 ~9:1 — AA pass
-      titleBg:"F4EEF8", titleInk:"1A1320", titleSub:"3D1D45", titleFoot:"574F63", titleKick:"E4D1A1",
-      contentBg:"FFFFFF", ink:"1A1320", muted:"574F63",
-      accent:"4F2759", accent2:"C59F40", bar:"1A1320", cardBg:"4F2759", cardInk:"FFFFFF" },
+    palette:{ // black 000000 on white 21:1; white on 4F2759 ~9:1; gold-ink 6A5018 on white ~6:1 — AA pass
+      titleBg:"FFFFFF", titleInk:"000000", titleSub:"3D1D45", titleFoot:"574F63", titleKick:"6A5018",
+      contentBg:"FFFFFF", ink:"000000", muted:"574F63",
+      accent:"4F2759", accent2:"C59F40", bar:"000000", cardBg:"4F2759", cardInk:"FFFFFF" },
   },
   editorial: {
     key:"editorial", label:"Editorial", layout:"editorial", upper:false, texture:null,
-    blurb:"A light editorial cover in ivory with serif headlines and a pull-quote takeaway.",
-    fonts:{ display:"Georgia", body:"Arial", mono:"Consolas" },
-    palette:{ // purple 4F2759 on FBF7EE ~9:1; gold-ink 6A5018 on FBF7EE ~5:1 — AA pass
-      titleBg:"FBF7EE", titleInk:"4F2759", titleSub:"574F63", titleFoot:"6A5018", titleKick:"6A5018",
-      contentBg:"FBF7EE", ink:"2B2536", muted:"574F63",
+    blurb:"A light editorial cover in soft neutral with clean headlines and a pull-quote takeaway.",
+    fonts:{ display:"Arial", body:"Arial", mono:"Consolas" },
+    palette:{ // purple 4F2759 on EFEDED ~8:1; gold-ink 6A5018 on EFEDED ~5:1 — AA pass
+      titleBg:"EFEDED", titleInk:"4F2759", titleSub:"574F63", titleFoot:"6A5018", titleKick:"6A5018",
+      contentBg:"FFFFFF", ink:"2B2536", muted:"574F63",
       accent:"4F2759", accent2:"C59F40", bar:"C59F40", cardBg:null, cardInk:"4F2759" },
   },
   popart: {
@@ -711,30 +711,30 @@ const STYLES = {
     texture:{ kind:"halftone", color:"#4F2759", alpha:0.12, dot:22 },
     blurb:"Bold caps on a subtle Ben-Day halftone with a speech-bubble takeaway. Punchy but clean.",
     fonts:{ display:"Arial", body:"Arial", mono:"Consolas" },
-    palette:{ // purple 4F2759 / black 1A1320 on light — AA pass; text sits on solid panels
-      titleBg:"F4EEF8", titleInk:"4F2759", titleSub:"1A1320", titleFoot:"574F63", titleKick:"4F2759",
-      contentBg:"FFFFFF", ink:"1A1320", muted:"574F63",
-      accent:"4F2759", accent2:"C59F40", bar:"1A1320", cardBg:"FFFFFF", cardInk:"4F2759",
-      burst:"E83534", takeawayBg:"FFEDBC", border:"1A1320" },
+    palette:{ // purple 4F2759 / ink 2B2536 on white — AA pass; gold burst, black borders
+      titleBg:"FFFFFF", titleInk:"4F2759", titleSub:"2B2536", titleFoot:"574F63", titleKick:"4F2759",
+      contentBg:"FFFFFF", ink:"2B2536", muted:"574F63",
+      accent:"4F2759", accent2:"C59F40", bar:"000000", cardBg:"FFFFFF", cardInk:"4F2759",
+      burst:"C59F40", takeawayBg:"E4D1A1", border:"000000" },
   },
   layered: {
     key:"layered", label:"Layered Memory", layout:"layered", upper:false, texture:null,
-    blurb:"A scrapbook on charcoal — cream paper, tape and a serif headline. Warm and personal.",
-    fonts:{ display:"Georgia", body:"Arial", mono:"Consolas", script:"Brush Script MT" },
-    palette:{ // dark 2B2536 on cream F5F1E8 ~12:1; cream F5F1E8 on charcoal 211C29 ~14:1 — AA pass
-      titleBg:"211C29", titleInk:"F5F1E8", titleSub:"C9C2B8", titleFoot:"9C9488", titleKick:"C59F40",
-      contentBg:"F5F1E8", ink:"2B2536", muted:"574F63",
-      accent:"4F2759", accent2:"C59F40", bar:"C59F40", cardBg:"F5F1E8", cardInk:"2B2536",
-      paper:"F5F1E8", paperInk:"2B2536", tape:"E4D1A1", spiral:"3A3340" },
+    blurb:"A scrapbook on near-black — neutral paper, gold tape and overlapping notes. Warm and personal.",
+    fonts:{ display:"Arial", body:"Arial", mono:"Consolas", script:"Arial" },
+    palette:{ // white on 2B281F ~15:1; ink 2B2536 on neutral E6E2DD ~11:1 — AA pass
+      titleBg:"2B281F", titleInk:"FFFFFF", titleSub:"DAD7D1", titleFoot:"C9B7D6", titleKick:"C59F40",
+      contentBg:"E6E2DD", ink:"2B2536", muted:"574F63",
+      accent:"4F2759", accent2:"C59F40", bar:"C59F40", cardBg:"FFFFFF", cardInk:"2B2536",
+      paper:"E6E2DD", paperInk:"2B2536", tape:"E4D1A1", spiral:"2B281F" },
   },
   retro: {
     key:"retro", label:"Retro Decode", layout:"retro", upper:true,
     texture:{ kind:"grain", color:"#4F2759", alpha:0.10 },
-    blurb:"Grainy risograph paper with bold condensed caps and a gold squiggle. Punchy retro-print.",
-    fonts:{ display:"Impact", body:"Arial", mono:"Consolas", script:"Brush Script MT" },
-    palette:{ // purple 4F2759 on F1EEE4 ~8:1; gold-ink 6A5018 on F1EEE4 ~5:1 — AA pass
-      titleBg:"F1EEE4", titleInk:"4F2759", titleSub:"574F63", titleFoot:"6A5018", titleKick:"C59F40",
-      contentBg:"F1EEE4", ink:"4F2759", muted:"574F63",
+    blurb:"Grainy risograph paper in neutral and purple with bold caps and a gold squiggle. Punchy retro-print.",
+    fonts:{ display:"Arial Black", body:"Arial", mono:"Consolas", script:"Arial" },
+    palette:{ // purple 4F2759 on E6E2DD ~7:1; gold-ink 6A5018 on E6E2DD ~5:1 — AA pass
+      titleBg:"E6E2DD", titleInk:"4F2759", titleSub:"574F63", titleFoot:"6A5018", titleKick:"6A5018",
+      contentBg:"FFFFFF", ink:"2B2536", muted:"574F63",
       accent:"4F2759", accent2:"C59F40", bar:"4F2759", cardBg:"FFFFFF", cardInk:"4F2759" },
   },
 };

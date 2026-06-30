@@ -12,13 +12,17 @@ colors:
   secondary: "#C59F40"        # Wesley Gold
   secondary-ink: "#6A5018"    # readable gold for text on light (AA on gold-soft)
   gold-soft: "#E4D1A1"        # Wesley Light Gold — emphasis wash
-  # Neutrals (Wesley Tertiary)
+  # Neutrals (Wesley Tertiary) — incl. deck-theme surfaces (pages 21/23)
+  black: "#000000"            # Wesley Primary black — brutalist/popart ink + bars
   ink: "#2B2536"
+  near-black: "#2B281F"       # Wesley Tertiary neutral (warm) — cyberpunk/layered dark surface
   muted: "#574F63"            # darkened from #6B6478 for AA at small sizes
   line: "#E7E1EF"
   surface-bg: "#F6F2FB"
   panel: "#FFFFFF"
-  beige: "#E6E2DD"            # Wesley Tertiary neutral wash
+  neutral-100: "#EFEDED"      # Wesley Tertiary neutral — editorial paper surface
+  beige: "#E6E2DD"            # Wesley Tertiary neutral wash — layered/retro paper surface
+  neutral-300: "#DAD7D1"      # Wesley Tertiary neutral — muted text on dark deck surfaces
   # Semantic states — Wesley Tertiary "Interface" traffic-light + Highlighter bg + AA-verified ink
   success: "#58C337"          # Interface green
   success-bg: "#CFE9D3"       # Highlighter green
