@@ -1749,7 +1749,7 @@ function App() {
   }
   function removeTheme(name) {
     if (themeList.length <= 1) { setThemeMsg("Keep at least one theme."); return; }
-    applyThemes(themeList.filter(t => t !== name));
+    applyThemes(themeList.filter(t => t.toLowerCase() !== name.toLowerCase()));
     setThemeMsg("");
   }
 
