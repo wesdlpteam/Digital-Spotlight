@@ -528,7 +528,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v1.10.0 · 2026-07-01";
+const APP_VERSION = "v1.10.1 · 2026-07-01";
 
 // Closed theme taxonomy — every spotlight (and the "Suggest" button) must resolve
 // to exactly one of these so the SharePoint "Theme" column stays a tidy, filterable
@@ -2859,7 +2859,7 @@ function App() {
                 </span>
               )}
             </div>
-            {editThemes && <div className="hint">Themes are shared with teachers who connect a SharePoint folder. A brand-new theme must also be added once to the SharePoint "Theme" column for it to be stored as itself in saved-deck metadata.</div>}
+            {editThemes && <div className="hint">Themes are shared with teachers who connect a SharePoint folder.</div>}
             {themeMsg && <div className="hint" style={{ color: "var(--bad-ink)" }}>{themeMsg}</div>}
             <div className="hint">Type any theme, tap a preset above, or <b>Suggest</b> one from your stimulus.</div>
           </div>
