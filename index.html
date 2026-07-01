@@ -1781,6 +1781,7 @@ function App() {
   }
   // On connect/load: if themes.json exists, adopt it (cache only); if absent, seed it.
   async function syncThemesFromFolder() {
+    if (!fsSupported) return;
     const h = await pickThemesFolder(folderHandle, lessonsHandle);
     if (!h) return;
     const arr = await readThemesFile(h);
