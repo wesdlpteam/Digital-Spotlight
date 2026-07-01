@@ -650,6 +650,28 @@ async function putVideoToSharePoint(dirHandle, file) {
   return { url, savedName };
 }
 
+// Shared theme list lives as themes.json in the connected SharePoint folder so all
+// teachers who connect the same library see the same presets (OneDrive sync;
+// last-write-wins). Reads are tolerant: any error/absent/malformed -> null.
+const THEMES_FILE = "themes.json";
+async function readThemesFile(dirHandle) {
+  try {
+    const fh = await dirHandle.getFileHandle(THEMES_FILE); // no create -> throws if absent
+    const text = await (await fh.getFile()).text();
+    const data = JSON.parse(text);
+    const arr = Array.isArray(data) ? data : (data && Array.isArray(data.themes) ? data.themes : null);
+    if (!arr) return null;
+    const clean = normalizeThemes(arr);
+    return clean.length ? clean : null;
+  } catch (_) { return null; }
+}
+async function writeThemesFile(dirHandle, themes) {
+  const fh = await dirHandle.getFileHandle(THEMES_FILE, { create: true });
+  const w = await fh.createWritable();
+  await w.write(JSON.stringify({ version: 1, themes, updated: new Date().toISOString() }, null, 2));
+  await w.close();
+}
+
 const BAND_GUIDANCE = {
   PYP:    "Audience: IB PYP (Prep–Year 6). Use concrete, simple, inquiry-based language. Short warm sentences. Centre noticing and wondering; avoid abstraction and jargon.",
   Middle: "Audience: Middle school (Years 7–9). Use analytical language grounded in real, relatable scenarios and their consequences. Ask students to weigh causes, effects and choices.",
@@ -1730,14 +1752,40 @@ function App() {
     idbLoadHandle("media").then(async h => { if (h) { setFolderHandle(h); setFolderName(h.name || "folder"); setFolderReady(await folderWritable(h)); } });
     idbLoadHandle("lessons").then(async h => { if (h) { setLessonsHandle(h); setLessonsName(h.name || "folder"); setLessonsReady(await folderWritable(h)); } });
   }, []);
+  // Whenever a folder becomes available (restored on load, or freshly connected), adopt
+  // its shared themes.json (or seed it). Deps don't change inside the effect, so no loop.
+  React.useEffect(() => { syncThemesFromFolder(); }, [folderHandle, lessonsHandle]);
   // Single place that mutates the theme list: normalize -> live THEMES -> state -> cache.
   // (writeFile is wired to themes.json in Task 3.)
   function applyThemes(next, writeFile = true) {
     const clean = normalizeThemes(next);
-    if (!clean.length) return;            // never wipe the list to empty
-    THEMES = clean;                       // module-level; AI/prompt/snap fns read this at call-time
+    if (!clean.length) return;
+    THEMES = clean;
     setThemeList(clean);
     saveCachedThemes(clean);
+    if (writeFile) {
+      (async () => {
+        try {
+          const h = await pickThemesFolder(folderHandle, lessonsHandle);
+          if (h) await writeThemesFile(h, clean);
+        } catch (_) { setMediaNote("Couldn't save the shared theme list — your changes are saved in this browser."); }
+      })();
+    }
+  }
+  // Prefer writable Media folder, then Lessons; returns null if neither is writable.
+  // Defined inside the component so it can call the component-scoped folderWritable().
+  async function pickThemesFolder(mediaH, lessonsH) {
+    if (mediaH && await folderWritable(mediaH)) return mediaH;
+    if (lessonsH && await folderWritable(lessonsH)) return lessonsH;
+    return null;
+  }
+  // On connect/load: if themes.json exists, adopt it (cache only); if absent, seed it.
+  async function syncThemesFromFolder() {
+    const h = await pickThemesFolder(folderHandle, lessonsHandle);
+    if (!h) return;
+    const arr = await readThemesFile(h);
+    if (arr) applyThemes(arr, false);      // adopt the shared list (cache only; don't rewrite)
+    else { try { await writeThemesFile(h, THEMES); } catch (_) {} } // seed file from current list
   }
   function addTheme() {
     const name = newTheme.replace(/\s+/g, " ").trim();
