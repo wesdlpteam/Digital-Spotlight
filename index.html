@@ -528,7 +528,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v1.10.1 · 2026-07-01";
+const APP_VERSION = "v1.11.0 · 2026-07-03";
 
 // Closed theme taxonomy — every spotlight (and the "Suggest" button) must resolve
 // to exactly one of these so the SharePoint "Theme" column stays a tidy, filterable
@@ -683,39 +683,44 @@ const BAND_GUIDANCE = {
 // so they fit a 5-minute conversation. The model picks ONE per Spotlight.
 const ROUTINES = {
   PYP: [
-    { name: "See–Think–Wonder", moves: "Quick talk in pairs then share: What do you see? What do you think is going on? What does it make you wonder?" },
-    { name: "Think–Pair–Share", moves: "Think for a moment, talk it over with a partner, then share with the class." },
-    { name: "Zoom In", moves: "Show only part — talk about what you notice and predict; reveal more and talk about how your thinking changed." },
-    { name: "The 3 Y's", moves: "Talk it through: Why might this matter to me? To people I know? To the world?" },
-    { name: "Think–Puzzle–Explore", moves: "Talk together: What do you think you know about this? What questions or puzzles do you have? How could we find out more?" },
+    { name: "See, Think, Wonder", moves: "Quick talk in pairs then share: What do you see? What do you think is going on? What does it make you wonder?" },
+    { name: "Think, Pair, Share", moves: "Think for a moment, talk it over with a partner, then share with the class." },
+    { name: "The Explanation Game", moves: "Point out something interesting: What do you notice about it? Why do you think it is that way? Offer possible explanations together." },
+    { name: "What Makes You Say That?", moves: "Friendly back-and-forth: What's going on here? What do you see that makes you say that?" },
+    { name: "The 3 Whys", moves: "Talk it through: Why might this matter to me? To people I know? To the world?" },
+    { name: "Think, Puzzle, Explore", moves: "Talk together: What do you think you know about this? What questions or puzzles do you have? How could we find out more?" },
     { name: "I Used to Think… Now I Think…", moves: "Say it aloud: 'I used to think…' then 'now I think…' — and tell a partner what changed your mind." },
     { name: "Headlines", moves: "In pairs, say a one-sentence headline that captures the most important thing here, then share a few aloud." },
     { name: "Looking: Ten Times Two", moves: "Look quietly for a moment, then call out words or phrases you notice; look again and add more you missed the first time." },
     { name: "See, Think, Me, We", moves: "Talk it through: What do you notice? (See) What do you think? (Think) How does it connect to you? (Me) How does it connect to all of us? (We)" },
   ],
   Middle: [
-    { name: "Think–Pair–Share", moves: "Think briefly, talk it through with a partner, then share out to the group." },
-    { name: "Connect–Extend–Challenge", moves: "Discuss: How does this connect to what you knew? What extends your thinking? What's challenging or puzzling?" },
+    { name: "Think, Pair, Share", moves: "Think briefly, talk it through with a partner, then share out to the group." },
+    { name: "Connect, Extend, Challenge", moves: "Discuss: How does this connect to what you knew? What extends your thinking? What's challenging or puzzling?" },
     { name: "What Makes You Say That?", moves: "Rapid back-and-forth: What's going on here? What makes you say that?" },
     { name: "Compass Points", moves: "Talk around the compass: what Excites you, what Worries you, what you Need to know, where you Stand." },
-    { name: "Claim–Support–Question", moves: "Make a claim about this issue, give support (what you see, know or feel), then raise a question it leaves you with." },
-    { name: "Think–Feel–Care", moves: "Pick a person in this situation and speak for them: how do they think about it, how do they feel, and what do they care about?" },
+    { name: "Claim, Support, Question", moves: "Make a claim about this issue, give support (what you see, know or feel), then raise a question it leaves you with." },
+    { name: "Tug for Truth", moves: "Take a claim this raises and tug both ways: what evidence pulls it toward true? What pulls it toward doubtful? Where does the rope sit now?" },
+    { name: "Red Light, Yellow Light", moves: "Hunt for signals: what here makes you stop and doubt it (red light)? What makes you slow down and want to check (yellow light)? Share your flags and why." },
+    { name: "Parts, Purposes, Complexities", moves: "Talk it through: what are its parts? What is each part for? Where does it get complicated, tricky or raise questions?" },
+    { name: "Think, Feel, Care", moves: "Pick a person in this situation and speak for them: how do they think about it, how do they feel, and what do they care about?" },
     { name: "Headlines", moves: "In pairs, agree the headline that captures what matters most here; share a few and discuss what was left out." },
-    { name: "Think–Puzzle–Explore", moves: "Talk it through: what do you think you know, what puzzles you, and how could you explore it further?" },
     { name: "See, Think, Me, We", moves: "In pairs then share: what do you See, what do you Think, how does it connect to Me (you personally), and what does it mean for We (all of us and the wider world)?" },
-    { name: "Sentence–Phrase–Word", moves: "Each pick a Sentence that felt important, a Phrase that grabbed you, and a Word that captured the core — share them and discuss what your choices reveal." },
+    { name: "Word-Phrase-Sentence", moves: "Each pick a Word that captured the core, a Phrase that grabbed you, and a Sentence that felt important — share them and discuss what your choices reveal." },
   ],
   Senior: [
-    { name: "Tug-of-War", moves: "Quick debate: name the strongest pulls on each side of the dilemma, then say where you stand and why." },
+    { name: "Tug of War", moves: "Quick debate: name the strongest pulls on each side of the dilemma, then say where you stand and why." },
     { name: "Take a Stand", moves: "Place yourself on a spectrum of opinion, argue your position aloud, listen to others, then reconsider." },
     { name: "Circle of Viewpoints", moves: "Each person speaks from a different stakeholder's viewpoint: I think… from the point of view of… I wonder…" },
     { name: "Step Inside", moves: "Speak aloud as a stakeholder: what do they perceive, feel, want, and risk?" },
-    { name: "Claim–Support–Question", moves: "Make a claim or interpretation, marshal your support, then pose the sharpest question it raises." },
-    { name: "Think–Feel–Care", moves: "Take one stakeholder's position in the system: how do they understand it, how do they feel, and what do they prioritise?" },
+    { name: "Claim, Support, Question", moves: "Make a claim or interpretation, marshal your support, then pose the sharpest question it raises." },
+    { name: "True for Who?", moves: "Interrogate the claim: who would call this true, who would push back, and how does the vantage point change what 'true' means here?" },
+    { name: "Unveiling Stories", moves: "Peel the layers in discussion: the visible story, the untold story, the human story, the world story — and the new story we should tell." },
+    { name: "Parts, People, Interactions", moves: "Map the system aloud: what are its parts, who are the people connected to it, and how do they interact — where could one small change ripple?" },
+    { name: "Values, Identities, Actions", moves: "Discuss: what values does this evoke or challenge, whose identities does it speak to (or leave out), and what actions does it invite us to take?" },
     { name: "Imagine If…", moves: "Treat this technology or system as redesignable: how could it be more effective, more ethical, or fairer? Argue the trade-offs." },
     { name: "Compass Points", moves: "Talk around the compass: Excitements, Worries, what you Need to know, and where you Stand on the issue." },
-    { name: "See, Think, Me, We", moves: "Discuss in turn: See (close observation), Think (interpretation), Me (your personal stake), We (what it means for society and our shared digital world)." },
-    { name: "Sentence–Phrase–Word", moves: "Each choose a Sentence that captured a core idea, a Phrase that struck you, and a Word that resonated — share and debate what the group's choices say about what matters." },
+    { name: "Word-Phrase-Sentence", moves: "Each choose a Word that resonated, a Phrase that struck you, and a Sentence that captured a core idea — share and debate what the group's choices say about what matters." },
   ],
 };
 const ROUTINE_SOURCE = "Harvard Project Zero Thinking Routines · pz.harvard.edu/thinking-routines";
@@ -1367,7 +1372,7 @@ async function generateSpotlight({ apiKey, model, mode, band, year, theme, title
   const routineBlock = includesRoutine
     ? "\n" + (chosen
         ? `Use EXACTLY this Harvard Project Zero thinking routine — do not pick another: "${chosen.name}" — ${chosen.moves} Build "routineIntro" and the steps around it as LOOSE INSPIRATION (capture its spirit, but DON'T mechanically echo its exact wording). Write genuinely engaging, provocative discussion prompts that maximise intrigue and debate for the band.`
-        : `Choose the SINGLE MOST EFFECTIVE routine from this Harvard Project Zero list for THIS specific stimulus — do the analysis in "routineRationale" first, then commit to it in "routineName". Different stimuli reward different thinking: an image or close-up rewards observation routines; a clear ethical dilemma rewards stance or stakeholder-viewpoint routines; a surprising claim or statistic rewards prediction or claim-testing routines; an open-ended scenario rewards wondering or connecting routines. Match the routine to where the real intrigue in this stimulus lives. Do NOT fall back on a familiar, all-purpose routine just because it can fit almost anything — Claim–Support–Question and Compass Points in particular are badly over-chosen. Pick Claim–Support–Question ONLY when the stimulus specifically rewards staking and testing an argument, and Compass Points ONLY when it rewards weighing mixed reactions to a dilemma; never as a safe default. If two routines seem to fit, prefer the one that is MORE specific to this stimulus's particular kind of thinking (observation, prediction, stakeholder perspective, reconsidering a belief) over the generic claim/issue routine. Once chosen, use the routine as LOOSE INSPIRATION only — capture its spirit, but DON'T mechanically echo its exact wording. Write genuinely engaging, provocative discussion prompts that maximise intrigue and debate for the band:\n${routineList}`)
+        : `Choose the SINGLE MOST EFFECTIVE routine from this Harvard Project Zero list for THIS specific stimulus — do the analysis in "routineRationale" first, then commit to it in "routineName". Different stimuli reward different thinking: an image or close-up rewards observation routines; a clear ethical dilemma rewards stance or stakeholder-viewpoint routines; a surprising claim or statistic rewards prediction or claim-testing routines; an open-ended scenario rewards wondering or connecting routines. Match the routine to where the real intrigue in this stimulus lives. Do NOT fall back on a familiar, all-purpose routine just because it can fit almost anything — Claim, Support, Question and Compass Points in particular are badly over-chosen. Pick Claim, Support, Question ONLY when the stimulus specifically rewards staking and testing an argument, and Compass Points ONLY when it rewards weighing mixed reactions to a dilemma; never as a safe default. If two routines seem to fit, prefer the one that is MORE specific to this stimulus's particular kind of thinking (observation, prediction, stakeholder perspective, reconsidering a belief) over the generic claim/issue routine. Once chosen, use the routine as LOOSE INSPIRATION only — capture its spirit, but DON'T mechanically echo its exact wording. Write genuinely engaging, provocative discussion prompts that maximise intrigue and debate for the band:\n${routineList}`)
       + `\nRules: this is a FAST 5-minute TALKING activity. Every step must be students DISCUSSING out loud (in pairs, small groups, or whole class) — never silent independent writing or solo work. Keep it to 2–3 short steps, each 1–2 minutes, and the step "minutes" MUST total 5 or less with time to spare. Prioritise quick, punchy prompts that get students talking immediately.`
     : "";
 
