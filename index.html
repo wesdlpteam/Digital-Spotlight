@@ -549,7 +549,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v1.12.0 · 2026-07-06";
+const APP_VERSION = "v1.12.1 · 2026-07-06";
 
 // Closed theme taxonomy — every spotlight (and the "Suggest" button) must resolve
 // to exactly one of these so the SharePoint "Theme" column stays a tidy, filterable
@@ -1049,153 +1049,6 @@ function normGuiding(arr) {
     : { q: stripMd((it && (it.question || it.q)) || ""), responses: stripMd((it && it.responses) || "") });
 }
 
-/* --------------------- Discovery: constants + pure helpers --------------------- */
-
-const DISCOVERY_CATEGORIES = [
-  { id: "general",       label: "General cyber safety" },
-  { id: "cyberbullying", label: "Cyberbullying & online conflict" },
-  { id: "ai",            label: "AI, deepfakes & chatbots" },
-  { id: "privacy",       label: "Privacy & personal data" },
-  { id: "scams",         label: "Scams, phishing & fraud" },
-  { id: "screentime",    label: "Screen time & digital wellbeing" },
-  { id: "misinfo",       label: "Misinformation & fake news" },
-  { id: "predators",     label: "Online predators & grooming" },
-  { id: "gaming",        label: "Gaming, in-app spending & loot boxes" },
-  { id: "trends",        label: "Social media trends & challenges" },
-  { id: "footprint",     label: "Digital footprint & online reputation" },
-  { id: "imageabuse",    label: "Image-based abuse / sextortion", seniorOnly: true },
-];
-
-const RESOURCE_DOMAINS = [
-  "esafety.gov.au", "thinkuknow.org.au", "accce.gov.au",
-  "commonsense.org", "beinternetawesome.withgoogle.com", "childnet.com",
-  "internetmatters.org", "saferinternet.org.uk",
-  "abc.net.au", "theconversation.com",
-];
-
-function availableCategories(band) {
-  return DISCOVERY_CATEGORIES.filter(c => !c.seniorOnly || band === "Senior");
-}
-
-// "2026-06" -> "June 2026"
-function monthLabel(ym) {
-  const [y, m] = String(ym || "").split("-").map(Number);
-  if (!y || !m) return String(ym || "");
-  return new Date(y, m - 1, 1).toLocaleString("en-AU", { month: "long", year: "numeric" });
-}
-
-function audienceStr(band, yearLevels) {
-  const label = (BANDS[band] && BANDS[band].label) || band;
-  return (yearLevels && yearLevels.length) ? `${yearLevels.join(", ")} (${label})` : label;
-}
-
-// Multi-band audience line: lists each selected band with its target year (if any).
-function audienceStrMulti(bands, yearsMap) {
-  return (bands || []).map(b => {
-    const y = yearsMap && yearsMap[b];
-    return y ? `${y} (${bandLabelOf(b)})` : bandLabelOf(b);
-  }).join("; ");
-}
-
-// Phase 1: broad event-spotting (no domain filter).
-function buildEventRequest({ model, band, yearLevels, month, categories }) {
-  const cats = categories.map(c => c.label).join(", ");
-  const when = monthLabel(month);
-  const prompt = [
-    `You are an expert in student online safety and digital citizenship.`,
-    `Use web search to find the 10 technology / online-safety issues that were MOST DISCUSSED and got the most public attention during ${when}, that are relevant and age-appropriate for these students: ${audienceStr(band, yearLevels)}.`,
-    `These students are in Australia. Prioritise AUSTRALIAN relevance: for government, policy, regulation, law-enforcement, school and online-safety-authority matters, focus on Australian decisions and context (e.g. the eSafety Commissioner, federal/state government, Australian schools and police, the under-16 social media age limit). For major technology and AI company developments (e.g. OpenAI, Google, Meta, Apple, TikTok, Snap), international news is appropriate and expected.`,
-    `Blend them across these topic categories: ${cats}.`,
-    `Order them most-discussed first.`,
-    `Return STRICT JSON only (no markdown, no code fences) of EXACTLY this shape:`,
-    `{ "issues": [ { "title": "short issue title", "whyNow": "one line on why it mattered in ${when}", "category": "one of: ${cats}", "theme": "the closest match from: ${THEMES.join(", ")}", "searchHint": "3-6 keywords to find a teaching resource about this issue" } ] }`,
-    `Use only information you actually found via web search. Return up to 10 issues.`,
-  ].join("\n");
-  return { model, tools: [{ type: "web_search" }], input: prompt };
-}
-
-// Phase 2: one batched call; prefer trusted cyber-safety/edu sites, news fallback.
-function buildResourceRequest({ model, issues, band, yearLevels, types }) {
-  const list = issues.map((it, i) => `${i + 1}. ${it.title} — ${it.searchHint || it.category || ""}`).join("\n");
-  const typeList = (types && types.length) ? types : ["article", "image", "video"];
-  const typeWord = typeList.map(t => t === "article" ? "an article/guide page" : t === "image" ? "an image or infographic" : "a video").join(", OR ");
-  const prompt = [
-    `For each student online-safety issue below, use web search to find ONE free, openly accessible teaching resource. The resource MUST be ${typeWord}.`,
-    `Audience: ${audienceStr(band, yearLevels)}.`,
-    `Check the Australian eSafety Commissioner (esafety.gov.au) FIRST for every issue — it has an extensive free library of classroom resources, guides, videos and infographics for students, so use it whenever it has something relevant. Next, other well-known cyber-safety / digital-citizenship organisations (ThinkUKnow, Common Sense, Be Internet Awesome, Childnet, Internet Matters, UK Safer Internet Centre). Only if none of these has a suitable free resource, fall back to a reputable FREE (non-paywalled) news source.`,
-    `Choose links that are RELIABLY ACCESSIBLE and easy to open in a browser. For article resources, prefer clean, readable guide/article pages and AVOID paywalled, login-required, JavaScript-only, or PDF-only pages. For images, give a direct image/infographic page. For videos, prefer a YouTube link (so a transcript can be pulled).`,
-    `Every resource MUST be free to access (no paywall, no login).`,
-    `Issues:\n${list}`,
-    `Return STRICT JSON only (no markdown, no code fences) of EXACTLY this shape:`,
-    `{ "resources": [ { "index": 1, "resourceType": "${typeList.join('" | "')}", "resourceTitle": "title", "resourceUrl": "the real URL you found", "resourceOrigin": "trusted" if from a cyber-safety/education organisation else "news", "source": "short source label e.g. eSafety", "blurb": "one line describing the resource" } ] }`,
-    `Each "resourceType" MUST be one of: ${typeList.join(", ")}. Include one object per issue, matched by its number in "index". Use only URLs you actually found via web search.`,
-  ].join("\n");
-  return { model, tools: [{ type: "web_search", filters: { allowed_domains: RESOURCE_DOMAINS } }], input: prompt };
-}
-
-// Responses API: pull concatenated assistant text + url_citation annotations.
-function extractResponseText(data) {
-  let text = "", annotations = [];
-  // Prefer the top-level shorthand when present; otherwise concatenate ALL
-  // message content blocks (multi-block responses must not be truncated).
-  const hasTop = !!(data && typeof data.output_text === "string" && data.output_text.trim());
-  if (hasTop) text = data.output_text;
-  const out = (data && Array.isArray(data.output)) ? data.output : [];
-  for (const item of out) {
-    if (item && item.type === "message" && Array.isArray(item.content)) {
-      for (const c of item.content) {
-        if (!hasTop && c && typeof c.text === "string") text += c.text;
-        if (c && Array.isArray(c.annotations)) annotations = annotations.concat(c.annotations);
-      }
-    }
-  }
-  return { text, annotations };
-}
-
-function normUrl(u) {
-  try { const x = new URL(u); return (x.host + x.pathname).replace(/\/+$/, "").toLowerCase(); }
-  catch (_) { return String(u || "").replace(/^https?:\/\//, "").replace(/\/+$/, "").toLowerCase(); }
-}
-
-function citationSet(annotations) {
-  const s = new Set();
-  (annotations || []).forEach(a => {
-    const u = a && (a.url || (a.url_citation && a.url_citation.url));
-    if (u) s.add(normUrl(u));
-  });
-  return s;
-}
-
-function urlInCitations(url, set) {
-  if (!url) return false;
-  const n = normUrl(url);
-  if (set.has(n)) return true;
-  for (const c of set) { if (c && (c.includes(n) || n.includes(c))) return true; }
-  return false;
-}
-
-// Join phase-1 issues with phase-2 resources by 1-based index; sanitise.
-function mergeIssuesAndResources(issues, resources) {
-  const byIndex = {};
-  (resources || []).forEach(r => { if (r && r.index != null) byIndex[Number(r.index)] = r; });
-  return (issues || []).slice(0, 10).map((it, i) => {
-    const r = byIndex[i + 1] || {};
-    const url = String(r.resourceUrl || "").trim();
-    return {
-      title: stripMd(it.title || ""),
-      whyNow: stripMd(it.whyNow || ""),
-      category: stripMd(it.category || ""),
-      theme: THEMES.includes(it.theme) ? it.theme : THEMES[0],
-      resourceType: ["article", "image", "video"].includes(r.resourceType) ? r.resourceType : "article",
-      resourceTitle: stripMd(r.resourceTitle || ""),
-      resourceUrl: url,
-      resourceOrigin: r.resourceOrigin === "trusted" ? "trusted" : (url ? "news" : ""),
-      source: stripMd(r.source || ""),
-      blurb: stripMd(r.blurb || ""),
-    };
-  });
-}
-
 // Shape a parsed model deck into the editable spotlight object, pitched per band.
 // Pure (uses only stripMd + ROUTINES, both module-level) so one Generate can build
 // one deck per selected band.
@@ -1250,29 +1103,6 @@ function advisoryThemeLine(cats) {
   return ordered.map(c => ADVISORY_CATEGORIES[c].theme).join(" · ");
 }
 
-function hostOf(u) { try { return new URL(u).host.toLowerCase(); } catch (_) { return ""; } }
-
-// Drop a card's resource (but keep the card) unless its URL is either really
-// cited OR on one of our trusted domains (phase 2 is already domain-restricted,
-// so a trusted-domain link is safe to keep even if the citation didn't echo it).
-function validateResourceUrls(cards, cset, trustedDomains) {
-  const trusted = trustedDomains || [];
-  return (cards || []).map(c => {
-    if (!c.resourceUrl) return c;
-    const h = hostOf(c.resourceUrl);
-    const ok = urlInCitations(c.resourceUrl, cset) || trusted.some(d => h === d || h.endsWith("." + d));
-    return ok ? c : { ...c, resourceUrl: "", resourceOrigin: "" };
-  });
-}
-
-// Expose pure helpers for console verification (harmless in production).
-window.DSS = { DISCOVERY_CATEGORIES, RESOURCE_DOMAINS, availableCategories, monthLabel,
-  audienceStr, buildEventRequest, buildResourceRequest, extractResponseText,
-  citationSet, urlInCitations, mergeIssuesAndResources, validateResourceUrls,
-  BANDS, BAND_ORDER, bandLabelOf, audienceStrMulti, shapeDeck, bandFileSlug,
-  videoFileToWav16k, transcribeMedia, injectOnlineVideos, VIDEO_MARK_PREFIX,
-  ADVISORY_CATEGORIES, advisoryThemeLine };
-
 const TRANSCRIBE_LIMIT = 25 * 1024 * 1024; // OpenAI audio endpoint per-file cap
 // Transcribe a video/audio File via OpenAI. Sends the file directly when small
 // enough; otherwise downsamples to 16 kHz mono WAV (and truncates very long clips).
@@ -1300,64 +1130,6 @@ async function transcribeMedia({ apiKey, file }) {
   }
   const text = (await resp.text()).trim();
   return { text, truncated };
-}
-
-/* --------------------- Discovery: API orchestration --------------------- */
-
-async function callResponses({ apiKey, body }) {
-  let lastErr;
-  // Retry once on a network-level failure ("Failed to fetch") or a 429 rate
-  // limit — the web_search tool is slower and occasionally throttled.
-  for (let attempt = 0; attempt < 2; attempt++) {
-    if (attempt) await new Promise(r => setTimeout(r, 1500));
-    let resp;
-    try {
-      resp = await fetch("https://api.openai.com/v1/responses", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + apiKey },
-        body: JSON.stringify(body),
-      });
-    } catch (e) {
-      // TypeError: Failed to fetch — connection blocked/dropped/CORS-masked.
-      lastErr = new Error("Couldn't reach OpenAI (" + (e.message || e) + "). Check your internet connection and try again; if it keeps happening the web search may be temporarily rate-limited.");
-      continue;
-    }
-    if (resp.status === 429) {
-      lastErr = new Error("OpenAI is rate-limiting these searches (429). Wait a few seconds and try again.");
-      continue;
-    }
-    if (!resp.ok) {
-      let detail = "";
-      try { detail = JSON.stringify((await resp.json()).error || {}, null, 2); }
-      catch (_) { detail = await resp.text().catch(() => ""); }
-      throw new Error(`OpenAI Responses API error (${resp.status}).\n${detail}`);
-    }
-    return resp.json();
-  }
-  throw lastErr;
-}
-
-async function discoverIssues({ apiKey, model, band, yearLevels, month, categories, types }) {
-  // Phase 1 — event spotting (broad).
-  const evData = await callResponses({ apiKey, body: buildEventRequest({ model, band, yearLevels, month, categories }) });
-  const evOut = extractResponseText(evData);
-  if (!evOut.text.trim()) throw new Error("Discovery returned an empty response (phase 1).");
-  let evParsed;
-  try { evParsed = parseJsonLoose(evOut.text); }
-  catch (perr) { const e = new Error("Could not parse the discovery response: " + perr.message); e._raw = evOut.text; throw e; }
-  const issues = Array.isArray(evParsed.issues) ? evParsed.issues.slice(0, 10) : [];
-  if (!issues.length) return { cards: [], raw: evOut.text };
-
-  // Phase 2 — resource attach (trusted-first, batched single call).
-  const rsData = await callResponses({ apiKey, body: buildResourceRequest({ model, issues, band, yearLevels, types }) });
-  const rsOut = extractResponseText(rsData);
-  let resources = [];
-  try { const p = parseJsonLoose(rsOut.text); resources = Array.isArray(p.resources) ? p.resources : []; }
-  catch (_) { resources = []; } // issues still shown without resources
-
-  const cset = citationSet(rsOut.annotations);
-  const cards = validateResourceUrls(mergeIssuesAndResources(issues, resources), cset, RESOURCE_DOMAINS);
-  return { cards, raw: evOut.text + "\n\n--- resources ---\n\n" + rsOut.text };
 }
 
 /* --------------------------- OpenAI call --------------------------- */
@@ -1751,20 +1523,6 @@ function App() {
   const [themeMsg, setThemeMsg] = useState("");
   const [design, setDesign] = useState("classic");
 
-  // discovery
-  const curMonth = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; })();
-  const [discoverYears, setDiscoverYears] = useState([]);     // [] = whole band
-  const [discoverMonth, setDiscoverMonth] = useState(curMonth);
-  const [discoverCats, setDiscoverCats] = useState([]);       // category ids
-  const [discoverTypes, setDiscoverTypes] = useState(["article", "image", "video"]); // resource types
-  const [discovering, setDiscovering] = useState(false);
-  const [discoverError, setDiscoverError] = useState("");
-  const [discoverCards, setDiscoverCards] = useState([]);
-  const [discoverRaw, setDiscoverRaw] = useState("");
-  const [showDiscoverModal, setShowDiscoverModal] = useState(false);
-  const [notice, setNotice] = useState(""); // soft, non-error handoff messages
-  const [preparing, setPreparing] = useState(false); // handoff stimulus loading
-
   // generation
   const [loading, setLoading] = useState(false);
   const [genProgress, setGenProgress] = useState(0); // 0-100, eased estimate while generating
@@ -2102,7 +1860,7 @@ function App() {
 
   /* ------- generate ------- */
   async function generate() {
-    if (preparing || regenSlide || loading) return; // a discovered stimulus is still loading, a slide regen is in flight, or a generate is already running
+    if (regenSlide || loading) return; // a slide regen is in flight, or a generate is already running
     setError(""); setRawDump("");
     if (!apiKey.trim()) { setError("Please paste your OpenAI API key first."); return; }
     if (mode === "media" && !media.length) { setError("Add at least one image or video first."); return; }
@@ -2166,7 +1924,7 @@ function App() {
 
   /* ------- regenerate a single slide (targeted, keeps the other slides) ------- */
   async function regenerateSlide(scope, routineChoiceArg) {
-    if (!spot || regenSlide || loading || preparing) return;
+    if (!spot || regenSlide || loading) return;
     if (!apiKey.trim()) { setError("Please paste your OpenAI API key first."); return; }
     setError(""); setRawDump("");
     setRegenSlide(scope);
@@ -2183,93 +1941,6 @@ function App() {
       if (err._raw) setRawDump(err._raw);
     } finally {
       setRegenSlide(null);
-    }
-  }
-
-  async function runDiscovery() {
-    setDiscoverError(""); setDiscoverCards([]); setDiscoverRaw("");
-    if (!apiKey.trim()) { setDiscoverError("Please paste your OpenAI API key first."); return; }
-    const dband = bands[0] || "PYP";
-    const cats = availableCategories(dband).filter(c => discoverCats.includes(c.id));
-    if (!cats.length) { setDiscoverError("Pick at least one topic."); return; }
-    if (!discoverTypes.length) { setDiscoverError("Pick at least one resource type (article, image, or video)."); return; }
-    setDiscovering(true);
-    try {
-      const { cards, raw } = await discoverIssues({
-        apiKey: apiKey.trim(), model, band: dband, yearLevels: discoverYears, month: discoverMonth, categories: cats, types: discoverTypes,
-      });
-      setDiscoverCards(cards); setDiscoverRaw(raw);
-      if (!cards.length) setDiscoverError(`No current issues found for ${monthLabel(discoverMonth)} — try a different month or topic.`);
-      else setShowDiscoverModal(true);
-    } catch (err) {
-      setDiscoverError(err.message || String(err));
-      if (err._raw) setDiscoverRaw(err._raw);
-    } finally {
-      setDiscovering(false);
-    }
-  }
-
-  async function useIssue(card) {
-    // Close the modal IMMEDIATELY and block Generate while the stimulus loads
-    // (the fetches below are async — Generate must wait for them to finish).
-    setShowDiscoverModal(false);
-    setError(""); setNotice("");
-    setPreparing(true);
-    if (genBtnRef.current) genBtnRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
-    try {
-      setTitle(card.title || "");
-      setTheme(THEMES.includes(card.theme) ? card.theme : THEMES[0]);
-      // single targeted year level -> set it; otherwise whole band
-      const cardBand = bands[0] || "PYP";
-      setBands([cardBand]);
-      setYears(y => ({ ...y, [cardBand]: (discoverYears.length === 1 && BANDS[cardBand].years.includes(discoverYears[0])) ? discoverYears[0] : "" }));
-
-      // A short brief built from the issue itself — always a valid stimulus, so a
-      // generation never dead-ends when the richer resource can't auto-load.
-      const seed = [card.title, card.whyNow, card.blurb].filter(Boolean).join(". ");
-      const imgQuery = card.category || card.title || theme;
-      // When falling back to the issue brief, also attach a relevant free image so
-      // the stimulus slide isn't bland.
-      const useBrief = async (msg) => {
-        setMode("article"); setMedia([]); setArticleText(seed); setNotice(msg);
-        setArticleImageUrl(await findRelevantImage(imgQuery));
-      };
-
-      const type = ["article", "image", "video"].includes(card.resourceType) ? card.resourceType : "article";
-      if (!card.resourceUrl) {
-        await useBrief(`Loaded "${card.title}" as the stimulus from the issue summary (no free resource was attached). Edit or replace it on the left, then Generate.`);
-      } else if (type === "image") {
-        setMode("media"); setMedia([]); setLink("");
-        let d = await urlToDataUrl(card.resourceUrl);
-        if (!d) { const alt = await findRelevantImage(imgQuery); if (alt) d = await urlToDataUrl(alt); } // fall back to a relevant free image
-        if (d) { const aspect = await imageAspect(d); setMedia([{ id: newId(), kind: "image", dataUrl: d, name: card.resourceTitle || "resource image", aspect }]); }
-        else await useBrief("Couldn't load an image for this one, so I loaded the issue summary instead — Generate, or add your own image on the left.");
-      } else if (type === "video") {
-        // A discovered video is an external URL only — no file, no frames.
-        // Route to article mode with the link (becomes a QR code) and the
-        // transcript as the generation stimulus if one can be fetched.
-        setMode("article"); setMedia([]); setLink(card.resourceUrl);
-        let gotTranscript = false;
-        if (/youtube\.com|youtu\.be/i.test(card.resourceUrl)) {
-          try {
-            const r = await fetch("https://r.jina.ai/" + card.resourceUrl);
-            if (r.ok) { const t = cleanArticleMarkdown(await r.text()); if (t.length > 80) { setArticleText(t); gotTranscript = true; } }
-          } catch (_) { /* leave blank; teacher pastes */ }
-        }
-        if (!gotTranscript) {
-          setArticleText(seed);
-          setNotice("Loaded the video link (it becomes a QR code). I couldn't pull a transcript, so I used the issue summary as the stimulus — paste a transcript into the text box to use the spoken content, or just Generate.");
-        } else {
-          setNotice("Loaded the video transcript as the stimulus. The link becomes a QR code on the slide — review and Generate when ready.");
-        }
-      } else {
-        setMode("article"); setMedia([]);
-        const { text, image } = await fetchArticleFromLink(card.resourceUrl);
-        if (!text) { setError(""); setArticleText(seed); setNotice("Couldn't auto-load the full article, so I loaded the issue summary as the stimulus. The link is on the left — click “Fetch text” to retry, or just Generate."); }
-        if (!image) setArticleImageUrl(await findRelevantImage(imgQuery)); // article had no picture — supply one
-      }
-    } finally {
-      setPreparing(false);
     }
   }
 
@@ -2291,7 +1962,7 @@ function App() {
   const barStyle = { background: hx(T.accent) };
   const RegenButton = ({ scope }) => (
     <button type="button" className="regen" title="Generate a different version of this slide"
-      disabled={!!regenSlide || loading || preparing}
+      disabled={!!regenSlide || loading}
       aria-busy={regenSlide === scope} aria-label="Regenerate this slide for different options"
       onClick={() => regenerateSlide(scope)}>
       {regenSlide === scope
@@ -2665,7 +2336,7 @@ function App() {
     <React.Fragment>
       <div className="cap" style={{ marginTop: 14 }}>Thinking routine <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0, color: "var(--muted)" }}>· {ROUTINE_SOURCE}</span></div>
       <div className="routine-pick">
-        <select aria-label="Choose the thinking routine" value={routineChoice} disabled={!!regenSlide || loading || preparing}
+        <select aria-label="Choose the thinking routine" value={routineChoice} disabled={!!regenSlide || loading}
           onChange={e => { setRoutineChoice(e.target.value); regenerateSlide("provocation", e.target.value); }}>
           <option value="">✨ Let AI choose the routine</option>
           {ROUTINES[band].map(r => <option key={r.name} value={r.name}>{r.name}</option>)}
@@ -2936,9 +2607,8 @@ function App() {
             <div className="hint">Type any theme, tap a preset above, or <b>Suggest</b> one from your stimulus.</div>
           </div>
 
-          <button className="btn primary" ref={genBtnRef} disabled={loading || preparing || !!regenSlide} aria-busy={loading || preparing} onClick={generate}>
+          <button className="btn primary" ref={genBtnRef} disabled={loading || !!regenSlide} aria-busy={loading} onClick={generate}>
             {loading ? <React.Fragment><ProgressRing value={genProgress} /> Generating… {Math.round(genProgress)}%</React.Fragment>
-              : preparing ? <React.Fragment><span className="spinner"></span> Preparing stimulus…</React.Fragment>
               : spot ? <React.Fragment><Icon d={I.refresh} size={16} stroke /> Regenerate</React.Fragment>
               : <React.Fragment><Icon d={I.generate} size={16} /> Generate Spotlight</React.Fragment>}
           </button>
@@ -2948,8 +2618,7 @@ function App() {
           {/* Screen-reader-only live status: announces the generation lifecycle (the
               visible cue is the button text/spinner; errors are announced via role=alert). */}
           <div className="sr-only" role="status" aria-live="polite">
-            {preparing ? "Preparing your stimulus, please wait."
-              : loading ? "Generating your Spotlight, this may take a moment."
+            {loading ? "Generating your Spotlight, this may take a moment."
               : regenSlide ? "Regenerating that section, please wait."
               : (spot && !error) ? "Your Spotlight is ready below."
               : ""}
