@@ -6,14 +6,14 @@
 <title>Digital Life Spotlight Generator</title>
 
 <!-- React + Babel (in-browser JSX, no build step) -->
-<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script crossorigin="anonymous" integrity="sha384-DGyLxAyjq0f9SPpVevD6IgztCFlnMF6oW/XQGmfe+IsZ8TqEiDrcHkMLKI6fiB/Z" src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script crossorigin="anonymous" integrity="sha384-gTGxhz21lVGYNMcdJOyq01Edg0jhn/c22nsx0kyqP0TxaV5WVdsSH1fSDUf5YJj1" src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script crossorigin="anonymous" integrity="sha384-fsMuX1qrlL2OwY1g8apML4JcSv2aYFaMXKQIjzX+OOveqSCCdmIMjwNQRoralXGe" src="https://unpkg.com/@babel/standalone@8.0.3/babel.min.js"></script>
 
 <!-- QR codes (qrcode-generator: exposes a global `qrcode` with synchronous createDataURL) -->
-<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script crossorigin="anonymous" integrity="sha384-8FWZA6BGMXhsfO+BLtrJK0We6gg5o1JyO8xQm6peWDEUs17ACA5ziE/NIAkl9z2k" src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <!-- JSZip: post-process the generated .pptx to inject SharePoint online-video markup -->
-<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script crossorigin="anonymous" integrity="sha384-+mbV2IY1Zk/X1p/nWllGySJSUN8uMs+gUAN10Or95UBH0fpj6GfKgPmgC5EXieXG" src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <!-- pptxgenjs (PowerPoint export, ~155KB) and pdf.js (PDF text extraction, ~73KB) are
      heavy and only needed on user action, so they're lazy-loaded on demand via
      loadScript() below — keeping ~228KB off the initial render path. -->
@@ -58,7 +58,7 @@
     --gold-soft: #e4d1a1;     /* Wesley Light Gold — emphasis wash */
 
     /* Semantic states — Wesley Interface "traffic-light" + Highlighter bg + AA-verified ink */
-    --good: #58c337; --good-bg: #cfe9d3; --good-ink: #636656;
+    --good: #58c337; --good-bg: #cfe9d3; --good-ink: #4d5142;
     --warn: #f0a54f; --warn-bg: #ffdab5; --warn-ink: #8a4b12;
     --bad:  #e83534; --bad-bg:  #fdafbd; --bad-ink:  #8f1d2e;
     --info: #7ca3ff; --info-bg: #cbdaff; --info-ink: #4242a1;
@@ -304,7 +304,7 @@
   .reel-arrow.left { left: 8px; } .reel-arrow.right { right: 8px; }
   .reel-arrow:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
   .reel-dots { display: flex; justify-content: center; gap: 6px; margin-top: 8px; }
-  .reel-dots .dot { width: 8px; height: 8px; border-radius: 999px; border: none; background: var(--line); cursor: pointer; padding: 0; }
+  .reel-dots .dot { width: 8px; height: 8px; border-radius: 999px; border: none; background: #b9afce; cursor: pointer; padding: 0; }
   .reel-dots .dot.on { background: var(--accent); }
   @media (prefers-reduced-motion: reduce) { .reel * { transition: none !important; } }
 
@@ -378,10 +378,11 @@ const { useState, useRef, useMemo } = React;
 /* ---- Lazy-load heavy CDN libs only when actually needed (export / PDF) ----
    Keeps them off the critical render path. Idempotent: each src loads at most once. */
 const _scriptCache = {};
-function loadScript(src) {
+function loadScript(src, integrity) {
   return _scriptCache[src] || (_scriptCache[src] = new Promise((resolve, reject) => {
     const s = document.createElement("script");
     s.src = src; s.async = true;
+    if (integrity) { s.integrity = integrity; s.crossOrigin = "anonymous"; }
     s.onload = () => resolve();
     s.onerror = () => { delete _scriptCache[src]; reject(new Error("Failed to load " + src)); };
     document.head.appendChild(s);
@@ -389,6 +390,8 @@ function loadScript(src) {
 }
 const PPTX_SRC = "https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js";
 const PDFJS_SRC = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+const PPTX_SRI = "sha384-Cck14aA9cifjYolcnjebXRfWGkz5ltHMBiG4px/j8GS+xQcb7OhNQWZYyWjQ+UwQ";
+const PDFJS_SRI = "sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e";
 
 // Canvas-generated slide textures (no external asset files). Returns a PNG data-URL sized to
 // the slide so pptxgenjs can addImage it as a full-bleed background layer.
@@ -483,7 +486,7 @@ function xmlEsc(s) {
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;").replace(/'/g, "&apos;");
 }
-async function stampDocProps(blob, props) {
+async function stampDocProps(blob, props, keywords) {
   const entries = Object.entries(props || {}).filter(([, v]) => v != null && String(v).length);
   if (!entries.length || typeof JSZip === "undefined") return blob;
   const zip = await JSZip.loadAsync(blob);
@@ -514,6 +517,24 @@ async function stampDocProps(blob, props) {
       `<Relationship Id="rIdCustomProps" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/custom-properties" Target="docProps/custom.xml"/></Relationships>`);
     zip.file(relPath, rels);
   }
+
+  // Office "Tags"/Keywords core property — SharePoint search indexes this so teachers
+  // can find a lesson by topic words. Inject <cp:keywords> into the existing core.xml.
+  const kws = Array.isArray(keywords) ? keywords.filter(Boolean) : [];
+  if (kws.length) {
+    const corePath = "docProps/core.xml";
+    const coreFile = zip.file(corePath);
+    if (coreFile) {
+      let core = await coreFile.async("string");
+      const kwXml = "<cp:keywords>" + xmlEsc(kws.join(", ")) + "</cp:keywords>";
+      if (core.indexOf("<cp:keywords>") === -1) {
+        core = core.replace("</cp:coreProperties>", kwXml + "</cp:coreProperties>");
+      } else {
+        core = core.replace(/<cp:keywords>[\s\S]*?<\/cp:keywords>/, kwXml);
+      }
+      zip.file(corePath, core);
+    }
+  }
   return await zip.generateAsync({ type: "blob" });
 }
 
@@ -528,7 +549,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v1.11.0 · 2026-07-03";
+const APP_VERSION = "v1.12.0 · 2026-07-06";
 
 // Closed theme taxonomy — every spotlight (and the "Suggest" button) must resolve
 // to exactly one of these so the SharePoint "Theme" column stays a tidy, filterable
@@ -562,7 +583,7 @@ const THEMES_STORE = "tsg-themes";
 function normalizeThemes(arr) {
   const out = [], seen = new Set();
   for (const raw of (Array.isArray(arr) ? arr : [])) {
-    const t = String(raw == null ? "" : raw).replace(/\s+/g, " ").trim();
+    const t = String(raw == null ? "" : raw).replace(/[^\p{L}\p{N} &'./+-]/gu, "").replace(/\s+/g, " ").trim();
     if (!t || t.length > 60) continue;
     const k = t.toLowerCase();
     if (seen.has(k)) continue;
@@ -629,6 +650,16 @@ async function idbSaveHandle(key, h) {
 async function idbLoadHandle(key) {
   const db = await idbOpen();
   return new Promise((res) => { const tx = db.transaction("handles", "readonly"); const g = tx.objectStore("handles").get(key); g.onsuccess = () => res(g.result || null); g.onerror = () => res(null); });
+}
+async function idbDeleteHandle(key) {
+  try {
+    const db = await idbOpen();
+    return await new Promise((res) => {
+      const tx = db.transaction("handles", "readwrite");
+      tx.objectStore("handles").delete(key);
+      tx.oncomplete = () => res(true); tx.onerror = () => res(false);
+    });
+  } catch (_) { return false; }
 }
 
 // Collision-proof filename for the SharePoint folder; keeps it URL/file-safe.
@@ -973,7 +1004,7 @@ async function findRelevantImage(query) {
 
 async function extractPdfText(file) {
   const buf = await file.arrayBuffer();
-  await loadScript(PDFJS_SRC);
+  await loadScript(PDFJS_SRC, PDFJS_SRI);
   const pdfjs = window.pdfjsLib;
   pdfjs.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
   const pdf = await pdfjs.getDocument({ data: buf }).promise;
@@ -1182,6 +1213,7 @@ function shapeDeck(parsed, { band, title }) {
     steps,
     guidingQuestions: normGuiding(parsed.guidingQuestions),
     studentAction: stripMd(parsed.studentAction || ""),
+    keywords: Array.isArray(parsed.keywords) ? parsed.keywords.map(k => stripMd(String(k))).map(s => s.trim().toLowerCase()).filter(Boolean).slice(0, 20) : [],
     learnerProfile: Array.isArray(parsed.learnerProfile) ? parsed.learnerProfile.map(stripMd) : [],
     contentAdvisory: (() => {
       const a = parsed.contentAdvisory || {};
@@ -1345,7 +1377,7 @@ async function generateSpotlight({ apiKey, model, mode, band, year, theme, title
     ? `"summary": ""`
     : `"summary": "string — EXACTLY 5 sentences. You have FULL creative licence: make it grab ${band} students instantly and bait discussion. Lead with the most surprising, relatable, or unsettling angle; use vivid concrete detail; speak to their world; end on a provocative note. Make the situation CONCRETE — clearly establish WHAT happened and the specifics students need to follow it; if the article is vague on an important detail, add brief, careful clarifying context so students aren't confused, but NEVER invent quotes, names, numbers, or events. Punchy, not bland, never a dry recap."`;
   const F = {
-    hook: `"hook": "string — a SHORT, catchy title for the slide: punchy and intriguing, MAX 6 words, NOT a full sentence or question and NOT a long statement. Think headline, not paragraph. Pitch it to the band. The real provocation belongs in the discussion steps, so keep this just a memorable, curiosity-sparking title."`,
+    hook: `"hook": "string — a SHORT, catchy slide title (MAX 6 words) that captures the SINGLE most striking, specific angle of THIS story — the concrete detail a student would stop scrolling for, not a vague topic label or theme word. A real headline, specific to what actually happened here. NOT a full sentence or question. Pitch it to the band. The provocation lives in the discussion steps, so keep this a memorable, curiosity-sparking title."`,
     title: `"title": "string — the spotlight title"`,
     summary: summaryField,
     framing: `"framing": "string — one short line telling students what to do, e.g. '${MODE_FRAMING[mode]}'"`,
@@ -1356,12 +1388,13 @@ async function generateSpotlight({ apiKey, model, mode, band, year, theme, title
     routineIntro: `"routineIntro": "string — one warm sentence introducing the routine to the class"`,
     steps: `"steps": [\n    { "name": "string — short step label", "minutes": 1, "prompt": "string — a punchy, provocative discussion prompt the teacher poses at this step", "responses": "string — 2 or 3 SHORT examples of what students at this band might actually say in response, so the teacher can anticipate the discussion (e.g. 'Some may say…; others might argue…')" }\n  ]`,
     guidingQuestions: `"guidingQuestions": [ { "question": "string — a guiding question the teacher can ask, pitched to the band", "responses": "string — 2 or 3 SHORT examples of how students at this band might actually answer it, so the teacher can anticipate the discussion (e.g. 'Some may say…; others might argue…')" } ]  — give 3 to 4 of these objects`,
-    studentAction: `"studentAction": "string — one concrete action or takeaway a student leaves with"`,
+    studentAction: `"studentAction": "string — ONE concrete action or genuine shift in thinking the student leaves with, drawn from the REAL heart of THIS story: the actual tension, choice, or consequence in the stimulus, not a generic safety platitude. It must connect directly to what made this stimulus matter and give the student something they could truly do or reconsider today. Plain, specific, memorable, pitched to the band — never preachy or a slogan."`,
+    keywords: `"keywords": ["8 to 15 short lowercase search terms a teacher might type to FIND this lesson later — the core topics, the real-world hook, and named things in the stimulus (apps, activities, e.g. music, gaming, TikTok, deepfakes), plus close synonyms. Concrete over abstract. For search only; never shown to students."]`,
     learnerProfile: `"learnerProfile": ["1 to 3 IB Learner Profile attributes that fit, e.g. 'Thinker', 'Principled', 'Caring'"]`,
     contentAdvisory: `"contentAdvisory": { "flag": true or false, "categories": [any of "sexual","confronting","self-harm","substance" that genuinely apply], "note": "string — if flag is true, ONE short, warm, plain-text line naming the sensitive themes, pitched to the band (gentler and simpler for PYP, more direct for Senior); empty string if flag is false" }`,
   };
   const SCOPES = {
-    all: ["hook", "title", "summary", "framing", "routineRationale", "routineName", "routineIntro", "steps", "guidingQuestions", "studentAction", "learnerProfile", "contentAdvisory"],
+    all: ["hook", "title", "summary", "framing", "routineRationale", "routineName", "routineIntro", "steps", "guidingQuestions", "studentAction", "keywords", "learnerProfile", "contentAdvisory"],
     title: ["hook", "title"],
     provocation: chosen ? ["routineName", "routineIntro", "steps", "guidingQuestions"] : ["routineRationale", "routineName", "routineIntro", "steps", "guidingQuestions"],
     takeaway: ["studentAction", "learnerProfile"],
@@ -1425,7 +1458,7 @@ Write every field in PLAIN TEXT — no markdown, no asterisks, no #, no backtick
       else (m.frames || []).forEach(fr => userContent.push({ type: "image_url", image_url: { url: fr } }));
     });
   } else {
-    const trimmed = (sourceText || "").slice(0, 12000);
+    const trimmed = (sourceText || "").slice(0, 12000).replace(/"{3,}/g, "“”");
     textParts.push(`The stimulus is the following article text. Build the spotlight from its real content, tied to the focus theme:\n\n"""\n${trimmed}\n"""`);
     userContent.push({ type: "text", text: textParts.join("\n") + "\n\n" + schema });
   }
@@ -1440,7 +1473,7 @@ Write every field in PLAIN TEXT — no markdown, no asterisks, no #, no backtick
         { role: "user", content: userContent },
       ],
       response_format: { type: "json_object" },
-      max_completion_tokens: 2000,
+      max_completion_tokens: 4000,
     }),
   });
 
@@ -1517,7 +1550,7 @@ async function suggestThemeFromStimulus({ apiKey, model, mode, media = [], sourc
       else (m.frames || []).forEach(fr => userContent.push({ type: "image_url", image_url: { url: fr } }));
     });
   } else {
-    userContent.push({ type: "text", text: ask + `\nStimulus:\n"""\n${(sourceText || "").slice(0, 8000)}\n"""` });
+    userContent.push({ type: "text", text: ask + `\nStimulus:\n"""\n${(sourceText || "").slice(0, 8000).replace(/"{3,}/g, "“”")}\n"""` });
   }
   const resp = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -1689,6 +1722,13 @@ function App() {
   // config — API key persists in this browser's localStorage (per user request)
   const [apiKey, setApiKey] = useState(() => { try { return localStorage.getItem(KEY_STORE) || ""; } catch (_) { return ""; } });
   const saveApiKey = (v) => { setApiKey(v); try { v ? localStorage.setItem(KEY_STORE, v) : localStorage.removeItem(KEY_STORE); } catch (_) {} };
+  async function forgetAll() {
+    saveApiKey("");
+    await idbDeleteHandle("media"); await idbDeleteHandle("lessons");
+    setFolderHandle(null); setFolderName(""); setFolderReady(false);
+    setLessonsHandle(null); setLessonsName(""); setLessonsReady(false);
+    setMediaNote("Forgotten from this browser: API key cleared and any SharePoint folders disconnected.");
+  }
   const [model, setModel] = useState("gpt-5.4");
 
   // inputs
@@ -1736,6 +1776,9 @@ function App() {
   const [error, setError] = useState("");
   const [rawDump, setRawDump] = useState("");
   const [spots, setSpots] = useState({});            // { [band]: deckObject }
+  const [exporting, setExporting] = useState(false); // PowerPoint download in flight (drives button disabled)
+  const [saving, setSaving] = useState(false);       // Save-to-SharePoint in flight (drives button disabled)
+  const busyRef = useRef({ exporting: false, saving: false }); // synchronous re-entrancy guard (beats same-tick double-clicks before React re-renders)
 
   // media reel
   const [extractingVideo, setExtractingVideo] = useState(false); // any video frame-extraction in flight
@@ -1856,11 +1899,14 @@ function App() {
   async function saveLessonToSharePoint() {
     if (!spot || !activeBand) return;
     if (!(await folderWritable(lessonsHandle))) { setLessonsReady(false); setMediaNote(lessonsHandle ? 'Click "Reconnect" on the Lessons folder to enable saving this session.' : "Connect a Lessons folder first to save to SharePoint."); return; }
+    if (busyRef.current.saving) return;
+    busyRef.current.saving = true;
+    setSaving(true);
     setLessonsReady(true);
     setMediaNote("Saving lesson to SharePoint Lessons…");
     try {
       const finalBlob = await buildDeckBlob(activeBand, spots[activeBand]);
-      if (!finalBlob) return;
+      if (!finalBlob) { setMediaNote("Couldn't build the PowerPoint to save — see the error above."); return; }
       const name = lessonFileName(spots[activeBand]);
       const fh = await lessonsHandle.getFileHandle(name, { create: true });
       const w = await fh.createWritable();
@@ -1869,12 +1915,16 @@ function App() {
       setMediaNote('Saved to SharePoint Lessons ✓  "' + name + '"');
     } catch (_) {
       setMediaNote("Couldn't save the lesson to SharePoint — try Reconnect on the Lessons folder.");
+    } finally {
+      busyRef.current.saving = false;
+      setSaving(false);
     }
   }
 
   const mediaInput = useRef(null);
   const pdfInput = useRef(null);
   const genBtnRef = useRef(null);
+  const genStimKey = useRef(""); // stimulus fingerprint at last successful generate (stale-deck hint)
 
   // First item's still image — keeps legacy single-image AI/PPTX paths working.
   const firstStill = media[0] ? (media[0].kind === "image" ? media[0].dataUrl : media[0].poster) : "";
@@ -1904,8 +1954,15 @@ function App() {
     return { ...all, [activeBand]: next };
   });
 
+  // Stale-deck hint: fingerprint the stimulus so we can nudge "Regenerate" if it changed
+  // after the last successful generate.
+  const stimKey = mode + "|" + media.length + "|" + (mode === "article" ? articleText.length : 0);
+  const stimulusStale = Object.keys(spots).length > 0 && genStimKey.current && genStimKey.current !== stimKey;
+
   // Keep reelIndex in range whenever the reel shrinks.
   React.useEffect(() => { if (reelIndex > Math.max(0, media.length - 1)) setReelIndex(0); }, [media.length]);
+  // "Combine" only makes sense with 2+ bands — auto-clear it if the selection drops below.
+  React.useEffect(() => { if (bands.length < 2 && combine) setCombine(false); }, [bands.length]);
 
   /* ------- file handlers ------- */
   const newId = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
@@ -1942,7 +1999,7 @@ function App() {
             poster, aspect: width && height ? width / height : 0, frames, text: "", transcribeState: apiKey.trim() ? "running" : "idle", transcribeNote: "",
             sharePointUrl: "" }]);
           if (!frames.length) setMediaNote("Couldn't read frames from " + f.name + " — add a description under its thumbnail. It will still embed in the PowerPoint.");
-          else if (f.size > VIDEO_EMBED_MAX_BYTES) setMediaNote(`${f.name} is large (${formatBytes(f.size)}) — the deck will use its first frame + a link instead of embedding.`);
+          else if (f.size > VIDEO_EMBED_MAX_BYTES) setMediaNote(`${f.name} is large (${formatBytes(f.size)}) — the deck will use its first frame (add a Link on the left for a clickable link + QR) instead of embedding.`);
           // Auto-upload to the connected SharePoint Media folder (background, non-blocking).
           if (folderHandle) {
             (async () => {
@@ -2045,7 +2102,7 @@ function App() {
 
   /* ------- generate ------- */
   async function generate() {
-    if (preparing || regenSlide) return; // a discovered stimulus is still loading, or a slide regen is in flight
+    if (preparing || regenSlide || loading) return; // a discovered stimulus is still loading, a slide regen is in flight, or a generate is already running
     setError(""); setRawDump("");
     if (!apiKey.trim()) { setError("Please paste your OpenAI API key first."); return; }
     if (mode === "media" && !media.length) { setError("Add at least one image or video first."); return; }
@@ -2094,6 +2151,7 @@ function App() {
         setSpots(built);
         setActiveBand(bands[0]);
       }
+      genStimKey.current = stimKey; // remember the stimulus fingerprint for the stale-deck hint
       setGenProgress(100);
     } catch (err) {
       setError(err.message || String(err));
@@ -2252,6 +2310,7 @@ function App() {
     // A combined deck shows no single year and reads "Middle & Senior" on its slides.
     const year = deck.comboBands ? "" : (years[bandKey] || "");
     const bandLabel = deck.comboBands ? comboBandLabel(deck.comboBands) : bandLabelOf(bandKey);
+    const kw = Array.isArray(spot.keywords) ? spot.keywords.filter(Boolean) : []; // search terms for notes + core props
     try {
       // SharePoint online-video markers recorded during the build; applied to the
       // .pptx blob post-build by injectOnlineVideos(). Scoped per band/call.
@@ -2263,7 +2322,7 @@ function App() {
       const tCase = (s) => ST.upper ? String(s).toUpperCase() : String(s);
       const W = 13.33, H = 7.5;
 
-      await loadScript(PPTX_SRC);
+      await loadScript(PPTX_SRC, PPTX_SRI);
       const pptx = new PptxGenJS();
       pptx.defineLayout({ name: "WIDE", width: W, height: H });
       pptx.layout = "WIDE";
@@ -2547,7 +2606,8 @@ function App() {
         const respLines = spot.steps.map((st, i) => `Step ${i + 1} — ${st.name}: ${st.responses || "(none generated — add your own)"}`);
         s3.addNotes(
           (gq.length ? "Guiding questions:\n" + gq.map(g => "• " + g.q + ((g.responses || "").trim() ? "\n    ↳ Possible responses: " + g.responses : "")).join("\n") : "") +
-          (respLines.length ? (gq.length ? "\n\n" : "") + "Likely student responses (per step):\n" + respLines.join("\n") : "")
+          (respLines.length ? (gq.length ? "\n\n" : "") + "Likely student responses (per step):\n" + respLines.join("\n") : "") +
+          (kw.length ? "\n\nKeywords: " + kw.join(", ") : "")
         );
       }
 
@@ -2568,7 +2628,7 @@ function App() {
       // custom doc properties for the Power Automate flow that fills the SharePoint columns.
       const blob = await pptx.write({ outputType: "blob" });
       const withVideos = await injectOnlineVideos(blob, videoMarks);
-      return await stampDocProps(withVideos, { Band: spBand, Theme: spTheme, Title: lessonTitle });
+      return await stampDocProps(withVideos, { Band: spBand, Theme: spTheme, Title: lessonTitle }, kw);
     } catch (err) {
       setError("PowerPoint export failed: " + (err.message || String(err)));
       return null;
@@ -2588,11 +2648,16 @@ function App() {
 
   // Export one .pptx per generated band, staggered so browsers don't drop files.
   async function download() {
-    const keys = BAND_ORDER.filter(b => spots[b]);
-    for (const b of keys) {
-      await buildAndSaveDeck(b, spots[b]);
-      await new Promise(r => setTimeout(r, 400));
-    }
+    if (busyRef.current.exporting) return;
+    busyRef.current.exporting = true;
+    setExporting(true);
+    try {
+      const keys = BAND_ORDER.filter(b => spots[b]);
+      for (const b of keys) {
+        await buildAndSaveDeck(b, spots[b]);
+        await new Promise(r => setTimeout(r, 400));
+      }
+    } finally { busyRef.current.exporting = false; setExporting(false); }
   }
 
   /* ------------------------------ render ------------------------------ */
@@ -2606,14 +2671,14 @@ function App() {
           {ROUTINES[band].map(r => <option key={r.name} value={r.name}>{r.name}</option>)}
         </select>
       </div>
-      <textarea className="editable" rows={1} style={{ fontWeight: 700, fontSize: 16 }} value={spot.routineName} onChange={e => patch({ routineName: e.target.value })} />
-      <textarea className="editable" rows={1} style={{ fontStyle: "italic", color: "var(--muted)" }} value={spot.routineIntro} onChange={e => patch({ routineIntro: e.target.value })} />
+      <textarea className="editable" rows={1} aria-label="Thinking routine name" style={{ fontWeight: 700, fontSize: 16 }} value={spot.routineName} onChange={e => patch({ routineName: e.target.value })} />
+      <textarea className="editable" rows={1} aria-label="Routine introduction for the class" style={{ fontStyle: "italic", color: "var(--muted)" }} value={spot.routineIntro} onChange={e => patch({ routineIntro: e.target.value })} />
       {spot.steps.map((st, i) => (
         <div className="step" key={i}>
-          <div className="mins"><input type="number" min="0" max="5" value={st.minutes} onChange={e => patchStep(i, { minutes: Number(e.target.value) })} /><span>min</span></div>
+          <div className="mins"><input type="number" min="0" max="5" aria-label={"Step " + (i + 1) + " minutes"} value={st.minutes} onChange={e => patchStep(i, { minutes: Number(e.target.value) })} /><span>min</span></div>
           <div>
-            <input className="editable name" value={st.name} onChange={e => patchStep(i, { name: e.target.value })} />
-            <textarea className="editable" rows={2} value={st.prompt} onChange={e => patchStep(i, { prompt: e.target.value })} />
+            <input className="editable name" aria-label={"Step " + (i + 1) + " name"} value={st.name} onChange={e => patchStep(i, { name: e.target.value })} />
+            <textarea className="editable" rows={2} aria-label={"Step " + (i + 1) + " discussion prompt"} value={st.prompt} onChange={e => patchStep(i, { prompt: e.target.value })} />
             <div className="resp-note">
               <span className="resp-cap">Likely student responses <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0 }}>(speaker notes)</span></span>
               <textarea className="editable" rows={2} value={st.responses || ""} placeholder="What students might actually say…" onChange={e => patchStep(i, { responses: e.target.value })} />
@@ -2656,16 +2721,16 @@ function App() {
         <span className="appver" title="App version — check this matches after a refresh">{APP_VERSION}</span>
       </header>
 
-      <div className="layout">
+      <main className="layout">
         {/* ----------------- INPUT PANEL ----------------- */}
         <div className="panel input">
           <div className="group">
             <label className="cap" htmlFor="f-apikey">OpenAI API key</label>
             <div style={{ display: "flex", gap: 6 }}>
               <input id="f-apikey" type="password" value={apiKey} placeholder="sk-…" onChange={e => saveApiKey(e.target.value)} />
-              {apiKey && <button className="btn ghost" style={{ width: "auto", padding: "9px 12px", whiteSpace: "nowrap" }} title="Remove the saved key from this browser" onClick={() => saveApiKey("")}>Forget</button>}
+              {apiKey && <button className="btn ghost" style={{ width: "auto", padding: "9px 12px", whiteSpace: "nowrap" }} title="Remove the saved key from this browser" onClick={forgetAll}>Forget</button>}
             </div>
-            <div className="hint">Saved in <b>this browser only</b> (localStorage) so you don't re-enter it. Use <b>Forget</b> on a shared computer.</div>
+            <div className="hint">Saved in <b>this browser only</b> (localStorage). <b>Forget</b> clears the key <b>and</b> disconnects any SharePoint folders — use it on a shared computer.</div>
           </div>
 
           <div className="group">
@@ -2704,7 +2769,7 @@ function App() {
                   : <React.Fragment><div className="big"><Icon d={I.image} size={26} stroke /></div><div className="small">Click, or drop images / videos here ({media.length}/{MAX_MEDIA})</div></React.Fragment>}
               </button>
               <input ref={mediaInput} id="f-media" type="file" accept="image/*,video/*" multiple hidden onChange={onMedia} />
-              {mediaNote && <div className="alert info" style={{ marginTop: 8 }}>{mediaNote}</div>}
+              {mediaNote && <div className="alert info" role="status" aria-live="polite" style={{ marginTop: 8 }}>{mediaNote}</div>}
 
               {media.length > 0 && (
                 <div className="media-strip">
@@ -2781,6 +2846,7 @@ function App() {
                     to re-enable this session.
                   </div>
                 )}
+                {folderHandle && <button type="button" className="btn ghost" style={{ width: "auto", padding: "9px 12px" }} onClick={async () => { await idbDeleteHandle("media"); setFolderHandle(null); setFolderName(""); setFolderReady(false); setMediaNote("Disconnected the SharePoint Media folder from this browser."); }}>Disconnect</button>}
                 {!lessonsHandle ? (
                   <button type="button" className="btn ghost" style={{ width: "auto" }} onClick={connectLessonsFolder}>Connect Lessons folder</button>
                 ) : lessonsReady ? (
@@ -2792,6 +2858,7 @@ function App() {
                     to re-enable this session.
                   </div>
                 )}
+                {lessonsHandle && <button type="button" className="btn ghost" style={{ width: "auto", padding: "9px 12px" }} onClick={async () => { await idbDeleteHandle("lessons"); setLessonsHandle(null); setLessonsName(""); setLessonsReady(false); setMediaNote("Disconnected the Lessons folder from this browser."); }}>Disconnect</button>}
               </div>
             </div>
           )}
@@ -2853,7 +2920,7 @@ function App() {
               {themeList.map((t, i) => (
                 <span key={t} className={"pick-wrap" + (editThemes ? " editing" : "")}>
                   <button type="button" className={"pick tint-" + (i % 5) + (theme === t ? " on" : "")} onClick={() => setTheme(t)}>{t}</button>
-                  {editThemes && <button type="button" className="pick-x" title={"Remove " + t} onClick={() => removeTheme(t)}>×</button>}
+                  {editThemes && <button type="button" className="pick-x" aria-label={"Remove theme: " + t} title={"Remove " + t} onClick={() => removeTheme(t)}>×</button>}
                 </span>
               ))}
               {editThemes && (
@@ -2914,12 +2981,13 @@ function App() {
                   ))}
                 </div>
               )}
+              {stimulusStale && <div className="alert info" role="status">You changed the stimulus. Hit <b>Regenerate</b> so the slides match.</div>}
               <div className="toolbar">
                 <button type="button" className="btn ghost" disabled={loading} onClick={generate}><Icon d={I.refresh} size={16} stroke /> Regenerate</button>
-                <button type="button" className="btn primary" onClick={download}><Icon d={I.download} size={16} stroke /> Download PowerPoint</button>
+                <button type="button" className="btn primary" disabled={exporting} onClick={download}><Icon d={I.download} size={16} stroke /> {exporting ? "Preparing…" : "Download PowerPoint"}</button>
                 {fsSupported && lessonsHandle && (
-                  <button type="button" className="btn ghost" onClick={saveLessonToSharePoint} title="Save this lesson's .pptx to the SharePoint Lessons library">
-                    <Icon d={I.upload || I.download} size={16} stroke /> Save to SharePoint Lessons
+                  <button type="button" className="btn ghost" disabled={saving} onClick={saveLessonToSharePoint} title="Save this lesson's .pptx to the SharePoint Lessons library">
+                    <Icon d={I.upload || I.download} size={16} stroke /> {saving ? "Saving…" : "Save to SharePoint Lessons"}
                   </button>
                 )}
               </div>
@@ -2981,7 +3049,7 @@ function App() {
                 {/* Advisory — shown first in the deck when enabled */}
                 {spot.advisoryShow && (
                   <div className="slide advisory-slide"><div className="bar" style={barStyle}></div><div className="body">
-                    <div className="slide-head"><div className="slide-tag"><span className="n">!</span> Content warning <span className="aside">· shown first in the deck</span></div></div>
+                    <div className="slide-head"><div className="slide-tag"><span className="n">!</span> <h2 style={{ font: "inherit", margin: 0, display: "inline" }}>Content warning</h2> <span className="aside">· shown first in the deck</span></div></div>
                     <div className="advisory-card">
                       <div className="advisory-warnhead"><span className="advisory-tri">⚠</span> CONTENT WARNING</div>
                       <div className="advisory-body">
@@ -2993,7 +3061,7 @@ function App() {
                 )}
                 {/* Slide 1 — Hook */}
                 <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
-                  <div className="slide-head"><div className="slide-tag"><span className="n">1</span> Title <span className="aside">· a short, catchy headline · band &amp; theme shown here</span></div><RegenButton scope="title" /></div>
+                  <div className="slide-head"><div className="slide-tag"><span className="n">1</span> <h2 style={{ font: "inherit", margin: 0, display: "inline" }}>Title</h2> <span className="aside">· a short, catchy headline · band &amp; theme shown here</span></div><RegenButton scope="title" /></div>
                   <textarea className="editable titlebig" rows={1} value={spot.hook} placeholder="A short, catchy title…" onChange={e => patch({ hook: e.target.value })} />
                   <div className="meta-chips">
                     <span className={"chip band-" + band.toLowerCase()}>{bandLabel}{year ? " · " + year : ""}</span>
@@ -3003,8 +3071,8 @@ function App() {
 
                 {/* Slide 2 — Provocation (stimulus + thinking routine on one slide) */}
                 <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
-                  <div className="slide-head"><div className="slide-tag"><span className="n">2</span> Provocation <span className="aside">· stimulus + thinking routine</span></div><RegenButton scope="provocation" /></div>
-                  <textarea className="editable" rows={1} value={spot.framing} onChange={e => patch({ framing: e.target.value })} />
+                  <div className="slide-head"><div className="slide-tag"><span className="n">2</span> <h2 style={{ font: "inherit", margin: 0, display: "inline" }}>Provocation</h2> <span className="aside">· stimulus + thinking routine</span></div><RegenButton scope="provocation" /></div>
+                  <textarea className="editable" rows={1} aria-label="Provocation framing text" value={spot.framing} onChange={e => patch({ framing: e.target.value })} />
                   {mode !== "media" && (
                     <React.Fragment>
                       <div className="cap" style={{ marginTop: 6 }}>5-sentence summary</div>
@@ -3035,20 +3103,24 @@ function App() {
 
                 {/* Slide 3 — Student key takeaway */}
                 <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
-                  <div className="slide-head"><div className="slide-tag"><span className="n">3</span> Student key takeaway</div><RegenButton scope="takeaway" /></div>
+                  <div className="slide-head"><div className="slide-tag"><span className="n">3</span> <h2 style={{ font: "inherit", margin: 0, display: "inline" }}>Student key takeaway</h2></div><RegenButton scope="takeaway" /></div>
                   <div className="action-box" style={{ background: hx(T.accent2) + "22", borderColor: hx(T.accent2) + "66" }}>
                     <div className="cap" style={{ color: "var(--accent-2-ink)" }}>One thing to take away</div>
-                    <textarea className="editable" rows={2} value={spot.studentAction} onChange={e => patch({ studentAction: e.target.value })} />
+                    <textarea className="editable" rows={2} aria-label="Student key takeaway" value={spot.studentAction} onChange={e => patch({ studentAction: e.target.value })} />
                   </div>
                   <div className="lp-chips">
                     {spot.learnerProfile.filter(Boolean).map((lp, i) => <span key={i} className="chip">LP · {lp}</span>)}
                   </div>
+                  <div className="cap" style={{ marginTop: 12 }}>Find-me keywords <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0, color: "var(--muted)" }}>· help teachers search this lesson (hidden from students)</span></div>
+                  <textarea className="editable" rows={2} aria-label="Search keywords for this lesson"
+                    value={(spot.keywords || []).join(", ")}
+                    onChange={e => patch({ keywords: e.target.value.split(",").map(s => s.trim().toLowerCase()).filter(Boolean) })} />
                 </div></div>
               </div>
             </React.Fragment>
           )}
         </div>
-      </div>
+      </main>
     </React.Fragment>
   );
 }
