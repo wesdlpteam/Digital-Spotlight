@@ -549,7 +549,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v1.12.3 · 2026-07-09";
+const APP_VERSION = "v1.13.0 · 2026-07-10";
 
 // Closed theme taxonomy — every spotlight (and the "Suggest" button) must resolve
 // to exactly one of these so the SharePoint "Theme" column stays a tidy, filterable
@@ -1550,6 +1550,20 @@ function App() {
   const [lessonsHandle, setLessonsHandle] = useState(null);
   const [lessonsName, setLessonsName] = useState("");
   const [lessonsReady, setLessonsReady] = useState(false);
+  // Original video File objects (id -> File), kept out of React state so uploads can be
+  // driven/retried at Download time and on Reconnect. A video never silently embeds.
+  const videoFilesRef = React.useRef(new Map());
+  // In-flight upload promises (id -> Promise<bool>) so add, Reconnect, and the Download
+  // gate coalesce onto one upload per video instead of racing / double-posting.
+  const uploadPromisesRef = React.useRef(new Map());
+  // Non-null => the "video not hosted" block modal is open. { names: [..] }.
+  const [hostBlock, setHostBlock] = useState(null);
+  React.useEffect(() => {
+    if (!hostBlock) return;
+    const onKey = e => { if (e.key === "Escape") setHostBlock(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [hostBlock]);
   React.useEffect(() => {
     if (!fsSupported) return;
     // Restore the remembered folders AND check whether write permission still persists
@@ -1615,13 +1629,16 @@ function App() {
       if (folderHandle) {
         // Re-grant the existing folder without re-picking (one click per session).
         if ((await folderHandle.requestPermission({ mode: "readwrite" })) === "granted") {
-          setFolderReady(true); setMediaNote('SharePoint Media folder ready: "' + folderName + '".' + PERSIST_TIP); return;
+          setFolderReady(true); setMediaNote('SharePoint Media folder ready: "' + folderName + '".' + PERSIST_TIP);
+          media.forEach(it => { if (it.kind === "video" && !it.sharePointUrl) ensureVideoHosted(it, folderHandle); });
+          return;
         }
       }
       const h = await window.showDirectoryPicker({ mode: "readwrite" });
       await idbSaveHandle("media", h);
       setFolderHandle(h); setFolderName(h.name || "folder"); setFolderReady(true);
       setMediaNote('Connected "' + (h.name || "folder") + '" — uploaded videos will auto-upload to SharePoint.' + PERSIST_TIP);
+      media.forEach(it => { if (it.kind === "video" && !it.sharePointUrl) ensureVideoHosted(it, h); });
     } catch (_) { /* user cancelled the picker */ }
   }
   async function connectLessonsFolder() {
@@ -1640,6 +1657,40 @@ function App() {
   async function folderWritable(h) {
     if (!h) return false;
     try { return (await h.queryPermission({ mode: "readwrite" })) === "granted"; } catch (_) { return false; }
+  }
+  // Single upload path for one video -> SharePoint Media folder. Used by add, Reconnect,
+  // and the Download gate so a video is only ever posted once. Marks uploadState along the
+  // way (uploading/hosted/failed/none) and returns true only when the clip is hosted.
+  async function ensureVideoHosted(item, handleOverride) {
+    if (!item || item.kind !== "video") return true;
+    if (item.sharePointUrl) return true;
+    const existing = uploadPromisesRef.current.get(item.id);
+    if (existing) return existing;
+    const handle = handleOverride || folderHandle;   // fresh connect passes its handle before state settles
+    const run = (async () => {
+      const file = videoFilesRef.current.get(item.id);
+      if (!file || !handle) {
+        setMedia(m => m.map(x => x.id === item.id ? { ...x, uploadState: "none" } : x));
+        return false;
+      }
+      if (!(await folderWritable(handle))) {
+        setFolderReady(false);
+        setMedia(m => m.map(x => x.id === item.id ? { ...x, uploadState: "failed" } : x));
+        return false;
+      }
+      setFolderReady(true);
+      setMedia(m => m.map(x => x.id === item.id ? { ...x, uploadState: "uploading" } : x));
+      try {
+        const { url } = await putVideoToSharePoint(handle, file);
+        setMedia(m => m.map(x => x.id === item.id ? { ...x, sharePointUrl: url, uploadState: "hosted" } : x));
+        return true;
+      } catch (_) {
+        setMedia(m => m.map(x => x.id === item.id ? { ...x, uploadState: "failed" } : x));
+        return false;
+      }
+    })();
+    uploadPromisesRef.current.set(item.id, run);
+    try { return await run; } finally { uploadPromisesRef.current.delete(item.id); }
   }
   // Lesson filename: hook title (fallback to deck title, then "Lesson") + date, .pptx.
   function lessonFileName(deck) {
@@ -1753,24 +1804,20 @@ function App() {
           if (f.size <= VIDEO_EMBED_MAX_BYTES) { try { dataUrl = await readFileAsDataURL(f); } catch (_) {} }
           const { frames, poster, width, height } = await extractVideoFrames(f, 4);
           const vidId = newId();
+          videoFilesRef.current.set(vidId, f);   // keep original so upload can run/retry at Download time
           setMedia(m => m.length >= MAX_MEDIA ? m : [...m, { id: vidId, kind: "video", dataUrl, name: f.name, sizeBytes: f.size,
             poster, aspect: width && height ? width / height : 0, frames, text: "", transcribeState: apiKey.trim() ? "running" : "idle", transcribeNote: "",
-            sharePointUrl: "" }]);
-          if (!frames.length) setMediaNote("Couldn't read frames from " + f.name + " — add a description under its thumbnail. It will still embed in the PowerPoint.");
-          else if (f.size > VIDEO_EMBED_MAX_BYTES) setMediaNote(`${f.name} is large (${formatBytes(f.size)}) — the deck will use its first frame (add a Link on the left for a clickable link + QR) instead of embedding.`);
-          // Auto-upload to the connected SharePoint Media folder (background, non-blocking).
+            sharePointUrl: "", uploadState: folderHandle ? "uploading" : "none" }]);
+          if (!frames.length) setMediaNote("Couldn't read frames from " + f.name + " — add a description under its thumbnail.");
+          // Auto-upload to the connected SharePoint Media folder (background). The Download gate
+          // later awaits this and blocks if it didn't land, so a video never silently embeds.
           if (folderHandle) {
-            (async () => {
-              try {
-                if (!(await folderWritable(folderHandle))) { setFolderReady(false); setMediaNote('Click "Reconnect" on the Media folder to let videos upload to SharePoint this session.'); return; }
-                setFolderReady(true);
-                setMediaNote("Uploading video to SharePoint — give it a moment before sharing the deck.");
-                const { url } = await putVideoToSharePoint(folderHandle, f);
-                setMedia(m => m.map(x => x.id === vidId ? { ...x, sharePointUrl: url } : x));
-              } catch (_) {
-                setMediaNote("Couldn't save to SharePoint — the clip will embed with a link/QR instead.");
-              }
-            })();
+            setMediaNote("Uploading video to SharePoint — give it a moment before you Download.");
+            ensureVideoHosted({ id: vidId, kind: "video", sharePointUrl: "" }).then(ok => {
+              if (!ok) setMediaNote('That video didn\'t reach SharePoint — click "Reconnect" on the Media folder and it will retry.');
+            });
+          } else {
+            setMediaNote("Connect the SharePoint Media folder (right) so this video plays online and autoplays.");
           }
           if (apiKey.trim()) {
             (async () => {
@@ -1789,7 +1836,7 @@ function App() {
   }
 
   function onMedia(e) { addMediaFiles(e.target.files); e.target.value = ""; }
-  const removeMedia = (id) => setMedia(m => m.filter(x => x.id !== id));
+  const removeMedia = (id) => { videoFilesRef.current.delete(id); uploadPromisesRef.current.delete(id); setMedia(m => m.filter(x => x.id !== id)); };
   const setMediaText = (id, text) => setMedia(m => m.map(x => x.id === id ? { ...x, text } : x));
   function moveMedia(id, dir) {
     setMedia(m => {
@@ -2323,6 +2370,24 @@ function App() {
     busyRef.current.exporting = true;
     setExporting(true);
     try {
+      // Gate: a video only autoplays + plays online when hosted on SharePoint. Read the
+      // freshest media, await/drive every video's upload, then hard-block if any didn't land
+      // (chosen behaviour) so a not-yet-hosted clip can never silently embed. Reading state via
+      // the identity-return trick avoids a stale closure re-posting an already-hosted file.
+      const current = await new Promise(res => setMedia(m => { res(m); return m; }));
+      const vids = current.filter(x => x.kind === "video");
+      if (vids.length) {
+        setMediaNote("Checking your video is safely on SharePoint…");
+        await Promise.all(vids.map(v => ensureVideoHosted(v)));
+        const fresh = await new Promise(res => setMedia(m => { res(m); return m; }));
+        const unhosted = fresh.filter(x => x.kind === "video" && !x.sharePointUrl);
+        if (unhosted.length) {
+          setMediaNote("");
+          setHostBlock({ names: unhosted.map(v => v.name || "your video") });
+          return;
+        }
+        setMediaNote("");
+      }
       const keys = BAND_ORDER.filter(b => spots[b]);
       for (const b of keys) {
         await buildAndSaveDeck(b, spots[b]);
@@ -2383,6 +2448,34 @@ function App() {
 
   return (
     <React.Fragment>
+      {hostBlock && (
+        <div role="presentation" onClick={() => setHostBlock(null)}
+          style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(43,37,54,0.55)", backdropFilter: "blur(3px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div role="dialog" aria-modal="true" aria-labelledby="tsg-hostblock-title" onClick={e => e.stopPropagation()}
+            style={{ maxWidth: 480, width: "100%", background: "var(--panel)", color: "var(--ink)", border: "1px solid var(--line)", borderTop: "5px solid var(--warn)", borderRadius: 14, padding: "22px 24px", boxShadow: "0 18px 50px rgba(43,37,54,0.35)" }}>
+            <h2 id="tsg-hostblock-title" style={{ margin: "0 0 10px", fontSize: 19, lineHeight: 1.25, color: "var(--ink)" }}>
+              Your video isn't on SharePoint yet
+            </h2>
+            <p style={{ margin: "0 0 12px", color: "var(--muted)", lineHeight: 1.5 }}>
+              A video only autoplays and plays in <b>PowerPoint online</b> when it's hosted on SharePoint.
+              Right now {hostBlock.names.length > 1 ? "these clips" : "this clip"} would be stuck inside the file and won't play online, so the download is paused.
+            </p>
+            {hostBlock.names.length > 0 && (
+              <p style={{ margin: "0 0 12px", color: "var(--muted)", fontSize: 13 }}>Waiting on: {hostBlock.names.join(", ")}</p>
+            )}
+            <p style={{ margin: "0 0 6px", fontWeight: 600 }}>To fix it:</p>
+            <ol style={{ margin: "0 0 18px", paddingLeft: 20, color: "var(--muted)", lineHeight: 1.6 }}>
+              <li>Click <b>Reconnect Media folder</b> below (or the Reconnect button, top right).</li>
+              <li>Wait until the video thumbnail shows <b>Hosted ✓</b>.</li>
+              <li>Press <b>Download</b> again.</li>
+            </ol>
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
+              <button type="button" className="btn ghost" style={{ width: "auto", padding: "9px 14px" }} onClick={() => setHostBlock(null)}>OK</button>
+              <button type="button" className="btn primary" style={{ width: "auto", padding: "9px 14px" }} onClick={async () => { setHostBlock(null); await connectMediaFolder(); }}>Reconnect Media folder</button>
+            </div>
+          </div>
+        </div>
+      )}
       <header className="app">
         <div className="logo"><Icon d={I.shield} size={22} /></div>
         <div>
@@ -2464,6 +2557,15 @@ function App() {
                           {it.transcribeState === "running" && <React.Fragment><span className="spinner sm dark"></span> transcribing…</React.Fragment>}
                           {it.transcribeState === "done" && `transcript ready (${(it.text ? it.text.trim().split(/\s+/).length : 0)} words) ${it.transcribeNote}`}
                           {it.transcribeState === "failed" && it.transcribeNote}
+                        </div>
+                      )}
+                      {it.kind === "video" && it.uploadState && (
+                        <div className="hint" aria-live="polite" style={{ marginTop: 2 }}>
+                          {it.uploadState === "uploading" && <React.Fragment><span className="spinner sm dark"></span> uploading to SharePoint…</React.Fragment>}
+                          {it.uploadState === "hosted" && <span style={{ color: "var(--accent)", fontWeight: 600 }}>Hosted ✓ plays online</span>}
+                          {(it.uploadState === "failed" || it.uploadState === "none") && (
+                            <span style={{ background: "var(--warn-bg)", color: "var(--warn-ink)", padding: "1px 6px", borderRadius: 6, fontWeight: 600 }}>Not hosted — won't play online</span>
+                          )}
                         </div>
                       )}
                     </div>
@@ -2653,7 +2755,7 @@ function App() {
               {stimulusStale && <div className="alert info" role="status">You changed the stimulus. Hit <b>Regenerate</b> so the slides match.</div>}
               <div className="toolbar">
                 <button type="button" className="btn ghost" disabled={loading} onClick={generate}><Icon d={I.refresh} size={16} stroke /> Regenerate</button>
-                <button type="button" className="btn primary" disabled={exporting} onClick={download}><Icon d={I.download} size={16} stroke /> {exporting ? "Preparing…" : "Download PowerPoint"}</button>
+                <button type="button" className="btn primary" disabled={exporting} onClick={download}><Icon d={I.download} size={16} stroke /> {exporting ? "Preparing…" : (media.some(x => x.kind === "video" && x.uploadState === "uploading") ? "Download (video uploading…)" : "Download PowerPoint")}</button>
                 {fsSupported && lessonsHandle && (
                   <button type="button" className="btn ghost" disabled={saving} onClick={saveLessonToSharePoint} title="Save this lesson's .pptx to the SharePoint Lessons library">
                     <Icon d={I.upload || I.download} size={16} stroke /> {saving ? "Saving…" : "Save to SharePoint Lessons"}
