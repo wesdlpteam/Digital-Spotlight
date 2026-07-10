@@ -549,7 +549,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v1.13.0 · 2026-07-10";
+const APP_VERSION = "v1.13.1 · 2026-07-10";
 
 // Closed theme taxonomy — every spotlight (and the "Suggest" button) must resolve
 // to exactly one of these so the SharePoint "Theme" column stays a tidy, filterable
@@ -681,13 +681,20 @@ async function putVideoToSharePoint(dirHandle, file) {
   return { url, savedName };
 }
 
-// Shared theme list lives as themes.json in the connected SharePoint folder so all
+// Shared theme list lives as themes.json inside a "Settings" subfolder of the connected
+// SharePoint library (kept out of the root so it doesn't sit next to videos) so all
 // teachers who connect the same library see the same presets (OneDrive sync;
 // last-write-wins). Reads are tolerant: any error/absent/malformed -> null.
 const THEMES_FILE = "themes.json";
+const THEMES_DIR = "Settings";   // tidy subfolder so themes.json isn't next to the videos
+// Resolve the Settings subfolder inside a connected library. create=false throws if absent.
+async function themesDir(dirHandle, create) {
+  return dirHandle.getDirectoryHandle(THEMES_DIR, { create: !!create });
+}
 async function readThemesFile(dirHandle) {
   try {
-    const fh = await dirHandle.getFileHandle(THEMES_FILE); // no create -> throws if absent
+    const sub = await themesDir(dirHandle, false);   // no create -> throws if Settings absent
+    const fh = await sub.getFileHandle(THEMES_FILE); // no create -> throws if absent
     const text = await (await fh.getFile()).text();
     const data = JSON.parse(text);
     const arr = Array.isArray(data) ? data : (data && Array.isArray(data.themes) ? data.themes : null);
@@ -697,10 +704,29 @@ async function readThemesFile(dirHandle) {
   } catch (_) { return null; }
 }
 async function writeThemesFile(dirHandle, themes) {
-  const fh = await dirHandle.getFileHandle(THEMES_FILE, { create: true });
+  const sub = await themesDir(dirHandle, true);
+  const fh = await sub.getFileHandle(THEMES_FILE, { create: true });
   const w = await fh.createWritable();
   await w.write(JSON.stringify({ version: 1, themes, updated: new Date().toISOString() }, null, 2));
   await w.close();
+}
+// One-time move: older builds wrote themes.json to the library root (next to the videos).
+// If that legacy file exists, copy it into Settings/ and only then delete the root copy, so
+// no custom themes are lost. Returns the migrated theme array, or null if nothing to migrate.
+async function migrateLegacyThemesFile(dirHandle) {
+  let clean = null;
+  try {
+    const fh = await dirHandle.getFileHandle(THEMES_FILE);   // legacy root file; throws if absent
+    const text = await (await fh.getFile()).text();
+    const data = JSON.parse(text);
+    const arr = Array.isArray(data) ? data : (data && Array.isArray(data.themes) ? data.themes : null);
+    clean = arr ? normalizeThemes(arr) : null;
+  } catch (_) { return null; }   // no legacy root file -> nothing to do
+  try {
+    if (clean && clean.length) await writeThemesFile(dirHandle, clean);  // preserve into Settings/ FIRST
+    await dirHandle.removeEntry(THEMES_FILE);                             // then tidy the root copy
+  } catch (_) { /* couldn't move it safely -> leave the root file in place */ }
+  return clean && clean.length ? clean : null;
 }
 
 const BAND_GUIDANCE = {
@@ -1604,9 +1630,10 @@ function App() {
     if (!fsSupported) return;
     const h = await pickThemesFolder(folderHandle, lessonsHandle);
     if (!h) return;
-    const arr = await readThemesFile(h);
-    if (arr) applyThemes(arr, false);      // adopt the shared list (cache only; don't rewrite)
-    else { try { await writeThemesFile(h, THEMES); } catch (_) {} } // seed file from current list
+    let arr = await readThemesFile(h);               // Settings/themes.json (new location)
+    if (!arr) arr = await migrateLegacyThemesFile(h); // move an old root themes.json if present
+    if (arr) applyThemes(arr, false);                // adopt the shared list (cache only; don't rewrite)
+    else { try { await writeThemesFile(h, THEMES); } catch (_) {} } // seed Settings from current list
   }
   function addTheme() {
     const name = newTheme.replace(/\s+/g, " ").trim();
