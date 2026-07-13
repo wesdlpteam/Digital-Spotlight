@@ -549,7 +549,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v1.13.1 · 2026-07-10";
+const APP_VERSION = "v1.14.0 · 2026-07-14";
 
 // Closed theme taxonomy — every spotlight (and the "Suggest" button) must resolve
 // to exactly one of these so the SharePoint "Theme" column stays a tidy, filterable
@@ -1527,7 +1527,7 @@ function App() {
     setLessonsHandle(null); setLessonsName(""); setLessonsReady(false);
     setMediaNote("Forgotten from this browser: API key cleared and any SharePoint folders disconnected.");
   }
-  const [model, setModel] = useState("gpt-5.4");
+  const [model, setModel] = useState("gpt-5.6-sol");
 
   // inputs
   const [mode, setMode] = useState("media");
@@ -2527,9 +2527,9 @@ function App() {
           <div className="group">
             <label className="cap" htmlFor="f-model">Model</label>
             <select id="f-model" value={model} onChange={e => setModel(e.target.value)}>
-              <option value="gpt-5.4">gpt-5.4</option>
-              <option value="gpt-5.5">gpt-5.5</option>
-              <option value="gpt-5.4-mini">gpt-5.4-mini</option>
+              <option value="gpt-5.6-sol">gpt-5.6-sol (best quality)</option>
+              <option value="gpt-5.6-terra">gpt-5.6-terra (balanced)</option>
+              <option value="gpt-5.6-luna">gpt-5.6-luna (cheapest)</option>
             </select>
           </div>
 
