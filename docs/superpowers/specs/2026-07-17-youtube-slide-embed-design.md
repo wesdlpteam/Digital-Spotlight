@@ -108,10 +108,11 @@ injector** (web-video OOXML ≠ file-video OOXML):
    - Add slide-rels **external** relationship, type `.../video`, target
      `https://www.youtube.com/watch?v=<id>`.
    - `<p:cNvPr>` gains `<a:hlinkClick r:id="" action="ppaction://media"/>`.
-   - `<p:nvPr>` gains `<a:videoFile r:link="rIdN"/>` **plus** `<p:extLst>` with
-     `p14:media` ext and `p15:webVideoPr embeddedHtml="<XML-escaped iframe
-     src=https://www.youtube.com/embed/<id>>"` ext — final attribute set copied
-     verbatim from the Phase-0 ground-truth file.
+   - `<p:nvPr>` gains `<a:videoFile r:link="rIdN"/>` — *(spike finding
+     2026-07-17: current PowerPoint writes NO `p14:media`/`p15:webVideoPr`;
+     the rels target is the `/embed/<id>?feature=oembed` URL, and each YouTube
+     slide gets PowerPoint's interactive click-to-toggle timing block, template
+     committed at `docs/superpowers/notes/yt-timing-template.xml`)*.
    - **No autoplay timing block** for YouTube pics (click-to-play). The existing
      `lastVideoSpid` autoplay injection keys off `TSG-VIDEO::` marks only — the new
      `TSG-YT::` marker must not feed it. One reel item per slide keeps the two

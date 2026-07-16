@@ -15,7 +15,8 @@
 - **HARD GATE (Task 1):** the reconstructed markup must play in PowerPoint for the web on SharePoint before ANY app code is written. Fails → STOP, ask Nathan about fallback B (thumbnail + hyperlink).
 - All client code lives in `index.html`. No new client dependencies, no build step. Node deps only inside the session scratchpad for spike/verify rigs.
 - No new env vars. Backend endpoints reuse `_lib.js` (`applyCors`, `requireTeacher`, `rateLimit`).
-- Existing `TSG-VIDEO::` SharePoint path must be byte-for-byte untouched; YouTube uses a separate `TSG-YT::` marker and separate injector. No autoplay `<p:timing>` block for YouTube pics.
+- Existing `TSG-VIDEO::` SharePoint path must be byte-for-byte untouched; YouTube uses a separate `TSG-YT::` marker and separate injector. No AUTOPLAY timing for YouTube pics — they get the ground-truth interactive click-to-toggle timing block instead (see Task 5).
+- **NEVER hand-type OOXML templates** (spike lesson: one dropped close-tag = hard-corrupt file). The timing template is committed at `docs/superpowers/notes/yt-timing-template.xml`; copy it programmatically and verify by string-compare.
 - Slide caption copy (verbatim): `▶ Video — click to play (needs internet)`.
 - Description-box nag copy (verbatim): `YouTube clips can't be transcribed — type what happens so the questions match`.
 - Version bump to **v1.20.0** (both `package.json` and `APP_VERSION` in `index.html`).
@@ -559,24 +560,37 @@ git push
 - Modify: `index.html` — constants + new injector next to `injectOnlineVideos` (~line 492-547), reel-item slide branch (~line 2444), post-build chain (~line 2523)
 
 **Interfaces:**
-- Consumes: verified OOXML from Task 1's notes doc (`docs/superpowers/notes/2026-07-17-youtube-ooxml-groundtruth.md`) — **the `nv` block and rels line below MUST be reconciled attribute-for-attribute against it before committing**; `kind:"youtube"` items (`youtubeId`, `watchUrl`, `poster`) from Task 3; existing `xmlEsc` (index.html:555, hoisted).
+- Consumes: verified OOXML from the spike (GATE PASSED — desktop + web playback confirmed 2026-07-17): `docs/superpowers/notes/2026-07-17-youtube-ooxml-groundtruth.md` and the verbatim timing template `docs/superpowers/notes/yt-timing-template.xml`; `kind:"youtube"` items (`youtubeId`, `watchUrl`, `poster`) from Task 3.
 - Produces: `injectYouTubeVideos(blob, ytMarks)` where `ytMarks` is `string[]` of video ids; slide caption; final blob chain `pptx.write → injectOnlineVideos → injectYouTubeVideos → stampDocProps`.
+
+**Ground-truth facts this task encodes (spike-verified, do NOT "improve"):**
+- Rels target is the **embed** URL `https://www.youtube.com/embed/<id>?feature=oembed` (NOT the watch URL), rel type `.../video`, `TargetMode="External"`.
+- `p:nvPr` gains exactly `<a:videoFile r:link="rIdYtN"/>` — **no** `p:extLst`, **no** `p14:media`, **no** `p15:webVideoPr` (older-format myths; current PowerPoint writes none of them).
+- Each YouTube slide gets the interactive click-to-toggle `<p:timing>` block appended before `</p:sld>` — copied VERBATIM from `yt-timing-template.xml` with `SPID_PLACEHOLDER` → the pic's `cNvPr id`.
 
 - [ ] **Step 1: Add marker constant + injector after `injectOnlineVideos` (~line 547)**
 
+The `YT_TIMING_TEMPLATE` constant's value is the exact single-line content of
+`docs/superpowers/notes/yt-timing-template.xml`. **Do not retype it** — insert it
+programmatically (e.g. a throwaway node script that reads the file and splices the
+line into `index.html`), then verify with the Step-4 comparison script.
+
 ```js
 /* ---- YouTube online-video post-processing ----
-   Same marked-poster trick as SharePoint videos above, but the OOXML differs:
-   a YouTube clip is a WEB video (p15:webVideoPr with an escaped <iframe>), not a
-   direct-file <a:videoFile r:link> alone. Desktop AND web PowerPoint render the
-   iframe player; the clip streams live from YouTube, so no download, no bot-block.
-   Markup verified against a real Insert▸Online Video file + web playback on
-   SharePoint (see docs/superpowers/notes/2026-07-17-youtube-ooxml-groundtruth.md).
-   Deliberately NO autoplay <p:timing> block: web videos are click-to-play. */
+   Same marked-poster trick as SharePoint videos above, but simpler markup:
+   current PowerPoint represents a YouTube clip as an ordinary poster pic whose
+   nvPr carries <a:videoFile r:link> to an EXTERNAL video relationship targeting
+   the youtube.com/embed/<id> URL, plus an interactive click-to-toggle timing
+   block. No p14:media / p15:webVideoPr. Desktop AND web PowerPoint play it; the
+   clip streams live from YouTube, so no download, no bot-block. Ground truth
+   captured from PowerPoint's own AddMediaObjectFromEmbedTag output and verified
+   on SharePoint web (docs/superpowers/notes/2026-07-17-youtube-ooxml-groundtruth.md).
+   Click-to-play by design: interactive togglePause timing, NOT autoplay. */
 const YT_MARK_PREFIX = "TSG-YT::";
-const ytEmbedHtml = (id) => xmlEsc(
-  `<iframe width="560" height="315" src="https://www.youtube.com/embed/${id}?feature=oembed" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`
-);
+// EXACT timing PowerPoint writes for an online video (click-to-toggle + media
+// node). Copied verbatim from docs/superpowers/notes/yt-timing-template.xml —
+// never hand-edit (one dropped tag hard-corrupts the file; spike lesson).
+const YT_TIMING_TEMPLATE = `<PASTE docs/superpowers/notes/yt-timing-template.xml CONTENT HERE PROGRAMMATICALLY>`;
 async function injectYouTubeVideos(blob, ytMarks) {
   if (!ytMarks.length || typeof JSZip === "undefined") return blob;
   const zip = await JSZip.loadAsync(blob);
@@ -587,28 +601,34 @@ async function injectYouTubeVideos(blob, ytMarks) {
     const relPath = sp.replace(/slides\/(slide\d+)\.xml$/, "slides/_rels/$1.xml.rels");
     let rels = await zip.file(relPath).async("string");
     let relSeq = 0;
+    let lastYtSpid = null;
     xml = xml.replace(/<p:pic>[\s\S]*?<\/p:pic>/g, (pic) => {
       const m = pic.match(/descr="TSG-YT::([^"]+)"/);
       if (!m) return pic;
       const id = m[1];
+      const idm = pic.match(/<p:cNvPr\s+id="(\d+)"/);
+      if (idm) lastYtSpid = idm[1];
       const rid = "rIdYt" + (++relSeq);
       rels = rels.replace("</Relationships>",
-        `<Relationship Id="${rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/video" Target="https://www.youtube.com/watch?v=${id}" TargetMode="External"/></Relationships>`);
+        `<Relationship Id="${rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/video" Target="https://www.youtube.com/embed/${id}?feature=oembed" TargetMode="External"/></Relationships>`);
       let p = pic.replace(/\s*descr="TSG-YT::[^"]+"/, "");
       p = p.replace(/(<p:cNvPr\b[^>]*?)(\/>|>)/, (full, head, close) => {
         if (close === "/>") return head + '><a:hlinkClick r:id="" action="ppaction://media"/></p:cNvPr>';
         return head + '><a:hlinkClick r:id="" action="ppaction://media"/>';
       });
-      const nv = `<a:videoFile r:link="${rid}"/>` +
-        `<p:extLst>` +
-        `<p:ext uri="{DAA4B4D4-6D71-4841-9C94-3DE7FCFB9230}"><p14:media xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main"/></p:ext>` +
-        `<p:ext uri="{C809E66F-F1BF-436E-B5F7-EEA9579F0CBA}"><p15:webVideoPr xmlns:p15="http://schemas.microsoft.com/office/powerpoint/2012/main" embeddedHtml="${ytEmbedHtml(id)}"/></p:ext>` +
-        `</p:extLst>`;
-      if (/<p:nvPr\s*\/>/.test(p)) p = p.replace(/<p:nvPr\s*\/>/, `<p:nvPr>${nv}</p:nvPr>`);
-      else if (/<p:nvPr>[\s\S]*?<\/p:nvPr>/.test(p)) p = p.replace(/<\/p:nvPr>/, `${nv}</p:nvPr>`);
-      else p = p.replace(/<\/p:nvPicPr>/, `<p:nvPr>${nv}</p:nvPr></p:nvPicPr>`);
+      const vf = `<a:videoFile r:link="${rid}"/>`;
+      if (/<p:nvPr\s*\/>/.test(p)) p = p.replace(/<p:nvPr\s*\/>/, `<p:nvPr>${vf}</p:nvPr>`);
+      else if (/<p:nvPr>[\s\S]*?<\/p:nvPr>/.test(p)) p = p.replace(/<\/p:nvPr>/, `${vf}</p:nvPr>`);
+      else p = p.replace(/<\/p:nvPicPr>/, `<p:nvPr>${vf}</p:nvPr></p:nvPicPr>`);
       return p;
     });
+    // Click-to-play wiring: interactive togglePause timing targeting the video pic.
+    // (One reel item per slide, so a YouTube slide never also carries the
+    // SharePoint autoplay timing injected by injectOnlineVideos above.)
+    if (lastYtSpid) {
+      const timing = YT_TIMING_TEMPLATE.replace(/SPID_PLACEHOLDER/g, lastYtSpid);
+      xml = xml.replace(/<\/p:sld>/, timing + "</p:sld>");
+    }
     zip.file(sp, xml);
     zip.file(relPath, rels);
   }
@@ -649,15 +669,28 @@ Replace (~line 2522-2524):
       return await stampDocProps(withYouTube, { Band: spBand, Theme: spTheme, Title: lessonTitle }, kw);
 ```
 
-- [ ] **Step 4: Reconcile against ground truth**
+- [ ] **Step 4: Verify the timing constant is byte-identical to the template file**
 
-Open `docs/superpowers/notes/2026-07-17-youtube-ooxml-groundtruth.md`; compare the `nv` block, rels line and embeddedHtml string character-for-character with what Step 1 emits. Fix any drift NOW (this is the bug class that produced repair prompts before — see pptxgenjs-mutates-shadow memory).
+Run a throwaway node check (from the repo root):
+
+```js
+// check-timing.mjs
+import fs from "node:fs";
+const html = fs.readFileSync("index.html", "utf8");
+const m = html.match(/const YT_TIMING_TEMPLATE = `([^`]+)`/);
+const file = fs.readFileSync("docs/superpowers/notes/yt-timing-template.xml", "utf8").trim();
+if (!m) { console.error("constant not found"); process.exit(1); }
+console.log(m[1] === file ? "TIMING TEMPLATE MATCHES" : "MISMATCH — DO NOT COMMIT");
+process.exit(m[1] === file ? 0 : 1);
+```
+
+Expected: `TIMING TEMPLATE MATCHES`. A mismatch is the exact bug class that hard-corrupted the spike's first deck — fix before committing.
 
 - [ ] **Step 5: Verify end-to-end export**
 
 `verify-jsx.mjs` clean. Chrome live: build a deck with reel = [image, YouTube clip, SharePoint-hosted video], Download. Then:
 - COM oracle: exported .pptx opens with **no repair prompt**; slide with YouTube item shows player poster; SharePoint video slide still carries its autoplay timing (`<p:timing>` present in that slide's XML, absent in the YouTube slide's).
-- Unzip the export: YouTube slide XML contains `webVideoPr`, its rels has the external video relationship, and NO `TSG-YT::` marker remains.
+- Unzip the export: YouTube slide XML contains `<a:videoFile r:link="rIdYt1"/>` and the togglePause timing block, its rels has the external video relationship to the `/embed/` URL, and NO `TSG-YT::` marker remains.
 
 - [ ] **Step 6: Commit**
 
