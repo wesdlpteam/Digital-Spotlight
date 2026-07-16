@@ -549,6 +549,65 @@ async function injectOnlineVideos(blob, videoMarks) {
   return await zip.generateAsync({ type: "blob" });
 }
 
+/* ---- YouTube online-video post-processing ----
+   Same marked-poster trick as SharePoint videos above, but simpler markup:
+   current PowerPoint represents a YouTube clip as an ordinary poster pic whose
+   nvPr carries <a:videoFile r:link> to an EXTERNAL video relationship targeting
+   the youtube.com/embed/<id> URL, plus an interactive click-to-toggle timing
+   block. No p14:media / p15:webVideoPr. Desktop AND web PowerPoint play it; the
+   clip streams live from YouTube, so no download, no bot-block. Ground truth
+   captured from PowerPoint's own AddMediaObjectFromEmbedTag output and verified
+   on SharePoint web (docs/superpowers/notes/2026-07-17-youtube-ooxml-groundtruth.md).
+   Click-to-play by design: interactive togglePause timing, NOT autoplay. */
+const YT_MARK_PREFIX = "TSG-YT::";
+// EXACT timing PowerPoint writes for an online video (click-to-toggle + media
+// node). Copied verbatim from docs/superpowers/notes/yt-timing-template.xml —
+// never hand-edit (one dropped tag hard-corrupts the file; spike lesson).
+const YT_TIMING_TEMPLATE = `<p:timing><p:tnLst><p:par><p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot"><p:childTnLst><p:seq concurrent="1" nextAc="seek"><p:cTn id="2" restart="whenNotActive" fill="hold" evtFilter="cancelBubble" nodeType="interactiveSeq"><p:stCondLst><p:cond evt="onClick" delay="0"><p:tgtEl><p:spTgt spid="SPID_PLACEHOLDER"/></p:tgtEl></p:cond></p:stCondLst><p:endSync evt="end" delay="0"><p:rtn val="all"/></p:endSync><p:childTnLst><p:par><p:cTn id="3" fill="hold"><p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst><p:par><p:cTn id="4" fill="hold"><p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst><p:par><p:cTn id="5" presetID="2" presetClass="mediacall" presetSubtype="0" fill="hold" nodeType="clickEffect"><p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst><p:cmd type="call" cmd="togglePause"><p:cBhvr><p:cTn id="6" dur="1" fill="hold"/><p:tgtEl><p:spTgt spid="SPID_PLACEHOLDER"/></p:tgtEl></p:cBhvr></p:cmd></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn><p:nextCondLst><p:cond evt="onClick" delay="0"><p:tgtEl><p:spTgt spid="SPID_PLACEHOLDER"/></p:tgtEl></p:cond></p:nextCondLst></p:seq><p:video><p:cMediaNode vol="80000"><p:cTn id="7" fill="hold" display="0"><p:stCondLst><p:cond delay="indefinite"/></p:stCondLst></p:cTn><p:tgtEl><p:spTgt spid="SPID_PLACEHOLDER"/></p:tgtEl></p:cMediaNode></p:video></p:childTnLst></p:cTn></p:par></p:tnLst></p:timing>`;
+async function injectYouTubeVideos(blob, ytMarks) {
+  if (!ytMarks.length || typeof JSZip === "undefined") return blob;
+  const zip = await JSZip.loadAsync(blob);
+  const slidePaths = Object.keys(zip.files).filter(p => /^ppt\/slides\/slide\d+\.xml$/.test(p));
+  for (const sp of slidePaths) {
+    let xml = await zip.file(sp).async("string");
+    if (xml.indexOf(YT_MARK_PREFIX) === -1) continue;
+    const relPath = sp.replace(/slides\/(slide\d+)\.xml$/, "slides/_rels/$1.xml.rels");
+    let rels = await zip.file(relPath).async("string");
+    let relSeq = 0;
+    let lastYtSpid = null;
+    xml = xml.replace(/<p:pic>[\s\S]*?<\/p:pic>/g, (pic) => {
+      const m = pic.match(/descr="TSG-YT::([^"]+)"/);
+      if (!m) return pic;
+      const id = m[1];
+      const idm = pic.match(/<p:cNvPr\s+id="(\d+)"/);
+      if (idm) lastYtSpid = idm[1];
+      const rid = "rIdYt" + (++relSeq);
+      rels = rels.replace("</Relationships>",
+        `<Relationship Id="${rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/video" Target="https://www.youtube.com/embed/${id}?feature=oembed" TargetMode="External"/></Relationships>`);
+      let p = pic.replace(/\s*descr="TSG-YT::[^"]+"/, "");
+      p = p.replace(/(<p:cNvPr\b[^>]*?)(\/>|>)/, (full, head, close) => {
+        if (close === "/>") return head + '><a:hlinkClick r:id="" action="ppaction://media"/></p:cNvPr>';
+        return head + '><a:hlinkClick r:id="" action="ppaction://media"/>';
+      });
+      const vf = `<a:videoFile r:link="${rid}"/>`;
+      if (/<p:nvPr\s*\/>/.test(p)) p = p.replace(/<p:nvPr\s*\/>/, `<p:nvPr>${vf}</p:nvPr>`);
+      else if (/<p:nvPr>[\s\S]*?<\/p:nvPr>/.test(p)) p = p.replace(/<\/p:nvPr>/, `${vf}</p:nvPr>`);
+      else p = p.replace(/<\/p:nvPicPr>/, `<p:nvPr>${vf}</p:nvPr></p:nvPicPr>`);
+      return p;
+    });
+    // Click-to-play wiring: interactive togglePause timing targeting the video pic.
+    // (One reel item per slide, so a YouTube slide never also carries the
+    // SharePoint autoplay timing injected by injectOnlineVideos above.)
+    if (lastYtSpid) {
+      const timing = YT_TIMING_TEMPLATE.replace(/SPID_PLACEHOLDER/g, lastYtSpid);
+      xml = xml.replace(/<\/p:sld>/, timing + "</p:sld>");
+    }
+    zip.file(sp, xml);
+    zip.file(relPath, rels);
+  }
+  return await zip.generateAsync({ type: "blob" });
+}
+
 /* ---- SharePoint metadata stamping ----
    Writes Band + Theme into the .pptx as custom document properties (docProps/custom.xml)
    so a Power Automate "When a file is created" flow can read them and set the SharePoint
@@ -2301,6 +2360,9 @@ function App() {
       // SharePoint online-video markers recorded during the build; applied to the
       // .pptx blob post-build by injectOnlineVideos(). Scoped per band/call.
       const videoMarks = [];
+      // YouTube video ids recorded during the build; applied to the .pptx blob
+      // post-build by injectYouTubeVideos(). Scoped per band/call.
+      const ytMarks = [];
       const ST = STYLES[design] || STYLES.classic;
       const T = ST.palette;
       const accent = T.accent, accent2 = T.accent2, bar = T.bar, ink = T.ink, muted = T.muted;
@@ -2551,6 +2613,20 @@ function App() {
             if (embed) s3.addMedia({ type: "video", data: item.dataUrl, cover: item.poster || undefined, x: vX, y: vY, w: vw, h: vh });
             else if (item.poster) s3.addImage({ data: item.poster, x: vX, y: vY, w: vw, h: vh, sizing: { type: "contain", w: vw, h: vh } });
           }
+        } else if (item && item.kind === "youtube") {
+          // Poster (play badge baked in) marked for the post-build web-video rewrite.
+          // 0.35" reserved under the player for the "it's a video" caption cue.
+          const ar = 16 / 9;
+          const boxH = mediaH - 0.35;
+          let vw = lw2, vh = vw / ar; if (vh > boxH) { vh = boxH; vw = vh * ar; }
+          vw = +vw.toFixed(2); vh = +vh.toFixed(2);
+          const vX = +(lx + (lw2 - vw) / 2).toFixed(2), vY = +(colY + (boxH - vh) / 2).toFixed(2);
+          s3.addImage({ data: item.poster, x: vX, y: vY, w: vw, h: vh, altText: YT_MARK_PREFIX + item.youtubeId });
+          ytMarks.push(item.youtubeId);
+          // Caption doubles as the escape hatch: hyperlink opens YouTube in a browser
+          // if the room's network blocks the in-slide embed.
+          s3.addText([{ text: "▶ Video — click to play (needs internet)", options: { color: accent, bold: true, hyperlink: { url: item.watchUrl } } }],
+            { x: vX, y: +(vY + vh + 0.03).toFixed(2), w: vw, h: 0.3, fontSize: 11, align: "center", fontFace: bFont });
         } else {
           // article / no-media: lead image + summary (legacy behavior).
           let stimImg = "";
@@ -2614,7 +2690,8 @@ function App() {
       // custom doc properties for the Power Automate flow that fills the SharePoint columns.
       const blob = await pptx.write({ outputType: "blob" });
       const withVideos = await injectOnlineVideos(blob, videoMarks);
-      return await stampDocProps(withVideos, { Band: spBand, Theme: spTheme, Title: lessonTitle }, kw);
+      const withYouTube = await injectYouTubeVideos(withVideos, ytMarks);
+      return await stampDocProps(withYouTube, { Band: spBand, Theme: spTheme, Title: lessonTitle }, kw);
     } catch (err) {
       setError("PowerPoint export failed: " + (err.message || String(err)));
       return null;
