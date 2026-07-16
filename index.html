@@ -136,6 +136,15 @@
   }
   @media (max-width: 980px) { .layout { grid-template-columns: 1fr; } }
 
+  /* Pre-generate: the builder owns the full width; the panel splits into two internal
+     columns (key/model/stimulus | deck settings + generate). After Generate: classic
+     380px + preview. Ported from Springboard. */
+  .layout.pre { grid-template-columns: 1fr; }
+  .layout.pre .panel.input { position: static; display: grid; grid-template-columns: 1fr 1fr; gap: 0 28px; align-items: start; }
+  .layout:not(.pre) .panel.input .icol { display: contents; }
+  @media (max-width: 980px) { .layout.pre .panel.input { display: block; } }
+  .hero { grid-column: 1 / -1; text-align: center; padding: 30px 18px 6px; }
+
   .panel {
     background: var(--panel);
     border: 1.5px solid #e3d9ec;
@@ -351,9 +360,9 @@
   /* Welcome hero — pre-generation only (the empty preview state). Purple display headline
      with one word on a rotated highlighter tint; the 4-step path as tilted pastel stickers.
      A single deliberate ordered sequence, all AA-verified inks from the Wesley kit. */
-  .empty .hero-title { font-family: var(--font-display); font-size: clamp(26px, 3.4vw, 38px); font-weight: 800; color: var(--accent); margin: 0 auto 10px; max-width: 20ch; line-height: 1.15; letter-spacing: -.02em; text-wrap: balance; }
+  .hero-title { font-family: var(--font-display); font-size: clamp(26px, 3.4vw, 38px); font-weight: 800; color: var(--accent); margin: 0 auto 10px; max-width: 20ch; line-height: 1.15; letter-spacing: -.02em; text-wrap: balance; }
   .hero-mark { display: inline-block; background: #ffedbc; color: var(--accent); padding: 0 .2em; border-radius: .25em; transform: rotate(-1.5deg); }
-  .empty .hero-sub { color: var(--muted); font-size: 15px; line-height: 1.55; max-width: 52ch; margin: 0 auto 20px; }
+  .hero-sub { color: var(--muted); font-size: 15px; line-height: 1.55; max-width: 52ch; margin: 0 auto 20px; }
   .hero-arc { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 9px; }
   .arc-chip { display: inline-block; padding: 6px 14px; border-radius: 999px; font-size: 12.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; box-shadow: 0 2px 0 rgba(43,37,54,.14); }
   .arc-chip.arc-1 { background: #ffedbc; color: #7a5012; transform: rotate(-3deg); }
@@ -417,7 +426,7 @@
   });
 </script>
 <script type="text/babel" data-presets="react-classic">
-const { useState, useRef, useMemo } = React;
+const { useState, useRef, useMemo, useEffect } = React;
 
 /* ---- Lazy-load heavy CDN libs only when actually needed (export / PDF) ----
    Keeps them off the critical render path. Idempotent: each src loads at most once. */
@@ -593,7 +602,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v1.15.0 · 2026-07-16";
+const APP_VERSION = "v1.16.0 · 2026-07-16";
 
 // Closed theme taxonomy — every spotlight (and the "Suggest" button) must resolve
 // to exactly one of these so the SharePoint "Theme" column stays a tidy, filterable
@@ -1806,6 +1815,18 @@ function App() {
   const genBtnRef = useRef(null);
   const genStimKey = useRef(""); // stimulus fingerprint at last successful generate (stale-deck hint)
 
+  // Preview earns its column only once Generate is clicked (loading) or a deck exists;
+  // before that the builder takes the full width (.layout.pre). Ported from Springboard.
+  const previewOpen = loading || Object.keys(spots).length > 0;
+  const prevPreviewOpen = useRef(false);
+  useEffect(() => {
+    if (previewOpen && !prevPreviewOpen.current) {
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
+    }
+    prevPreviewOpen.current = previewOpen;
+  }, [previewOpen]);
+
   // First item's still image — keeps legacy single-image AI/PPTX paths working.
   const firstStill = media[0] ? (media[0].kind === "image" ? media[0].dataUrl : media[0].poster) : "";
 
@@ -2556,9 +2577,25 @@ function App() {
         <span className="appver" title="App version — check this matches after a refresh">{APP_VERSION}</span>
       </header>
 
-      <main className="layout">
+      <main className={"layout" + (previewOpen ? "" : " pre")}>
+        {/* Welcome hero — pre-generate only; disappears once the preview earns its column. */}
+        {!previewOpen && (
+          <section className="hero">
+            <h2 className="hero-title">What digital habit will you <span className="hero-mark">spotlight</span> today?</h2>
+            <p className="hero-sub">Add a photo, an article, a video or a link below, then hit <b>Generate</b>. In about two minutes you'll have a ready-to-run 5-minute cyber-safety conversation, editable before you download.</p>
+            <div className="hero-arc" aria-hidden="true">
+              <span className="arc-chip arc-1">Add stimulus</span>
+              <span className="arc-chip arc-2">Pick a band</span>
+              <span className="arc-chip arc-3">Generate</span>
+              <span className="arc-chip arc-4">Edit &amp; download</span>
+            </div>
+          </section>
+        )}
         {/* ----------------- INPUT PANEL ----------------- */}
+        {/* Two .icol wrappers: pre-generate they are the panel's two internal columns
+            (key/model/stimulus | deck settings + generate); post-generate they display:contents away. */}
         <div className="panel input">
+          <div className="icol">
           <div className="group">
             <label className="cap" htmlFor="f-apikey">OpenAI API key</label>
             <div style={{ display: "flex", gap: 6 }}>
@@ -2707,6 +2744,8 @@ function App() {
             </div>
           )}
 
+          </div>
+          <div className="icol">
           <div className="group">
             <label className="cap" htmlFor="f-title">Title (optional)</label>
             <input id="f-title" type="text" value={title} placeholder="Leave blank to auto-generate" onChange={e => setTitle(e.target.value)} />
@@ -2798,20 +2837,16 @@ function App() {
           </div>
 
           {error && <div className="alert bad" role="alert"><b>Something went wrong.</b><pre>{error}</pre>{rawDump && <React.Fragment><b>Raw model output:</b><pre>{rawDump}</pre></React.Fragment>}</div>}
+          </div>
         </div>
 
-        {/* ----------------- PREVIEW PANEL ----------------- */}
+        {/* ----------------- PREVIEW PANEL (only after Generate) ----------------- */}
+        {previewOpen && (
         <div>
-          {!spot && !loading && (
+          {!spot && loading && (
             <div className="panel"><div className="empty">
-              <h2 className="hero-title">What digital habit will you <span className="hero-mark">spotlight</span> today?</h2>
-              <p className="hero-sub">Add a photo, an article, a video or a link on the left, then hit <b>Generate</b>. In about two minutes you'll have a ready-to-run 5-minute cyber-safety conversation, editable before you download.</p>
-              <div className="hero-arc" aria-hidden="true">
-                <span className="arc-chip arc-1">Add stimulus</span>
-                <span className="arc-chip arc-2">Pick a band</span>
-                <span className="arc-chip arc-3">Generate</span>
-                <span className="arc-chip arc-4">Edit &amp; download</span>
-              </div>
+              <h2 style={{ margin: "0 0 6px", fontFamily: "var(--font-display)" }}>Building your Spotlight…</h2>
+              <p>This takes a moment — the editable preview will appear right here.</p>
             </div></div>
           )}
 
@@ -2967,6 +3002,7 @@ function App() {
             </React.Fragment>
           )}
         </div>
+        )}
       </main>
     </React.Fragment>
   );
