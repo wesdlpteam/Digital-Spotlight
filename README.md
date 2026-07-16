@@ -2,7 +2,7 @@
 
 A single-page tool that creates 5-minute **Digital Life Spotlight** discussion prompts for teachers — built around cyber safety and digital citizenship, aligned to IB PYP / MYP / Senior bands, and exported as an editable **PowerPoint (.pptx)**.
 
-**Live tool:** https://wesdlpteam.github.io/tech-spotlight-generator/
+**Live tool:** https://wesdlpteam.github.io/Digital-Spotlight/
 
 ## What it does
 
