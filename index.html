@@ -32,9 +32,11 @@
   @font-face { font-family: "Graphik"; font-weight: 600 800; font-style: italic; font-display: swap; src: url("fonts/Graphik-SemiboldItalic.woff2") format("woff2"); }
 
   /* Secondary brand typeface — Avenir Black, for large DISPLAY headlines only (Wesley hierarchy:
-     Graphik primary, Avenir Black secondary, Arial tertiary). Self-hosted from ./fonts/; drop in
-     Avenir-Black.woff2. If absent, display headings fall back to Graphik, then Arial. */
-  @font-face { font-family: "Avenir Black"; font-weight: 400 900; font-style: normal; font-display: swap; src: url("fonts/Avenir-Black.woff2") format("woff2"); }
+     Graphik primary, Avenir Black secondary, Arial tertiary). Self-hosted from ./fonts/.
+     DISABLED until the font file is added: the woff2 was never shipped, so an enabled @font-face
+     just 404s on every load. Display headings fall back to Graphik, then Arial (identical look).
+     To enable: drop fonts/Avenir-Black.woff2 in and uncomment below. */
+  /* @font-face { font-family: "Avenir Black"; font-weight: 400 900; font-style: normal; font-display: swap; src: url("fonts/Avenir-Black.woff2") format("woff2"); } */
 
   :root {
     /* Neutrals */
