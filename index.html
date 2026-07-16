@@ -1333,17 +1333,28 @@ Write every field in PLAIN TEXT — no markdown, no asterisks, no #, no backtick
   if (mode === "media" && mediaItems.length) {
     const imgs = mediaItems.filter(m => m.kind === "image").length;
     const vids = mediaItems.filter(m => m.kind === "video").length;
+    const yts = mediaItems.filter(m => m.kind === "youtube").length;
     let mt = `The stimulus is a reel of ${mediaItems.length} item(s) shown in order` +
-      `${imgs ? ` — ${imgs} image(s)` : ""}${vids ? `${imgs ? " and" : " —"} ${vids} video(s) (still frames attached per clip)` : ""}. ` +
+      `${imgs ? ` — ${imgs} image(s)` : ""}${vids ? `${imgs ? " and" : " —"} ${vids} video(s) (still frames attached per clip)` : ""}` +
+      `${yts ? `${imgs || vids ? " and" : " —"} ${yts} YouTube clip(s) (thumbnail attached per clip; no transcript)` : ""}. ` +
       `Treat them as ONE provocation in sequence; item 1 is the primary stimulus. Build the whole spotlight from what you genuinely see/read across them, tied to the focus theme.`;
     const clipText = mediaItems
-      .map((m, i) => (m.kind === "video" && m.text && m.text.trim()) ? `Video at position ${i + 1} — ${m.text.trim().slice(0, 4000)}` : "")
+      .map((m, i) => {
+        if (m.kind === "video" && m.text && m.text.trim()) return `Video at position ${i + 1} — ${m.text.trim().slice(0, 4000)}`;
+        if (m.kind === "youtube") {
+          const label = [m.title && `"${m.title}"`, m.author && `by ${m.author}`].filter(Boolean).join(" ") || "(untitled)";
+          return `YouTube clip at position ${i + 1} — ${label}` +
+            (m.text && m.text.trim() ? `. Teacher's description of what happens: ${m.text.trim().slice(0, 4000)}` : ". Only its thumbnail is attached — lean on the title and what the thumbnail shows.");
+        }
+        return "";
+      })
       .filter(Boolean);
     if (clipText.length) mt += `\nClip notes:\n${clipText.join("\n")}`;
     textParts.push(mt);
     userContent.push({ type: "text", text: textParts.join("\n") + "\n\n" + schema });
     mediaItems.forEach(m => {
       if (m.kind === "image") userContent.push({ type: "image_url", image_url: { url: m.dataUrl } });
+      else if (m.kind === "youtube") { if (m.poster) userContent.push({ type: "image_url", image_url: { url: m.poster } }); }
       else (m.frames || []).forEach(fr => userContent.push({ type: "image_url", image_url: { url: fr } }));
     });
   } else {
@@ -1433,6 +1444,7 @@ async function suggestThemeFromStimulus({ passcode, model, mode, media = [], sou
     userContent.push({ type: "text", text: ask + ` The stimulus is a reel of ${media.length} item(s).` });
     media.forEach(m => {
       if (m.kind === "image") userContent.push({ type: "image_url", image_url: { url: m.dataUrl } });
+      else if (m.kind === "youtube") { if (m.poster) userContent.push({ type: "image_url", image_url: { url: m.poster } }); }
       else (m.frames || []).forEach(fr => userContent.push({ type: "image_url", image_url: { url: fr } }));
     });
   } else {
