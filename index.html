@@ -1586,17 +1586,64 @@ function MediaCarousel({ items, index, setIndex }) {
       <div className="reel-frame">
         {it.kind === "image"
           ? <img src={it.dataUrl} alt={"Stimulus " + (index + 1) + ": " + it.name} />
-          : <video src={it.dataUrl || undefined} poster={it.poster} controls playsInline />}
+          : it.kind === "youtube"
+            ? <iframe src={"https://www.youtube.com/embed/" + it.youtubeId} title={it.name}
+                style={{ width: "100%", aspectRatio: "16/9", border: 0 }}
+                allow="encrypted-media; picture-in-picture" allowFullScreen />
+            : <video src={it.dataUrl || undefined} poster={it.poster} controls playsInline />}
         {n > 1 && <React.Fragment>
           <button type="button" className="reel-arrow left" aria-label="Previous item" onClick={() => go(-1)}>‹</button>
           <button type="button" className="reel-arrow right" aria-label="Next item" onClick={() => go(1)}>›</button>
         </React.Fragment>}
       </div>
       {n > 1 && <div className="reel-dots">
-        {items.map((m, i) => <button key={m.id} type="button" className={"dot" + (i === index ? " on" : "")} aria-label={"Go to " + (m.kind === "video" ? "video " : "image ") + (i + 1)} aria-current={i === index ? "true" : "false"} onClick={() => setIndex(i)} />)}
+        {items.map((m, i) => <button key={m.id} type="button" className={"dot" + (i === index ? " on" : "")} aria-label={"Go to " + (m.kind === "video" || m.kind === "youtube" ? "video " : "image ") + (i + 1)} aria-current={i === index ? "true" : "false"} onClick={() => setIndex(i)} />)}
       </div>}
     </div>
   );
+}
+
+// Client-side twin of api/youtube-meta.js's youtubeVideoId() — keep the two in sync.
+// (index.html ships standalone to GitHub Pages, so it can't import server code.)
+function youtubeIdFromLink(raw) {
+  let u;
+  try { u = new URL(String(raw || "").trim()); } catch (_) { return ""; }
+  if (u.protocol !== "https:" && u.protocol !== "http:") return "";
+  const host = u.hostname.toLowerCase().replace(/^(www|m|music)\./, "");
+  const parts = u.pathname.split("/").filter(Boolean);
+  let id = "";
+  if (host === "youtu.be") id = parts[0] || "";
+  else if (host === "youtube.com" || host === "youtube-nocookie.com") {
+    if (parts[0] === "watch") id = u.searchParams.get("v") || "";
+    else if (["shorts", "live", "embed", "v"].includes(parts[0])) id = parts[1] || "";
+  }
+  return /^[A-Za-z0-9_-]{11}$/.test(id) ? id : "";
+}
+
+// Bake a play badge into a 16:9 cover-cropped copy of the thumbnail so the item
+// never reads as "just a photo" — in the reel, on the slide, anywhere the poster
+// shows. Empty/broken input -> dark placeholder with the badge alone.
+async function addPlayBadge(dataUrl) {
+  const W = 640, H = 360;
+  const c = document.createElement("canvas"); c.width = W; c.height = H;
+  const x = c.getContext("2d");
+  x.fillStyle = "#111111"; x.fillRect(0, 0, W, H);
+  if (dataUrl) {
+    const im = await new Promise(res => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = dataUrl; });
+    if (im && im.naturalWidth && im.naturalHeight) {
+      const ar = im.naturalWidth / im.naturalHeight, box = W / H;
+      let sw = im.naturalWidth, sh = im.naturalHeight, sx = 0, sy = 0;
+      if (ar > box) { sw = sh * box; sx = (im.naturalWidth - sw) / 2; }
+      else { sh = sw / box; sy = (im.naturalHeight - sh) / 2; }
+      x.drawImage(im, sx, sy, sw, sh, 0, 0, W, H);
+    }
+  }
+  x.fillStyle = "rgba(0,0,0,0.55)"; x.beginPath(); x.arc(W / 2, H / 2, 46, 0, Math.PI * 2); x.fill();
+  x.strokeStyle = "rgba(255,255,255,0.9)"; x.lineWidth = 3; x.stroke();
+  x.fillStyle = "#FFFFFF"; x.beginPath();
+  x.moveTo(W / 2 - 14, H / 2 - 22); x.lineTo(W / 2 + 24, H / 2); x.lineTo(W / 2 - 14, H / 2 + 22);
+  x.closePath(); x.fill();
+  return c.toDataURL("image/jpeg", 0.9);
 }
 
 const PASS_STORE = "ts_passcode";
@@ -1982,6 +2029,10 @@ function App() {
     const room = MAX_MEDIA - media.length;
     if (room <= 0) { setMediaNote(`That's the limit of ${MAX_MEDIA} items — remove one to add more.`); return; }
 
+    // YouTube gets its own path: no download (bot-blocked), just oEmbed metadata —
+    // the clip itself is embedded live on the slide at export time.
+    if (youtubeIdFromLink(url)) return importYouTubeLink(url);
+
     setImportingPost(true);
     try {
       const headers = { "Content-Type": "application/json" };
@@ -2013,6 +2064,33 @@ function App() {
       setPostLink("");
     } catch (_) {
       setError("Couldn't reach the link-import service. Try again in a moment.");
+    } finally {
+      setImportingPost(false);
+    }
+  }
+
+  // Paste a YouTube link -> title + thumbnail via /api/youtube-meta (oEmbed proxy),
+  // added to the reel as kind:"youtube". The export puts a real click-to-play
+  // YouTube player on its slide; nothing is downloaded.
+  async function importYouTubeLink(url) {
+    setImportingPost(true);
+    try {
+      const headers = { "Content-Type": "application/json" };
+      if (passcode.trim()) headers["x-ts-passcode"] = passcode.trim();
+      const resp = await fetch(`${API_BASE}/api/youtube-meta`, { method: "POST", headers, body: JSON.stringify({ url }) });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) { setError(data.error || "Couldn't read that YouTube link. Check it and try again."); return; }
+      const poster = await addPlayBadge(data.thumbnailDataUrl || "");
+      setMedia(m => m.length >= MAX_MEDIA ? m : [...m, {
+        id: newId(), kind: "youtube", youtubeId: data.videoId,
+        watchUrl: "https://www.youtube.com/watch?v=" + data.videoId,
+        poster, title: data.title || "", author: data.author || "",
+        name: data.title || "YouTube video", aspect: 16 / 9, text: "",
+      }]);
+      setMediaNote("YouTube clip added. It can't be transcribed — type what happens in it under its thumbnail so the questions match.");
+      setPostLink("");
+    } catch (_) {
+      setError("Couldn't reach the YouTube lookup. Try again in a moment.");
     } finally {
       setImportingPost(false);
     }
@@ -2730,7 +2808,7 @@ function App() {
                   {media.map((it, i) => (
                     <div className="media-thumb" key={it.id}>
                       <img src={it.kind === "image" ? it.dataUrl : it.poster} alt={it.name} />
-                      {it.kind === "video" && <span className="vtag"><Icon d={I.play} size={14} /></span>}
+                      {(it.kind === "video" || it.kind === "youtube") && <span className="vtag"><Icon d={I.play} size={14} /></span>}
                       <div className="media-thumb-tools">
                         <button type="button" className="iconbtn" aria-label={"Move " + it.name + " earlier"} disabled={i === 0} onClick={() => moveMedia(it.id, -1)}>‹</button>
                         <span className="ord">{i + 1}</span>
@@ -2758,6 +2836,18 @@ function App() {
                           )}
                         </div>
                       )}
+                      {it.kind === "youtube" && (
+                        <React.Fragment>
+                          <textarea className="media-text" rows={2} value={it.text}
+                            placeholder="e.g. A teen scrolls late at night; the feed keeps pulling them back…"
+                            onChange={e => setMediaText(it.id, e.target.value)} />
+                          <div className="hint" aria-live="polite">
+                            {it.text.trim()
+                              ? <span style={{ color: "var(--accent)", fontWeight: 600 }}>Description added ✓</span>
+                              : <span style={{ background: "var(--warn-bg)", color: "var(--warn-ink)", padding: "1px 6px", borderRadius: 6, fontWeight: 600 }}>YouTube clips can't be transcribed — type what happens so the questions match</span>}
+                          </div>
+                        </React.Fragment>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -2767,7 +2857,7 @@ function App() {
                 <label className="cap" htmlFor="f-mlink">Link (optional — becomes a QR code)</label>
                 <input id="f-mlink" type="text" value={link} placeholder="https://…" onChange={e => setLink(e.target.value)} />
               </div>
-              <div className="hint">Add one or many — they appear as a swipeable carousel with the routine on the right, and export as a click-through slideshow. Videos: still frames are read so the model can "see" them; small clips embed and play in <b>desktop</b> PowerPoint.</div>
+              <div className="hint">Add one or many — they appear as a swipeable carousel with the routine on the right, and export as a click-through slideshow. Videos: still frames are read so the model can "see" them; small clips embed and play in <b>desktop</b> PowerPoint. YouTube links become a live clip on the slide — click to play, needs internet, works in web PowerPoint.</div>
             </div>
           )}
 
