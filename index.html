@@ -53,6 +53,8 @@
     --accent-soft: #e9deeb;   /* Wesley Light Purple — chips, focus glow, tints */
     --purple-grey: #cec3cf;   /* Wesley Grey Purple — inactive borders/dividers */
     --wash: #f4eef8;          /* faint purple surface wash (hover / notes) */
+    --cap-ink: #6a5375;       /* uppercase field-cap labels */
+    --field-line: #ddd2e6;    /* input/select/textarea resting borders */
 
     /* Wesley gold — rare emphasis */
     --accent-2: #c59f40;      /* Wesley Gold (secondary) */
@@ -79,6 +81,7 @@
     --radius: 20px;
     --radius-sm: 13px;
     --shadow: 0 10px 30px rgba(60,40,90,.12);
+    --shadow-lift: 0 14px 36px rgba(60,40,90,.17); /* hover elevation (slides) */
     --pop: #2c1533;           /* solid "press" underside for tactile buttons */
   }
   * { box-sizing: border-box; }
@@ -108,7 +111,7 @@
   }
   header.app .logo {
     flex: 0 0 auto;
-    width: 42px; height: 42px; border-radius: 13px;
+    width: 42px; height: 42px; border-radius: var(--radius-sm);
     background: var(--accent-2);
     display: grid; place-items: center; color: var(--accent-deep);
     transform: rotate(-6deg);
@@ -175,10 +178,10 @@
   .group { margin-bottom: 16px; }
   .group > label.cap {
     display: block; font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase;
-    color: #6a5375; font-weight: 800; margin-bottom: 6px;
+    color: var(--cap-ink); font-weight: 800; margin-bottom: 6px;
   }
   input[type=text], input[type=password], textarea, select {
-    width: 100%; padding: 10px 12px; border: 1.5px solid #ddd2e6; border-radius: var(--radius-sm);
+    width: 100%; padding: 10px 12px; border: 1.5px solid var(--field-line); border-radius: var(--radius-sm);
     font: inherit; color: var(--ink); background: #fff; outline: none;
   }
   input:focus, textarea:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
@@ -189,7 +192,7 @@
   .modes { display: flex; gap: 6px; background: var(--accent-soft); padding: 5px; border-radius: 999px; }
   .modes button {
     flex: 1; padding: 9px 6px; border: 0; border-radius: 999px; background: transparent;
-    font: inherit; font-weight: 700; color: #533d5e; cursor: pointer; transition: .15s;
+    font: inherit; font-weight: 700; color: var(--muted); cursor: pointer; transition: .15s;
   }
   .modes button.active { background: var(--accent); color: #fff; box-shadow: 0 3px 10px rgba(79,39,89,.35); }
 
@@ -197,7 +200,7 @@
 
   .filebox {
     width: 100%; display: block; font: inherit; color: inherit;
-    border: 2px dashed var(--purple-grey); border-radius: 16px; padding: 16px; text-align: center;
+    border: 2px dashed var(--purple-grey); border-radius: 14px; padding: 16px; text-align: center;
     background: #fbf8ff; cursor: pointer; transition: .15s;
   }
   .filebox:hover { border-color: var(--accent); background: var(--accent-soft); transform: translateY(-1px) rotate(-.4deg); }
@@ -244,13 +247,13 @@
     background: #fff; border: 1.5px solid #e3d9ec; border-radius: var(--radius);
     box-shadow: var(--shadow); overflow: hidden; transition: box-shadow .2s;
   }
-  .slide:hover { box-shadow: 0 14px 36px rgba(60,40,90,.17); }
+  .slide:hover { box-shadow: var(--shadow-lift); }
   .slide .bar { height: 8px; background: var(--accent); }
   .slide .body { padding: 18px 20px; }
   /* Functional slide wayfinding label (replaces the retired uppercase .kicker eyebrow).
      The 3 preview slides are a real ordered sequence, so a small numbered badge earns its place. */
   .slide-tag { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: var(--ink); margin-bottom: 2px; flex-wrap: wrap; }
-  .slide-tag .n { flex: 0 0 auto; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 7px; background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; transform: rotate(-6deg); box-shadow: 0 2px 0 rgba(43,37,54,.25); }
+  .slide-tag .n { flex: 0 0 auto; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; transform: rotate(-6deg); box-shadow: 0 2px 0 rgba(43,37,54,.25); }
   .slide-tag .aside { color: var(--muted); font-weight: 400; }
   .slide-head { display: flex; align-items: center; gap: 10px; margin-bottom: 2px; }
   .slide-head .slide-tag { margin-bottom: 0; }
@@ -359,7 +362,7 @@
   .reel-arrow.left { left: 8px; } .reel-arrow.right { right: 8px; }
   .reel-arrow:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
   .reel-dots { display: flex; justify-content: center; gap: 6px; margin-top: 8px; }
-  .reel-dots .dot { width: 8px; height: 8px; border-radius: 999px; border: none; background: #b9afce; cursor: pointer; padding: 0; }
+  .reel-dots .dot { width: 8px; height: 8px; border-radius: 999px; border: none; background: var(--purple-grey); cursor: pointer; padding: 0; }
   .reel-dots .dot.on { background: var(--accent); }
   @media (prefers-reduced-motion: reduce) { .reel * { transition: none !important; } }
 
@@ -386,7 +389,7 @@
   .arc-chip.arc-1 { background: #ffedbc; color: #7a5012; transform: rotate(-3deg); }
   .arc-chip.arc-2 { background: #cbdaff; color: #4242a1; transform: rotate(2deg); }
   .arc-chip.arc-3 { background: #ffdab5; color: #8a4b12; transform: rotate(-2deg); }
-  .arc-chip.arc-4 { background: #cfe9d3; color: #4d5142; transform: rotate(2.5deg); }
+  .arc-chip.arc-4 { background: #cfe9d3; color: var(--good-ink); transform: rotate(2.5deg); }
   .toolbar { display: flex; gap: 10px; margin-bottom: 16px; }
   .toolbar .btn { width: auto; flex: 1; }
 
@@ -620,7 +623,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v1.19.1 · 2026-07-16";
+const APP_VERSION = "v1.19.2 · 2026-07-16";
 
 // Backend base URL. Served from localhost/127.0.0.1/file: -> talk to `vercel dev`
 // on :3000; otherwise the deployed proxy. The proxy (Vercel project "digital-spotlight")

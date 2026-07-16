@@ -1,31 +1,126 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-06-23T00:00:00.000Z",
+  "generatedAt": "2026-07-16T11:51:30.797Z",
   "title": "Design System: Digital Space Spotlight Generator",
   "extensions": {
     "colorMeta": {
-      "primary": { "role": "primary", "displayName": "Wesley Purple", "canonical": "#4F2759", "tonalRamp": ["#1C0E20", "#2C1632", "#3D1D45", "#4F2759", "#6E4078", "#92729A", "#C0AEC6", "#EFE7FF"] },
-      "secondary": { "role": "secondary", "displayName": "Wesley Gold", "canonical": "#C59F40", "tonalRamp": ["#241B0A", "#3A2D10", "#5B461A", "#7E6224", "#A2802F", "#C59F40", "#DCC079", "#F3E7C2"] },
-      "ink": { "role": "neutral", "displayName": "Ink", "canonical": "#2B2536", "tonalRamp": ["#15121B", "#2B2536", "#3F3850", "#564E69", "#6B6478", "#9A93A5", "#C9C4D2", "#F0EDF4"] },
-      "surface-bg": { "role": "neutral", "displayName": "Soft Lilac Canvas", "canonical": "#F6F2FB", "tonalRamp": ["#2B2536", "#4A4256", "#6B6478", "#9A93A5", "#C9C4D2", "#E7E1EF", "#F6F2FB", "#FFFFFF"] }
+      "primary": {
+        "role": "primary",
+        "displayName": "Wesley Purple",
+        "canonical": "#4F2759",
+        "tonalRamp": [
+          "#1C0E20",
+          "#2C1632",
+          "#3D1D45",
+          "#4F2759",
+          "#6E4078",
+          "#92729A",
+          "#C0AEC6",
+          "#EFE7FF"
+        ]
+      },
+      "secondary": {
+        "role": "secondary",
+        "displayName": "Wesley Gold",
+        "canonical": "#C59F40",
+        "tonalRamp": [
+          "#241B0A",
+          "#3A2D10",
+          "#5B461A",
+          "#7E6224",
+          "#A2802F",
+          "#C59F40",
+          "#DCC079",
+          "#F3E7C2"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#2B2536",
+        "tonalRamp": [
+          "#15121B",
+          "#2B2536",
+          "#3F3850",
+          "#564E69",
+          "#6B6478",
+          "#9A93A5",
+          "#C9C4D2",
+          "#F0EDF4"
+        ]
+      },
+      "surface-bg": {
+        "role": "neutral",
+        "displayName": "Soft Lilac Canvas",
+        "canonical": "#F6F2FB",
+        "tonalRamp": [
+          "#2B2536",
+          "#4A4256",
+          "#6B6478",
+          "#9A93A5",
+          "#C9C4D2",
+          "#E7E1EF",
+          "#F6F2FB",
+          "#FFFFFF"
+        ]
+      }
     },
     "typographyMeta": {
-      "display": { "displayName": "Display", "purpose": "Slide title only — the largest, most confident type because the slide is the hero." },
-      "headline": { "displayName": "Headline", "purpose": "App header title; quiet brand presence." },
-      "title": { "displayName": "Title", "purpose": "Slide section headings." },
-      "body": { "displayName": "Body", "purpose": "All running text, inputs, editable fields; hints at 12px." },
-      "label": { "displayName": "Label", "purpose": "Functional form-group caps only — never a decorative eyebrow." }
+      "display": {
+        "displayName": "Display",
+        "purpose": "Slide title only — the largest, most confident type because the slide is the hero."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "App header title; quiet brand presence."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Slide section headings."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "All running text, inputs, editable fields; hints at 12px."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Functional form-group caps only — never a decorative eyebrow."
+      }
     },
     "shadows": [
-      { "name": "ambient-lift", "value": "0 6px 24px rgba(60,40,90,0.10)", "purpose": "The single resting elevation — panels, slides, primary buttons, thumbnails. Purple-tinted so even the shadow stays in family." },
-      { "name": "modal-lift", "value": "0 20px 60px rgba(40,25,70,0.35)", "purpose": "Deeper lift, only for the dialog card floating above the blurred scrim." }
+      {
+        "name": "ambient-lift",
+        "value": "0 6px 24px rgba(60,40,90,0.10)",
+        "purpose": "The single resting elevation — panels, slides, primary buttons, thumbnails. Purple-tinted so even the shadow stays in family."
+      },
+      {
+        "name": "modal-lift",
+        "value": "0 20px 60px rgba(40,25,70,0.35)",
+        "purpose": "Deeper lift, only for the dialog card floating above the blurred scrim."
+      },
+      {
+        "name": "hover-lift",
+        "value": "0 14px 36px rgba(60,40,90,0.17)",
+        "purpose": "Slide hover elevation (token --shadow-lift), one step above ambient-lift."
+      }
     ],
     "motion": [
-      { "name": "state-transition", "value": "0.15s ease", "purpose": "Default transition on hover/focus/active for buttons, tabs, dropzones — fast, state-only, no choreography." },
-      { "name": "spin", "value": "0.7s linear infinite", "purpose": "Loading spinner rotation inside the primary button." }
+      {
+        "name": "state-transition",
+        "value": "0.15s ease",
+        "purpose": "Default transition on hover/focus/active for buttons, tabs, dropzones — fast, state-only, no choreography."
+      },
+      {
+        "name": "spin",
+        "value": "0.7s linear infinite",
+        "purpose": "Loading spinner rotation inside the primary button."
+      }
     ],
     "breakpoints": [
-      { "name": "stack", "value": "980px" }
+      {
+        "name": "stack",
+        "value": "980px"
+      }
     ]
   },
   "components": [
@@ -97,11 +192,31 @@
       "Trust signals everywhere: inline edit affordances, honest loading/error states, a clear Forget for the API key."
     ],
     "rules": [
-      { "name": "The One Voice Rule", "body": "Wesley Purple is the only interactive accent. Selection, focus, primary action, and links all speak in it. Gold is emphasis, not interaction; coral is legacy.", "section": "colors" },
-      { "name": "The Wesley Voice Rule", "body": "The canonical brand is #4F2759 purple + #C59F40 gold — the export palette. The in-app bright violet (#7C4DFF) and coral (#FF7043) are legacy drift; new work uses the canonical pair and existing uses migrate toward it.", "section": "colors" },
-      { "name": "The Weight-Not-Face Rule", "body": "Hierarchy is built from weight (400 to 800) and size, never from a second font. One family, many weights.", "section": "typography" },
-      { "name": "The No-Eyebrow Rule", "body": "Uppercase tracked micro-labels are permitted only as functional form captions. The slide kicker is a decorative eyebrow tell and is being retired.", "section": "typography" },
-      { "name": "The One-Shadow Rule", "body": "There is exactly one resting elevation. Surfaces either sit flat or wear the Ambient Lift. The modal is the single exception.", "section": "elevation" }
+      {
+        "name": "The One Voice Rule",
+        "body": "Wesley Purple is the only interactive accent. Selection, focus, primary action, and links all speak in it. Gold is emphasis, not interaction; coral is legacy.",
+        "section": "colors"
+      },
+      {
+        "name": "The Wesley Voice Rule",
+        "body": "The canonical brand is #4F2759 purple + #C59F40 gold — the export palette. The in-app bright violet (#7C4DFF) and coral (#FF7043) are legacy drift; new work uses the canonical pair and existing uses migrate toward it.",
+        "section": "colors"
+      },
+      {
+        "name": "The Weight-Not-Face Rule",
+        "body": "Hierarchy is built from weight (400 to 800) and size, never from a second font. One family, many weights.",
+        "section": "typography"
+      },
+      {
+        "name": "The No-Eyebrow Rule",
+        "body": "Uppercase tracked micro-labels are permitted only as functional form captions. The slide kicker is a decorative eyebrow tell and is being retired.",
+        "section": "typography"
+      },
+      {
+        "name": "The One-Shadow Rule",
+        "body": "There is exactly one resting elevation. Surfaces either sit flat or wear the Ambient Lift. The modal is the single exception.",
+        "section": "elevation"
+      }
     ],
     "dos": [
       "Do use Wesley Purple #4F2759 as the single interactive accent and reserve Gold #C59F40 for rare emphasis.",

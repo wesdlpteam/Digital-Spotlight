@@ -8,6 +8,8 @@ colors:
   primary-soft: "#E9DEEB"     # Wesley Light Purple — chips, focus glow, tints
   grey-purple: "#CEC3CF"      # Wesley Grey Purple — inactive borders/dividers
   wash: "#F4EEF8"             # faint purple surface wash (hover / notes)
+  cap-ink: "#6A5375"          # uppercase field-cap labels
+  field-line: "#DDD2E6"       # input/select/textarea resting borders
   # Wesley gold — rare emphasis
   secondary: "#C59F40"        # Wesley Gold
   secondary-ink: "#6A5018"    # readable gold for text on light (AA on gold-soft)
@@ -26,7 +28,7 @@ colors:
   # Semantic states — Wesley Tertiary "Interface" traffic-light + Highlighter bg + AA-verified ink
   success: "#58C337"          # Interface green
   success-bg: "#CFE9D3"       # Highlighter green
-  success-ink: "#636656"      # 4.56:1 on success-bg
+  success-ink: "#4D5142"      # darkened from 636656; matches app --good-ink, >4.5:1 on success-bg
   warning: "#F0A54F"          # Interface amber
   warning-bg: "#FFDAB5"       # Highlighter orange
   warning-ink: "#8A4B12"      # 5.15:1 (brand A35333 failed AA at 4.15)

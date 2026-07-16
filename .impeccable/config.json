@@ -1,0 +1,32 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "design-system-radius",
+        "value": "6px",
+        "reason": "Intentional inset radius: 6px inner image radius inside a 10px outer .media-thumb card — standard inset-radius pattern",
+        "createdAt": "2026-06-24T10:44:47.667Z"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "rgba(0,0,0,.55)",
+        "reason": "Pre-existing overlay scrim in CSS, intentional design-system value",
+        "createdAt": "2026-06-25T01:01:05.056Z"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "rgba(0,0,0,.5)",
+        "reason": "Pre-existing overlay scrim in CSS, intentional design-system value",
+        "createdAt": "2026-06-25T01:01:10.392Z"
+      },
+      {
+        "rule": "design-system-radius",
+        "value": ".25em",
+        "reason": "em-scaled hero highlight rounding — intentional, tracks the clamp() font size",
+        "createdAt": "2026-07-16T11:51:30.933Z"
+      }
+    ]
+  }
+}
