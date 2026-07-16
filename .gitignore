@@ -10,6 +10,9 @@ fonts/
 # Brainstorming visual-companion scratch (mockups, server state)
 .superpowers/
 
+# Claude Code local workspace (agents, worktrees, settings)
+.claude/
+
 # OS / editor cruft
 Thumbs.db
 .DS_Store

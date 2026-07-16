@@ -124,6 +124,19 @@ components:
 
 # Design System: Digital Space Spotlight Generator
 
+## 0. Current visual system — "Playful Wesley" (updated 2026-07-16, v1.15.0)
+
+The live UI now wears Wesley's **playful** treatment, shared with the sibling Springboard app. It keeps the canonical Wesley palette — Purple `#4F2759`, deep `#3D1D45`, Gold `#C59F40`, light gold `#E4D1A1`, muted `#574F63` — but trades the old flat "quiet staffroom" chrome for warmer, more tactile surfaces. Sections 1–6 below are retained as the calmer baseline this evolved from; where they differ, this section is authoritative.
+
+- **Tokens:** `--radius: 20px`, `--radius-sm: 13px`, `--shadow: 0 10px 30px rgba(60,40,90,.12)`, `--pop: #2c1533` (the solid "underside" behind tactile buttons).
+- **Body:** a light-purple wash (`#f7f3fc`) under three soft Wesley-pastel radial glows (gold, blue, pink), `background-attachment: fixed`.
+- **Header:** a solid Wesley-purple band (no border, soft purple shadow, sticky). Title in light gold (`#E4D1A1`), weight 800, display face, with a small white ✦; tagline and version chip in white / translucent white. The shield mark rides a gold sticker tile (42px, radius 13px, rotated −6°, hard `0 3px 0` underside). Wraps and hides the version chip at ≤720px.
+- **Buttons:** tactile "press" style. Primary is solid purple with a stacked `0 4px 0 --pop` underside that lifts on hover (`translateY(-2px)`) and sinks on press (`translateY(2px)`); ghost is white with a `0 3px 0 #e3d9ec` underside and a purple hover. Radius 14px.
+- **Cards / panels / slides:** white, `1.5px solid #e3d9ec` border, `var(--radius)` corners, ambient `--shadow`. Slides carry an 8px top accent bar, lift their shadow on hover, and use small rotated purple sticker badges for numbers.
+- **Controls:** segmented mode toggles ride a light-purple pill rail with a solid-purple active pill; inputs use `1.5px #ddd2e6` borders at `--radius-sm`; dashed drop-zones sit on `#fbf8ff` and tilt slightly on hover; selected pills/toggles do a small `pop` scale; field caps are `#6a5375`, weight 800.
+- **Welcome hero:** the empty preview state greets teachers with a purple display headline (one word on a rotated highlighter tint), a muted one-liner, and the 4-step path shown as small tilted pastel sticker pills.
+- **Accessibility:** body text stays ≥4.5:1; focus rings are `2px solid #4f2759` (offset 2px) on light surfaces and white on the purple header; every added animation is covered by the `prefers-reduced-motion` block.
+
 ## 1. Overview
 
 **Creative North Star: "The Quiet Staffroom"**
