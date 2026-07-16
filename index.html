@@ -137,12 +137,30 @@
   @media (max-width: 980px) { .layout { grid-template-columns: 1fr; } }
 
   /* Pre-generate: the builder owns the full width; the panel splits into two internal
-     columns (key/model/stimulus | deck settings + generate). After Generate: classic
-     380px + preview. Ported from Springboard. */
+     columns (stimulus | deck settings + generate) separated by a full-height hairline,
+     each headed by a numbered step so the left-then-right order reads at a glance.
+     After Generate: classic 380px + preview. Ported from Springboard. */
   .layout.pre { grid-template-columns: 1fr; }
-  .layout.pre .panel.input { position: static; display: grid; grid-template-columns: 1fr 1fr; gap: 0 28px; align-items: start; }
+  .layout.pre .panel.input { position: static; display: grid; grid-template-columns: 1fr 1fr; gap: 0; padding: 26px 32px 30px; }
+  .layout.pre .panel.input .icol:first-child { padding-right: 36px; border-right: 1.5px solid var(--line); }
+  .layout.pre .panel.input .icol:last-child { padding-left: 36px; }
   .layout:not(.pre) .panel.input .icol { display: contents; }
-  @media (max-width: 980px) { .layout.pre .panel.input { display: block; } }
+  /* Post-generate the sidebar is for tweaking, not first-run steps — drop the headers. */
+  .layout:not(.pre) .icol-head { display: none; }
+  @media (max-width: 980px) {
+    .layout.pre .panel.input { display: block; padding: 18px; }
+    .layout.pre .panel.input .icol:first-child { padding-right: 0; border-right: 0; }
+    .layout.pre .panel.input .icol:last-child { padding-left: 0; margin-top: 24px; padding-top: 22px; border-top: 1.5px solid var(--line); }
+  }
+
+  /* Numbered step header at the top of each builder column. */
+  .icol-head { display: flex; align-items: center; gap: 11px; margin: 0 0 18px; }
+  .icol-head .n {
+    flex: 0 0 auto; width: 28px; height: 28px; border-radius: 999px;
+    background: var(--accent); color: #fff; display: grid; place-items: center;
+    font-weight: 800; font-size: 14px; box-shadow: 0 2px 0 var(--pop);
+  }
+  .icol-head h3 { margin: 0; font-size: 17px; font-weight: 800; font-family: var(--font-display); color: var(--ink); letter-spacing: -.01em; }
   .hero { grid-column: 1 / -1; text-align: center; padding: 30px 18px 6px; }
 
   .panel {
@@ -602,7 +620,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v1.19.0 · 2026-07-16";
+const APP_VERSION = "v1.19.1 · 2026-07-16";
 
 // Backend base URL. Served from localhost/127.0.0.1/file: -> talk to `vercel dev`
 // on :3000; otherwise the deployed proxy. The proxy (Vercel project "digital-spotlight")
@@ -2647,7 +2665,7 @@ function App() {
         {!previewOpen && (
           <section className="hero">
             <h2 className="hero-title">What digital habit will you <span className="hero-mark">spotlight</span> today?</h2>
-            <p className="hero-sub">Add a photo, an article, a video or a link below, then hit <b>Generate</b>. In about two minutes you'll have a ready-to-run 5-minute cyber-safety conversation, editable before you download.</p>
+            <p className="hero-sub">Two steps: add a photo, an article, a video or a link in <b>step&nbsp;1</b>, choose who it's for in <b>step&nbsp;2</b>, then hit <b>Generate</b>. In about two minutes you'll have a ready-to-run 5-minute cyber-safety conversation, editable before you download.</p>
             <div className="hero-arc" aria-hidden="true">
               <span className="arc-chip arc-1">Add stimulus</span>
               <span className="arc-chip arc-2">Pick a band</span>
@@ -2661,16 +2679,7 @@ function App() {
             (key/model/stimulus | deck settings + generate); post-generate they display:contents away. */}
         <div className="panel input">
           <div className="icol">
-          {/* No passcode UI: the school runs the proxy in open mode (TS_PASSCODE unset).
-              The passcode state + header plumbing stay so re-locking is one env var away. */}
-          <div className="group">
-            <label className="cap" htmlFor="f-model">Model</label>
-            <select id="f-model" value={model} onChange={e => setModel(e.target.value)}>
-              <option value="gpt-5.6-sol">gpt-5.6-sol (best quality)</option>
-              <option value="gpt-5.6-terra">gpt-5.6-terra (balanced)</option>
-              <option value="gpt-5.6-luna">gpt-5.6-luna (cheapest)</option>
-            </select>
-          </div>
+          <div className="icol-head"><span className="n">1</span><h3>Add your stimulus</h3></div>
 
           <div className="group">
             <label className="cap" id="lbl-mode">Stimulus mode</label>
@@ -2814,8 +2823,23 @@ function App() {
             </div>
           )}
 
+          {/* Model select lives with the plumbing at the bottom — step 1 leads with the
+              stimulus itself. No passcode UI: the school runs the proxy in open mode
+              (TS_PASSCODE unset); the passcode state + header plumbing stay so re-locking
+              is one env var away. */}
+          <div className="group">
+            <label className="cap" htmlFor="f-model">Model</label>
+            <select id="f-model" value={model} onChange={e => setModel(e.target.value)}>
+              <option value="gpt-5.6-sol">gpt-5.6-sol (best quality)</option>
+              <option value="gpt-5.6-terra">gpt-5.6-terra (balanced)</option>
+              <option value="gpt-5.6-luna">gpt-5.6-luna (cheapest)</option>
+            </select>
+          </div>
+
           </div>
           <div className="icol">
+          <div className="icol-head"><span className="n">2</span><h3>Set up &amp; generate</h3></div>
+
           <div className="group">
             <label className="cap" htmlFor="f-title">Title (optional)</label>
             <input id="f-title" type="text" value={title} placeholder="Leave blank to auto-generate" onChange={e => setTitle(e.target.value)} />
