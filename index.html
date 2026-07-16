@@ -602,7 +602,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v1.18.0 · 2026-07-16";
+const APP_VERSION = "v1.19.0 · 2026-07-16";
 
 // Backend base URL. Served from localhost/127.0.0.1/file: -> talk to `vercel dev`
 // on :3000; otherwise the deployed proxy. The proxy (Vercel project "digital-spotlight")
@@ -1631,6 +1631,8 @@ function App() {
   // media reel
   const [extractingVideo, setExtractingVideo] = useState(false); // any video frame-extraction in flight
   const [mediaNote, setMediaNote] = useState(""); // soft inline status under the dropzone
+  const [postLink, setPostLink] = useState("");   // social post URL to import media from
+  const [importingPost, setImportingPost] = useState(false); // paste-a-link fetch in flight
 
   // link helper — loopback server on 127.0.0.1:7717
   const fsSupported = typeof window !== "undefined" && "showDirectoryPicker" in window;
@@ -1896,7 +1898,15 @@ function App() {
     const take = files.slice(0, room);
     if (files.length > room) setMediaNote(`Only added ${room} — a reel holds up to ${MAX_MEDIA} items.`);
 
-    for (const f of take) {
+    for (const f of take) await ingestMediaFile(f);
+  }
+
+  // Turn ONE File into a reel item (image -> dataUrl; video -> frames + transcript +
+  // SharePoint host). Shared by the file picker and the paste-a-link importer so both
+  // paths behave identically. The MAX_MEDIA guard lives inside each setMedia so a race
+  // can never overflow the reel.
+  async function ingestMediaFile(f) {
+    {
       if (f.type.startsWith("image/")) {
         try { const dataUrl = await readFileAsDataURL(f); const aspect = await imageAspect(dataUrl); setMedia(m => m.length >= MAX_MEDIA ? m : [...m, { id: newId(), kind: "image", dataUrl, name: f.name, aspect }]); }
         catch (_) { setError("Could not read image: " + f.name); }
@@ -1939,6 +1949,53 @@ function App() {
   }
 
   function onMedia(e) { addMediaFiles(e.target.files); e.target.value = ""; }
+
+  // Paste a public YouTube / Instagram / X / Facebook post link -> the backend asks a
+  // Cobalt instance what media the post holds, then the browser fetches each file
+  // straight from Cobalt (keeps big videos off Vercel's 4.5 MB response path) and feeds
+  // them through the same ingestMediaFile() the picker uses.
+  async function importFromPostLink(overrideUrl) {
+    const url = (typeof overrideUrl === "string" ? overrideUrl : postLink).trim();
+    setError(""); setMediaNote("");
+    if (!/^https?:\/\//i.test(url)) { setError("Paste a full post link starting with http(s):// first."); return; }
+    const room = MAX_MEDIA - media.length;
+    if (room <= 0) { setMediaNote(`That's the limit of ${MAX_MEDIA} items — remove one to add more.`); return; }
+
+    setImportingPost(true);
+    try {
+      const headers = { "Content-Type": "application/json" };
+      if (passcode.trim()) headers["x-ts-passcode"] = passcode.trim();
+      const resp = await fetch(`${API_BASE}/api/fetch-post-media`, { method: "POST", headers, body: JSON.stringify({ url }) });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) { setError(data.error || "Couldn't fetch that post. Check the link and try again."); return; }
+
+      const items = Array.isArray(data.items) ? data.items : [];
+      if (!items.length) { setMediaNote(data.error || data.note || "No photos or videos found in that post."); return; }
+
+      const take = items.slice(0, room);
+      let failed = 0;
+      for (const it of take) {
+        try {
+          const mediaResp = await fetch(it.url);              // direct from Cobalt's tunnel (CORS-open)
+          if (!mediaResp.ok) throw new Error("http " + mediaResp.status);
+          const blob = await mediaResp.blob();
+          const fallbackType = it.type === "video" ? "video/mp4" : "image/jpeg";
+          const file = new File([blob], it.filename || (it.type === "video" ? "clip.mp4" : "photo.jpg"),
+            { type: blob.type || fallbackType });
+          await ingestMediaFile(file);
+        } catch (_) { failed++; }
+      }
+
+      if (items.length > room) setMediaNote(`Only added ${room} — a reel holds up to ${MAX_MEDIA} items.`);
+      else if (failed) setMediaNote(`Added what I could — ${failed} item${failed > 1 ? "s" : ""} couldn't be fetched (the site may be blocking it).`);
+      else if (data.note) setMediaNote(data.note);
+      setPostLink("");
+    } catch (_) {
+      setError("Couldn't reach the link-import service. Try again in a moment.");
+    } finally {
+      setImportingPost(false);
+    }
+  }
   const removeMedia = (id) => { videoFilesRef.current.delete(id); uploadPromisesRef.current.delete(id); setMedia(m => m.filter(x => x.id !== id)); };
   const setMediaText = (id, text) => setMedia(m => m.map(x => x.id === id ? { ...x, text } : x));
   function moveMedia(id, dir) {
@@ -2642,6 +2699,18 @@ function App() {
                   : <React.Fragment><div className="big"><Icon d={I.image} size={26} stroke /></div><div className="small">Click, or drop images / videos here ({media.length}/{MAX_MEDIA})</div></React.Fragment>}
               </button>
               <input ref={mediaInput} id="f-media" type="file" accept="image/*,video/*" multiple hidden onChange={onMedia} />
+
+              <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                <input id="f-postlink" type="text" aria-label="Post link to grab photos and videos from"
+                  value={postLink} placeholder="…or paste a post link — Instagram, YouTube, X, Facebook"
+                  onChange={e => setPostLink(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); importFromPostLink(); } }} />
+                <button type="button" className="btn ghost" style={{ width: "auto", padding: "9px 12px", whiteSpace: "nowrap" }}
+                  disabled={importingPost || extractingVideo} onClick={() => importFromPostLink()}>
+                  {importingPost ? "Fetching…" : "Add from link"}
+                </button>
+              </div>
+
               {mediaNote && <div className="alert info" role="status" aria-live="polite" style={{ marginTop: 8 }}>{mediaNote}</div>}
 
               {media.length > 0 && (

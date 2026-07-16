@@ -7,7 +7,7 @@ A single-page tool that creates 5-minute **Digital Life Spotlight** discussion p
 ## What it does
 
 - **Two stimulus modes:**
-  - **Images / video (swipeable reel)** — add one or many images and short videos; they're sent to the model as real images (video still-frames included) so it builds the Spotlight from what's actually there, and export as a click-through slideshow. Small clips embed and play in desktop PowerPoint.
+  - **Images / video (swipeable reel)** — add one or many images and short videos; they're sent to the model as real images (video still-frames included) so it builds the Spotlight from what's actually there, and export as a click-through slideshow. Small clips embed and play in desktop PowerPoint. **Add from link** pulls a public YouTube / Instagram / X / Facebook post's photos and videos straight into the reel (needs a Cobalt instance — see **Deploy**).
   - **Article** — upload a PDF (text extracted in-browser) or paste the article text. Paste a link and it becomes a QR code; **Fetch text** pulls an open article via a public reader service (r.jina.ai).
 - **Adapts to the band** — PYP (Prep–Y6) concrete & inquiry-based, Middle (Y7–9) analytical, Senior (Y10–12) critical/ethical — and rotates Visible Thinking routines curated per band from the official Project Zero toolbox (full list in `docs/pz-thinking-routines.md`).
 - **Four editable slides:** Title · Stimulus · Discussion scaffold (timed to ≤5 min) · Teacher notes (guiding questions + a student action). Every field is editable in the preview, and any single slide can be regenerated on its own.
@@ -25,7 +25,7 @@ A single-page tool that creates 5-minute **Digital Life Spotlight** discussion p
 
 ## Privacy
 
-The shared **school passcode** is saved in **this browser's localStorage** so you don't re-enter it each visit — it is not a personal login, just one code for the whole school, and it is never committed to this repository. The **Forget** button clears the passcode **and** disconnects any connected SharePoint folders (each folder also has its own **Disconnect** button) — use it on a shared computer. Stimulus content (pasted/fetched article text, and any images or video frames) is sent to OpenAI **only via this tool's own backend** — the browser never talks to OpenAI directly, and OpenAI's key never leaves the server. **Fetch text** also sends the article URL to a public reader service (r.jina.ai), and images may be proxied via images.weserv.nl / Wikimedia for CORS-safe embedding. There are no secrets in the repo.
+The shared **school passcode** is saved in **this browser's localStorage** so you don't re-enter it each visit — it is not a personal login, just one code for the whole school, and it is never committed to this repository. The **Forget** button clears the passcode **and** disconnects any connected SharePoint folders (each folder also has its own **Disconnect** button) — use it on a shared computer. Stimulus content (pasted/fetched article text, and any images or video frames) is sent to OpenAI **only via this tool's own backend** — the browser never talks to OpenAI directly, and OpenAI's key never leaves the server. **Fetch text** also sends the article URL to a public reader service (r.jina.ai), and images may be proxied via images.weserv.nl / Wikimedia for CORS-safe embedding. **Add from link** sends the pasted (public) post URL to the configured Cobalt instance — prefer your own self-hosted instance so links aren't handed to a third party. There are no secrets in the repo.
 
 ## Tech
 
@@ -41,6 +41,12 @@ The frontend (`index.html`) is served free on GitHub Pages; the `api/` functions
    - `TS_PASSCODE` — optional. Leave unset for open access (the school's current choice).
      Setting it re-locks the proxy instantly; to re-show the passcode box in the app,
      restore the "School passcode" group in index.html (the header plumbing is still there).
+   - `COBALT_API_URL` — optional. Base URL of a [Cobalt](https://github.com/imputnet/cobalt)
+     instance, e.g. `https://cobalt.example.com`. Powers **Add from link** (grab a public
+     post's photos/videos into the reel). Unset ⇒ the feature shows a "not set up yet"
+     message and everything else works normally. The public `api.cobalt.tools` is
+     bot-gated, so **self-host your own** (free one-click deploy on Railway).
+   - `COBALT_API_KEY` — optional. Only if your Cobalt instance sets `API_AUTH_REQUIRED=1`.
 3. Deploy. The frontend on GitHub Pages then talks to `https://digital-spotlight.vercel.app/api/*`, sending the passcode in an `x-ts-passcode` header (checked server-side with a constant-time comparison).
 
 Local development:
