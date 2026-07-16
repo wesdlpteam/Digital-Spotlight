@@ -1199,7 +1199,7 @@ function advisoryThemeLine(cats) {
   return ordered.map(c => ADVISORY_CATEGORIES[c].theme).join(" · ");
 }
 
-const TRANSCRIBE_LIMIT = 25 * 1024 * 1024; // OpenAI audio endpoint per-file cap
+const TRANSCRIBE_LIMIT = 4 * 1024 * 1024; // Vercel serverless request-body limit is ~4.5 MB; stay under it (was 25 MB when the browser called OpenAI directly)
 // Transcribe a video/audio File via OpenAI. Sends the file directly when small
 // enough; otherwise downsamples to 16 kHz mono WAV (and truncates very long clips).
 async function transcribeMedia({ passcode, file }) {
