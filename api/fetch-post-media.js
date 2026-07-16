@@ -20,6 +20,10 @@ const VIDEO_EXT = /\.(mp4|webm|mov|m4v|mkv|avi)(\?|$)/i;
 // unmapped falls through to a generic message so we never surface a raw code.
 function friendlyError(code) {
   const c = String(code || "");
+  // YouTube blocks datacenter IPs with a "sign in to confirm you're not a bot" check,
+  // which Cobalt surfaces as a youtube/login error. Say so honestly instead of calling
+  // a plainly-public video "private". (Checked before the generic auth branch below.)
+  if (/youtube/i.test(c)) return "YouTube is blocking the free grabber (it can't tell it apart from a bot). For YouTube, use the Desktop “Download Video” app — Instagram, X and Facebook work here.";
   if (/private|auth|login|token|jwt/i.test(c)) return "This looks like a private or login-only post. The app can only grab public posts.";
   if (/unavailable|not.?found|invalid.*link|link.*invalid|fetch/i.test(c)) return "Couldn't open that link. Check it's a public post and try again.";
   if (/rate|limit/i.test(c)) return "The link service is busy right now. Wait a moment and try again.";

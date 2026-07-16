@@ -121,3 +121,14 @@ test("caps runaway pickers at 20 items", async () => {
     assert.equal(res.body.items.length, 20);
   } finally { restore(); }
 });
+
+test("youtube bot-block -> honest YouTube message, not 'private'", async () => {
+  const restore = withCobalt({ status: "error", error: { code: "error.api.youtube.login" } });
+  try {
+    const { req, res } = mockReqRes({ headers: PASS, body: { url: "https://youtu.be/x" } });
+    await handler(req, res);
+    assert.equal(res.statusCode, 502);
+    assert.match(res.body.error, /YouTube is blocking/i);
+    assert.doesNotMatch(res.body.error, /private/i);
+  } finally { restore(); }
+});
