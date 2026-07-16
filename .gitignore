@@ -13,6 +13,12 @@ fonts/
 # Claude Code local workspace (agents, worktrees, settings)
 .claude/
 
+# Node / Vercel backend (api/ serverless proxy) — deps and secrets stay local
+node_modules/
+.vercel/
+.env
+.env.*
+
 # OS / editor cruft
 Thumbs.db
 .DS_Store

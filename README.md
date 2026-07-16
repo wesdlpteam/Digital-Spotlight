@@ -19,14 +19,32 @@ A single-page tool that creates 5-minute **Digital Life Spotlight** discussion p
 ## How to use
 
 1. Open the live link (or download `index.html` and double-click it).
-2. Paste your **OpenAI API key** and choose a model (gpt-5.4, gpt-5.5, or gpt-5.4-mini).
+2. Enter the shared **school passcode** (one code for the whole school; the browser remembers it) and choose a model.
 3. Pick a stimulus mode, add the stimulus, tick one or more bands, set a focus theme (or tap **Suggest** to get one from your stimulus).
 4. **Generate**, edit any field in the preview, then **Download PowerPoint** (or **Save to SharePoint Lessons**).
 
 ## Privacy
 
-Your API key is saved in **this browser's localStorage** so you don't re-enter it each visit — it is never committed to this repository or sent anywhere except OpenAI. The **Forget** button clears the key **and** disconnects any connected SharePoint folders (each folder also has its own **Disconnect** button) — use it on a shared computer. Article text pasted or fetched goes to OpenAI; **Fetch text** also sends the article URL to a public reader service (r.jina.ai), and images may be proxied via images.weserv.nl / Wikimedia for CORS-safe embedding. There are no secrets in the repo; each user supplies their own key.
+The shared **school passcode** is saved in **this browser's localStorage** so you don't re-enter it each visit — it is not a personal login, just one code for the whole school, and it is never committed to this repository. The **Forget** button clears the passcode **and** disconnects any connected SharePoint folders (each folder also has its own **Disconnect** button) — use it on a shared computer. Stimulus content (pasted/fetched article text, and any images or video frames) is sent to OpenAI **only via this tool's own backend** — the browser never talks to OpenAI directly, and OpenAI's key never leaves the server. **Fetch text** also sends the article URL to a public reader service (r.jina.ai), and images may be proxied via images.weserv.nl / Wikimedia for CORS-safe embedding. There are no secrets in the repo.
 
 ## Tech
 
-Single static `index.html`: React + Babel (in-browser), PptxGenJS, qrcode, JSZip, and pdf.js — all from CDN, pinned to exact versions with Subresource Integrity. No build step.
+Single static `index.html`: React + Babel (in-browser), PptxGenJS, qrcode, JSZip, and pdf.js — all from CDN, pinned to exact versions with Subresource Integrity. No build step. A small set of Vercel serverless functions under `api/` proxy the OpenAI calls so the key stays server-side (see **Deploy**).
+
+## Deploy
+
+The frontend (`index.html`) is served free on GitHub Pages; the `api/` functions run on Vercel and hold the OpenAI key. The page auto-points at `http://localhost:3000` when opened from `localhost`/`127.0.0.1`/`file:`, and otherwise at the deployed proxy URL (`https://digital-spotlight.vercel.app`).
+
+1. Import this repo into [Vercel](https://vercel.com) as a new project named **`digital-spotlight`** (this fixes the URL the frontend calls).
+2. In the project's **Settings → Environment Variables**, set:
+   - `OPENAI_API_KEY` — your OpenAI secret key (kept server-side; never shipped to the browser).
+   - `TS_PASSCODE` — the shared school passcode teachers type into the app.
+3. Deploy. The frontend on GitHub Pages then talks to `https://digital-spotlight.vercel.app/api/*`, sending the passcode in an `x-ts-passcode` header (checked server-side with a constant-time comparison).
+
+Local development:
+
+```bash
+npm install         # only needed for the test suite; api/ has no runtime deps
+npx vercel dev      # serves api/* on :3000, reads .env for OPENAI_API_KEY / TS_PASSCODE
+npm test            # backend unit tests (node --test)
+```
