@@ -1413,7 +1413,7 @@ Write every field in PLAIN TEXT — no markdown, no asterisks, no #, no backtick
     userContent.push({ type: "text", text: textParts.join("\n") + "\n\n" + schema });
     mediaItems.forEach(m => {
       if (m.kind === "image") userContent.push({ type: "image_url", image_url: { url: m.dataUrl } });
-      else if (m.kind === "youtube") { if (m.poster) userContent.push({ type: "image_url", image_url: { url: m.poster } }); }
+      else if (m.kind === "youtube") { const yimg = m.thumb || m.poster; if (yimg) userContent.push({ type: "image_url", image_url: { url: yimg } }); }
       else (m.frames || []).forEach(fr => userContent.push({ type: "image_url", image_url: { url: fr } }));
     });
   } else {
@@ -1503,7 +1503,7 @@ async function suggestThemeFromStimulus({ passcode, model, mode, media = [], sou
     userContent.push({ type: "text", text: ask + ` The stimulus is a reel of ${media.length} item(s).` });
     media.forEach(m => {
       if (m.kind === "image") userContent.push({ type: "image_url", image_url: { url: m.dataUrl } });
-      else if (m.kind === "youtube") { if (m.poster) userContent.push({ type: "image_url", image_url: { url: m.poster } }); }
+      else if (m.kind === "youtube") { const yimg = m.thumb || m.poster; if (yimg) userContent.push({ type: "image_url", image_url: { url: yimg } }); }
       else (m.frames || []).forEach(fr => userContent.push({ type: "image_url", image_url: { url: fr } }));
     });
   } else {
@@ -2151,11 +2151,12 @@ function App() {
       const resp = await fetch(`${API_BASE}/api/youtube-meta`, { method: "POST", headers, body: JSON.stringify({ url }) });
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) { setError(data.error || "Couldn't read that YouTube link. Check it and try again."); return; }
-      const poster = await addPlayBadge(data.thumbnailDataUrl || "");
+      const thumb = data.thumbnailDataUrl || "";          // clean frame — fed to the model
+      const poster = await addPlayBadge(thumb);            // play-badged copy — shown in reel + on the slide
       setMedia(m => m.length >= MAX_MEDIA ? m : [...m, {
         id: newId(), kind: "youtube", youtubeId: data.videoId,
         watchUrl: "https://www.youtube.com/watch?v=" + data.videoId,
-        poster, title: data.title || "", author: data.author || "",
+        poster, thumb, title: data.title || "", author: data.author || "",
         name: data.title || "YouTube video", aspect: 16 / 9, text: "",
       }]);
       setMediaNote("YouTube clip added. It can't be transcribed — type what happens in it under its thumbnail so the questions match.");

@@ -26,10 +26,21 @@ export function youtubeVideoId(raw) {
   return /^[A-Za-z0-9_-]{11}$/.test(id) ? id : "";
 }
 
+// Only fetch thumbnails from YouTube's own image hosts. maxresdefault is ours, but
+// oembedThumbUrl comes from YouTube's JSON response -- pin it to ytimg/youtube so a
+// tampered/unexpected upstream can't turn this into a server-side request to anywhere.
+function isYouTubeThumbHost(url) {
+  try {
+    const h = new URL(url).hostname.toLowerCase();
+    return h === "ytimg.com" || h.endsWith(".ytimg.com") || h === "youtube.com" || h.endsWith(".youtube.com");
+  } catch (_) { return false; }
+}
+
 async function fetchThumb(videoId, oembedThumbUrl, signal) {
   // maxresdefault is 16:9 and sharp but only exists for some videos; hqdefault always exists.
   const tries = [`https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`, oembedThumbUrl].filter(Boolean);
   for (const url of tries) {
+    if (!isYouTubeThumbHost(url)) continue;
     try {
       const r = await fetch(url, { signal });
       if (!r.ok) continue;
