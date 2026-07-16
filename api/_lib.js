@@ -31,10 +31,14 @@ export function applyCors(req, res) {
   return false;
 }
 
-// One shared school passcode gates every call. Constant-time comparison against the
-// server-side TS_PASSCODE env var; a missing/blank env var fails closed (safeEqual).
+// Optional shared-passcode gate. The school chose open mode (2026-07-16): when the
+// TS_PASSCODE env var is unset/blank, every request is allowed — CORS + the rate limit
+// + the OpenAI spend cap are the remaining backstops. Setting TS_PASSCODE re-locks the
+// proxy instantly (constant-time comparison), no code change needed.
 export function requireTeacher(req, res) {
-  if (!safeEqual(req.headers["x-ts-passcode"], process.env.TS_PASSCODE)) {
+  const expected = String(process.env.TS_PASSCODE ?? "").trim();
+  if (expected.length === 0) return true; // open mode
+  if (!safeEqual(req.headers["x-ts-passcode"], expected)) {
     res.status(401).json({ error: "Invalid passcode" });
     return false;
   }

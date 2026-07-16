@@ -602,7 +602,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v1.17.0 · 2026-07-16";
+const APP_VERSION = "v1.18.0 · 2026-07-16";
 
 // Backend base URL. Served from localhost/127.0.0.1/file: -> talk to `vercel dev`
 // on :3000; otherwise the deployed proxy. The proxy (Vercel project "digital-spotlight")
@@ -1589,7 +1589,7 @@ function App() {
     await idbDeleteHandle("media"); await idbDeleteHandle("lessons");
     setFolderHandle(null); setFolderName(""); setFolderReady(false);
     setLessonsHandle(null); setLessonsName(""); setLessonsReady(false);
-    setMediaNote("Forgotten from this browser: school passcode cleared and any SharePoint folders disconnected.");
+    setMediaNote("Disconnected from this browser: SharePoint folders forgotten.");
   }
   const [model, setModel] = useState("gpt-5.6-sol");
 
@@ -1909,7 +1909,7 @@ function App() {
           const vidId = newId();
           videoFilesRef.current.set(vidId, f);   // keep original so upload can run/retry at Download time
           setMedia(m => m.length >= MAX_MEDIA ? m : [...m, { id: vidId, kind: "video", dataUrl, name: f.name, sizeBytes: f.size,
-            poster, aspect: width && height ? width / height : 0, frames, text: "", transcribeState: passcode.trim() ? "running" : "idle", transcribeNote: "",
+            poster, aspect: width && height ? width / height : 0, frames, text: "", transcribeState: "running", transcribeNote: "",
             sharePointUrl: "", uploadState: folderHandle ? "uploading" : "none" }]);
           if (!frames.length) setMediaNote("Couldn't read frames from " + f.name + " — add a description under its thumbnail.");
           // Auto-upload to the connected SharePoint Media folder (background). The Download gate
@@ -1922,7 +1922,7 @@ function App() {
           } else {
             setMediaNote("Connect the SharePoint Media folder (right) so this video plays online and autoplays.");
           }
-          if (passcode.trim()) {
+          {
             (async () => {
               try {
                 const { text, truncated } = await transcribeMedia({ passcode: passcode.trim(), file: f });
@@ -1991,7 +1991,6 @@ function App() {
   /* ------- suggest a focus theme from the current stimulus ------- */
   async function suggestTheme() {
     setError("");
-    if (!passcode.trim()) { setError("Enter the school passcode first."); return; }
     if (!inputReady()) { setError("Add a stimulus first, then Suggest a theme."); return; }
     setSuggestingTheme(true);
     try {
@@ -2012,7 +2011,6 @@ function App() {
   async function generate() {
     if (regenSlide || loading) return; // a slide regen is in flight, or a generate is already running
     setError(""); setRawDump("");
-    if (!passcode.trim()) { setError("Enter the school passcode first."); return; }
     if (mode === "media" && !media.length) { setError("Add at least one image or video first."); return; }
     if (!inputReady()) { setError("Please add a stimulus first (images/video, or article text/PDF)."); return; }
 
@@ -2075,7 +2073,6 @@ function App() {
   /* ------- regenerate a single slide (targeted, keeps the other slides) ------- */
   async function regenerateSlide(scope, routineChoiceArg) {
     if (!spot || regenSlide || loading) return;
-    if (!passcode.trim()) { setError("Enter the school passcode first."); return; }
     setError(""); setRawDump("");
     setRegenSlide(scope);
     try {
@@ -2607,15 +2604,8 @@ function App() {
             (key/model/stimulus | deck settings + generate); post-generate they display:contents away. */}
         <div className="panel input">
           <div className="icol">
-          <div className="group">
-            <label className="cap" htmlFor="f-passcode">School passcode</label>
-            <div style={{ display: "flex", gap: 6 }}>
-              <input id="f-passcode" type="password" value={passcode} placeholder="Enter the school passcode" onChange={e => savePasscode(e.target.value)} />
-              {passcode && <button className="btn ghost" style={{ width: "auto", padding: "9px 12px", whiteSpace: "nowrap" }} title="Remove the saved passcode from this browser" onClick={forgetAll}>Forget</button>}
-            </div>
-            <div className="hint">One shared code for the whole school, saved in <b>this browser only</b> (localStorage). <b>Forget</b> clears the passcode <b>and</b> disconnects any SharePoint folders — use it on a shared computer.</div>
-          </div>
-
+          {/* No passcode UI: the school runs the proxy in open mode (TS_PASSCODE unset).
+              The passcode state + header plumbing stay so re-locking is one env var away. */}
           <div className="group">
             <label className="cap" htmlFor="f-model">Model</label>
             <select id="f-model" value={model} onChange={e => setModel(e.target.value)}>

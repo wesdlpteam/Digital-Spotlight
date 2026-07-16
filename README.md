@@ -38,7 +38,9 @@ The frontend (`index.html`) is served free on GitHub Pages; the `api/` functions
 1. Import this repo into [Vercel](https://vercel.com) as a new project named **`digital-spotlight`** (this fixes the URL the frontend calls).
 2. In the project's **Settings → Environment Variables**, set:
    - `OPENAI_API_KEY` — your OpenAI secret key (kept server-side; never shipped to the browser).
-   - `TS_PASSCODE` — the shared school passcode teachers type into the app.
+   - `TS_PASSCODE` — optional. Leave unset for open access (the school's current choice).
+     Setting it re-locks the proxy instantly; to re-show the passcode box in the app,
+     restore the "School passcode" group in index.html (the header plumbing is still there).
 3. Deploy. The frontend on GitHub Pages then talks to `https://digital-spotlight.vercel.app/api/*`, sending the passcode in an `x-ts-passcode` header (checked server-side with a constant-time comparison).
 
 Local development:

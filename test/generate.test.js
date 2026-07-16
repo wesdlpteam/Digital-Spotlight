@@ -24,6 +24,17 @@ test("rejects a wrong passcode", async () => {
   assert.equal(res.statusCode, 401);
 });
 
+test("open mode: blank TS_PASSCODE allows requests without a passcode", async () => {
+  const saved = process.env.TS_PASSCODE;
+  process.env.TS_PASSCODE = "";
+  try {
+    const { req, res } = mockReqRes({ body: { model: "gpt-99-hax", messages: [{ role: "user", content: "hi" }] } });
+    await handler(req, res);
+    // gets past auth (would be 401 when locked) and fails on the model allowlist instead
+    assert.equal(res.statusCode, 400);
+  } finally { process.env.TS_PASSCODE = saved; }
+});
+
 test("rejects missing messages", async () => {
   const { req, res } = mockReqRes({ headers: { "x-ts-passcode": "test-pass" }, body: { model: "gpt-5.6-sol" } });
   await handler(req, res);
