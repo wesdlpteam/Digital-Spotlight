@@ -3124,6 +3124,17 @@ function App() {
             <div className="panel"><div className="empty">
               <h2 style={{ margin: "0 0 6px", fontFamily: "var(--font-display)" }}>Building your Spotlight…</h2>
               <p>This takes a moment — the editable preview will appear right here.</p>
+              {/* big determinate progress: percent + bar mirroring the button's genProgress */}
+              <div style={{ margin: "14px auto 0", maxWidth: 340 }}>
+                <div style={{ fontFamily: "var(--font-display)", fontSize: 32, fontWeight: 800, color: "var(--accent)", lineHeight: 1 }}>
+                  {Math.round(genProgress)}%
+                </div>
+                <div role="progressbar" aria-valuenow={Math.round(genProgress)} aria-valuemin={0} aria-valuemax={100}
+                  style={{ marginTop: 10, height: 10, borderRadius: 999, background: "var(--accent-soft)", overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: "100%", transformOrigin: "left", transform: "scaleX(" + Math.max(0, Math.min(100, genProgress)) / 100 + ")", background: "var(--accent)", borderRadius: 999, transition: "transform .25s linear" }} />
+                </div>
+                {genStatus && <div className="hint" style={{ marginTop: 8 }}>{genStatus}</div>}
+              </div>
             </div></div>
           )}
 
