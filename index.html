@@ -2616,18 +2616,15 @@ function App() {
           }
         } else if (item && item.kind === "youtube") {
           // Poster (play badge baked in) marked for the post-build web-video rewrite.
-          // 0.35" reserved under the player for the "it's a video" caption cue.
+          // Full media height: the baked-in play badge is the only "it's a video" cue
+          // needed, so no caption line beneath the player.
           const ar = 16 / 9;
-          const boxH = mediaH - 0.35;
+          const boxH = mediaH;
           let vw = lw2, vh = vw / ar; if (vh > boxH) { vh = boxH; vw = vh * ar; }
           vw = +vw.toFixed(2); vh = +vh.toFixed(2);
           const vX = +(lx + (lw2 - vw) / 2).toFixed(2), vY = +(colY + (boxH - vh) / 2).toFixed(2);
           s3.addImage({ data: item.poster, x: vX, y: vY, w: vw, h: vh, altText: YT_MARK_PREFIX + item.youtubeId });
           ytMarks.push(item.youtubeId);
-          // Caption doubles as the escape hatch: hyperlink opens YouTube in a browser
-          // if the room's network blocks the in-slide embed.
-          s3.addText([{ text: "▶ Video — click to play (needs internet)", options: { color: accent, bold: true, hyperlink: { url: item.watchUrl } } }],
-            { x: vX, y: +(vY + vh + 0.03).toFixed(2), w: vw, h: 0.3, fontSize: 11, align: "center", fontFace: bFont });
         } else {
           // article / no-media: lead image + summary (legacy behavior).
           let stimImg = "";
