@@ -682,7 +682,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v1.20.0 · 2026-07-17";
+const APP_VERSION = "v1.21.0 · 2026-07-28";
 
 // Backend base URL. Served from localhost/127.0.0.1/file: -> talk to `vercel dev`
 // on :3000; otherwise the deployed proxy. The proxy (Vercel project "digital-spotlight")
@@ -2454,12 +2454,48 @@ function App() {
 
       /* Slide 2..(1+N) — PROVOCATION + THINKING ROUTINE, one slide per media item.
          Image/video fills the left column; the routine repeats on the right; ◀/▶ corner
-         arrows hyperlink to the adjacent item-slide so it swipes in Slide Show mode. */
-      const colY = 1.95, colH = 4.45;
-      const lx = 0.8, lw2 = 6.6;
-      const rx2 = 7.7, rw2 = W - 0.8 - rx2;
+         arrows hyperlink to the adjacent item-slide so it swipes in Slide Show mode.
+
+         The split is NOT fixed — the media column hugs the stimulus. A portrait reel used
+         to float in the middle of a 6.6" column with the routine crammed into 4.8"; now it
+         takes a narrow full-height column and hands the leftover width to the routine, with
+         the framing headline moving up beside it (TALL band — matches the layout hand-tuned
+         in PowerPoint). Landscape/square stimuli keep the classic full-width headline over
+         shorter columns (WIDE band, same numbers as before). */
+      const lx = 0.8, lw2 = 6.6;                 // lw2 = widest the media column may get
       const hasLink = !!link.trim();
-      const mediaH = hasLink ? colH - 0.5 : colH;
+      const AR_FALLBACK = lw2 / 4.45;            // unknown image aspect -> fill the classic column
+      const TEXT_COL_AR = 99;                    // article / no media -> always the full-width text column
+      const MIN_COL = 3.0;                       // floor so the link/QR row still fits
+      const BANDS = {
+        tall: { top: 1.03, h: 5.73, colY: 1.29, colH: 5.32, gap: 0.45 },
+        wide: { top: 1.95, h: 4.45, colY: 1.95, colH: 4.45, gap: 0.30 },
+      };
+      // Fit media of aspect `ar` inside a band, then split the slide around the result.
+      const layoutFor = (ar, reelLen) => {
+        const reserve = (hasLink ? 0.6 : 0) + (reelLen > 1 ? 0.34 : 0);  // link/QR row + carousel dots
+        const build = (b) => {
+          const mediaH = b.h - reserve;
+          let mw = lw2, mh = mw / ar;
+          if (mh > mediaH) { mh = mediaH; mw = mh * ar; }
+          mw = +mw.toFixed(2); mh = +mh.toFixed(2);
+          const cw = Math.max(MIN_COL, mw);                              // left column width
+          const rx = +(lx + cw + b.gap).toFixed(2);
+          return Object.assign({}, b, { mediaH, mw, mh, cw, rx,
+            rw: +(W - 0.8 - rx).toFixed(2),
+            mx: +(lx + (cw - mw) / 2).toFixed(2),
+            my: +(b.top + (mediaH - mh) / 2).toFixed(2) });
+        };
+        const t = build(BANDS.tall);
+        // Headline only moves beside the media when the right column can carry it at 22pt.
+        return t.rw >= 6.2 ? Object.assign(t, { sideHead: true })
+                           : Object.assign(build(BANDS.wide), { sideHead: false });
+      };
+      // Shared framing-headline placement so every skin lands in the same spot.
+      const framingAt = (g, opts) => Object.assign(
+        g.sideHead ? { x: g.rx, y: 0.3, w: g.rw, h: 0.8, valign: "middle", fit: "shrink" }
+                   : { x: 0.8, y: 1.0, w: W - 1.6, h: 0.7 },
+        { fontSize: 22, bold: true }, opts);
 
       // Per-style visual layer: each skin renders cover/provocation-chrome/takeaway differently;
       // shared media/video/QR/routine logic below stays identical across all styles. Dark styles
@@ -2471,9 +2507,9 @@ function App() {
             s.addText(c.tCase(c.spot.hook || c.spot.title), { x: 0.9, y: 1.6, w: c.W - 2.6, h: 3.8, fontSize: 44, bold: true, color: c.T.titleInk, valign: "middle", fontFace: c.tFont });
             s.addText(`${c.bandLabel}${c.year ? " · " + c.year : ""}   ·   ${c.theme}   ·   5-minute discussion`, { x: 0.9, y: 5.7, w: c.W - 1.8, h: 0.4, fontSize: 14, color: c.T.titleSub, fontFace: c.bFont });
           },
-          provChrome(s, c, idx, reelLen) {
+          provChrome(s, c, idx, reelLen, g) {
             c.kicker(s, reelLen > 1 ? `Provocation · ${idx + 1}/${reelLen}` : "Provocation");
-            s.addText(c.spot.framing, { x: 0.8, y: 1.0, w: c.W - 1.6, h: 0.7, fontSize: 22, bold: true, color: c.ink, fontFace: c.tFont });
+            s.addText(c.spot.framing, c.framingAt(g, { color: c.ink, fontFace: c.tFont }));
           },
           takeaway(s, c) {
             c.kicker(s, "Your key takeaway", c.T.titleKick);
@@ -2490,9 +2526,9 @@ function App() {
             s.addShape(c.pptx.ShapeType.rect, { x:0.7, y:5.6, w:6.2, h:0.7, fill:{color:"4F2759"}, line:{color:"000000", width:3}, shadow:HARD("C59F40") });
             s.addText(`${c.bandLabel}${c.year?" · "+c.year:""}  ·  ${c.theme}  ·  5-MIN`, { x:0.7, y:5.6, w:6.2, h:0.7, fontSize:13, bold:true, color:"FFFFFF", align:"center", valign:"middle", fontFace:c.bFont });
           },
-          provChrome(s, c, idx, reelLen) {
+          provChrome(s, c, idx, reelLen, g) {
             s.addText((reelLen>1?` PROVOCATION ${idx+1}/${reelLen} `:" PROVOCATION "), { x:0.8, y:0.5, w:3.2, h:0.35, fontSize:11, bold:true, color:"000000", fill:{color:"C59F40"}, fontFace:"Arial" });
-            s.addText(c.spot.framing, { x:0.8, y:1.0, w:c.W-1.6, h:0.7, fontSize:22, bold:true, color:c.ink, fontFace:c.tFont });
+            s.addText(c.spot.framing, c.framingAt(g, { color:c.ink, fontFace:c.tFont }));
           },
           takeaway(s, c) {
             s.addText("YOUR KEY TAKEAWAY", { x:0.8, y:1.2, w:c.W-1.6, h:0.4, fontSize:13, bold:true, color:"000000", fontFace:"Arial", charSpacing:2 });
@@ -2507,10 +2543,10 @@ function App() {
             s.addText(c.spot.hook || c.spot.title, { x:0.9, y:1.9, w:c.W-2.2, h:2.8, fontSize:46, bold:true, color:"4F2759", valign:"top", fontFace:"Arial" });
             s.addText(`${c.bandLabel}${c.year?" · "+c.year:""}   ·   ${c.theme}   ·   a 5-minute discussion`, { x:0.9, y:5.9, w:c.W-1.8, h:0.4, fontSize:14, italic:true, color:c.T.titleSub, fontFace:"Arial" });
           },
-          provChrome(s, c, idx, reelLen) {
+          provChrome(s, c, idx, reelLen, g) {
             s.addText((reelLen>1?`PROVOCATION · ${idx+1}/${reelLen}`:"PROVOCATION"), { x:0.8, y:0.5, w:c.W-1.6, h:0.3, fontSize:11, color:"6A5018", charSpacing:3, fontFace:c.bFont });
             s.addShape(c.pptx.ShapeType.line, { x:0.8, y:0.85, w:1.2, h:0, line:{color:"C59F40", width:1} });
-            s.addText(c.spot.framing, { x:0.8, y:1.0, w:c.W-1.6, h:0.7, fontSize:22, bold:true, color:"4F2759", fontFace:"Arial" });
+            s.addText(c.spot.framing, c.framingAt(g, { color:"4F2759", fontFace:"Arial" }));
           },
           takeaway(s, c) {
             s.addText("“", { x:0.9, y:1.0, w:1.5, h:1.2, fontSize:90, color:"C59F40", fontFace:"Arial" });
@@ -2531,9 +2567,9 @@ function App() {
             s.addShape(c.pptx.ShapeType.roundRect, { x:0.7, y:5.6, w:6.0, h:0.7, fill:{color:"FFFFFF"}, line:{color:"000000", width:2.5}, rectRadius:0.35 });
             s.addText(`${c.bandLabel}${c.year?" · "+c.year:""}  ·  ${c.theme}`, { x:0.7, y:5.6, w:6.0, h:0.7, fontSize:13, bold:true, color:"4F2759", align:"center", valign:"middle", fontFace:c.bFont });
           },
-          provChrome(s, c, idx, reelLen) {
+          provChrome(s, c, idx, reelLen, g) {
             s.addText((reelLen>1?` PROVOCATION ${idx+1}/${reelLen} `:" PROVOCATION "), { x:0.8, y:0.5, w:3.2, h:0.4, fontSize:11, bold:true, color:"FFFFFF", fill:{color:"4F2759"}, line:{color:"000000", width:2}, align:"center", fontFace:c.tFont });
-            s.addText(c.spot.framing, { x:0.8, y:1.05, w:c.W-1.6, h:0.7, fontSize:22, bold:true, color:c.ink, fontFace:c.tFont });
+            s.addText(c.spot.framing, c.framingAt(g, { color:c.ink, fontFace:c.tFont }));
           },
           takeaway(s, c) {
             // The amber field + halftone now come from newSlide (takeawayBg override + texture
@@ -2548,7 +2584,7 @@ function App() {
       const ctx = {
         pptx, ST, T, W, H, n: () => n, total, spot, bandLabel, year, theme, mode,
         accent, accent2, bar, ink, muted, tFont, bFont, tCase, kicker, drawRoutine, newSlide,
-        geom: { colY, colH, lx, lw2, rx2, rw2, mediaH, hasLink },
+        framingAt, layoutFor, geom: { lx, lw2, hasLink },
       };
 
       /* Advisory slide (slide 1) — unmistakable CONTENT WARNING, identical across all deck styles. */
@@ -2586,22 +2622,22 @@ function App() {
 
       for (let idx = 0; idx < reel.length; idx++) {
         const item = reel[idx];
+        // Aspect of THIS item decides the column split (portrait reel -> narrow media column).
+        const kind = item ? item.kind : "";
+        const itemAr = (item && item.aspect && isFinite(item.aspect) && item.aspect > 0) ? item.aspect : 0;
+        const g = layoutFor(
+          { youtube: 16 / 9, video: itemAr || 16 / 9, image: itemAr || AR_FALLBACK }[kind] || TEXT_COL_AR,
+          reel.length);
         const s3 = newSlide("content");
-        skin.provChrome(s3, ctx, idx, reel.length);
+        skin.provChrome(s3, ctx, idx, reel.length, g);
 
         // LEFT: this item's media (or article/summary on the single non-media slide).
+        // g.mx/my/mw/mh is the "contain" fit computed by layoutFor (pptxgenjs sizing:contain
+        // stretches the image to the box, so we never hand it the raw box).
+        const vX = g.mx, vY = g.my, vw = g.mw, vh = g.mh;
         if (item && item.kind === "image") {
-          // Compute "contain" ourselves (pptxgenjs sizing:contain stretches the image to the box).
-          const ar = (item.aspect && isFinite(item.aspect) && item.aspect > 0) ? item.aspect : (lw2 / mediaH);
-          let iw = lw2, ih = iw / ar; if (ih > mediaH) { ih = mediaH; iw = ih * ar; }
-          iw = +iw.toFixed(2); ih = +ih.toFixed(2);
-          const iX = +(lx + (lw2 - iw) / 2).toFixed(2), iY = +(colY + (mediaH - ih) / 2).toFixed(2);
-          s3.addImage({ data: item.dataUrl, x: iX, y: iY, w: iw, h: ih });
+          s3.addImage({ data: item.dataUrl, x: vX, y: vY, w: vw, h: vh });
         } else if (item && item.kind === "video") {
-          const ar = (item.aspect && isFinite(item.aspect) && item.aspect > 0) ? item.aspect : (16 / 9);
-          let vw = lw2, vh = vw / ar; if (vh > mediaH) { vh = mediaH; vw = vh * ar; }
-          vw = +vw.toFixed(2); vh = +vh.toFixed(2);
-          const vX = +(lx + (lw2 - vw) / 2).toFixed(2), vY = +(colY + (mediaH - vh) / 2).toFixed(2);
           if (item.sharePointUrl) {
             // Marked poster — converted into a real online-video by post-processing (injectOnlineVideos).
             const firstStillFallback = item.poster || WESLEY_LOGO_HORIZ;
@@ -2618,47 +2654,44 @@ function App() {
           // Poster (play badge baked in) marked for the post-build web-video rewrite.
           // Full media height: the baked-in play badge is the only "it's a video" cue
           // needed, so no caption line beneath the player.
-          const ar = 16 / 9;
-          const boxH = mediaH;
-          let vw = lw2, vh = vw / ar; if (vh > boxH) { vh = boxH; vw = vh * ar; }
-          vw = +vw.toFixed(2); vh = +vh.toFixed(2);
-          const vX = +(lx + (lw2 - vw) / 2).toFixed(2), vY = +(colY + (boxH - vh) / 2).toFixed(2);
           s3.addImage({ data: item.poster, x: vX, y: vY, w: vw, h: vh, altText: YT_MARK_PREFIX + item.youtubeId });
           ytMarks.push(item.youtubeId);
         } else {
           // article / no-media: lead image + summary (legacy behavior).
           let stimImg = "";
           if (mode === "article" && articleImageUrl) stimImg = await urlToDataUrl(articleImageUrl);
-          let ay = colY, aAvail = mediaH;
-          if (stimImg) { const ih = +(aAvail * 0.5).toFixed(2); s3.addImage({ data: stimImg, x: lx, y: ay, w: lw2, h: ih, sizing: { type: "contain", w: lw2, h: ih } }); ay += ih + 0.15; aAvail -= ih + 0.15; }
+          let ay = g.top, aAvail = g.mediaH;
+          if (stimImg) { const ih = +(aAvail * 0.5).toFixed(2); s3.addImage({ data: stimImg, x: lx, y: ay, w: g.cw, h: ih, sizing: { type: "contain", w: g.cw, h: ih } }); ay += ih + 0.15; aAvail -= ih + 0.15; }
           // Cap the box 0.15" above the link/QR row and shrink-to-fit so a long
           // summary can never overflow its box and collide with the link + QR below.
-          if (spot.summary && spot.summary.trim()) s3.addText(spot.summary, { x: lx, y: ay, w: lw2, h: Math.max(0.6, aAvail - (hasLink ? 0.15 : 0)), fontSize: 13, color: ink, valign: "top", fontFace: bFont, lineSpacingMultiple: 1.1, fit: "shrink" });
-          else if (!stimImg) s3.addText("(Share the stimulus with students directly.)", { x: lx, y: ay, w: lw2, h: 0.6, fontSize: 14, italic: true, color: muted, fontFace: bFont });
+          if (spot.summary && spot.summary.trim()) s3.addText(spot.summary, { x: lx, y: ay, w: g.cw, h: Math.max(0.6, aAvail - (hasLink ? 0.15 : 0)), fontSize: 13, color: ink, valign: "top", fontFace: bFont, lineSpacingMultiple: 1.1, fit: "shrink" });
+          else if (!stimImg) s3.addText("(Share the stimulus with students directly.)", { x: lx, y: ay, w: g.cw, h: 0.6, fontSize: 14, italic: true, color: muted, fontFace: bFont });
         }
 
         // Optional link + QR under the left column.
         if (hasLink) {
           const url = link.trim();
           const qr = makeQrDataUrl(url);
-          const lineY = colY + colH - 0.5;
+          const lineY = +(g.top + g.h - 0.5).toFixed(2);
           if (qr) s3.addImage({ data: qr, x: lx, y: lineY, w: 0.5, h: 0.5 });
           s3.addText([{ text: `${MODE_VERB[mode] || "Source"}: `, options: { color: ink, bold: true } }, { text: url, options: { color: accent, underline: true, hyperlink: { url } } }],
-            { x: lx + (qr ? 0.6 : 0), y: lineY, w: lw2 - (qr ? 0.6 : 0), h: 0.5, fontSize: 9, valign: "middle", fontFace: bFont });
+            { x: lx + (qr ? 0.6 : 0), y: lineY, w: g.cw - (qr ? 0.6 : 0), h: 0.5, fontSize: 9, valign: "middle", fontFace: bFont });
         }
 
         // RIGHT: routine (repeated on every item-slide).
-        drawRoutine(s3, rx2, rw2, colY, colH);
+        drawRoutine(s3, g.rx, g.rw, g.colY, g.colH);
 
         // Carousel nav: ◀/▶ to adjacent item-slides + dot row (only when >1 item).
         if (reel.length > 1) {
           const myNum = provFirst + idx;
           const prevNum = Math.max(provFirst, myNum - 1);
           const nextNum = Math.min(provLast, myNum + 1);
-          if (myNum > provFirst) s3.addText("‹", { x: lx + 0.05, y: colY + mediaH / 2 - 0.25, w: 0.5, h: 0.5, fontSize: 28, bold: true, color: "FFFFFF", align: "center", valign: "middle", fill: { color: "000000", transparency: 45 }, hyperlink: { slide: prevNum } });
-          if (myNum < provLast) s3.addText("›", { x: lx + lw2 - 0.55, y: colY + mediaH / 2 - 0.25, w: 0.5, h: 0.5, fontSize: 28, bold: true, color: "FFFFFF", align: "center", valign: "middle", fill: { color: "000000", transparency: 45 }, hyperlink: { slide: nextNum } });
+          // Arrows hug the media itself, dots sit in the strip reserved beneath it.
+          const navY = +(g.my + g.mh / 2 - 0.25).toFixed(2);
+          if (myNum > provFirst) s3.addText("‹", { x: g.mx + 0.05, y: navY, w: 0.5, h: 0.5, fontSize: 28, bold: true, color: "FFFFFF", align: "center", valign: "middle", fill: { color: "000000", transparency: 45 }, hyperlink: { slide: prevNum } });
+          if (myNum < provLast) s3.addText("›", { x: +(g.mx + g.mw - 0.55).toFixed(2), y: navY, w: 0.5, h: 0.5, fontSize: 28, bold: true, color: "FFFFFF", align: "center", valign: "middle", fill: { color: "000000", transparency: 45 }, hyperlink: { slide: nextNum } });
           const dots = reel.map((_, i) => i === idx ? "●" : "○").join("  ");
-          s3.addText(dots, { x: lx, y: colY + mediaH + 0.02, w: lw2, h: 0.3, fontSize: 12, color: accent, align: "center", fontFace: bFont });
+          s3.addText(dots, { x: lx, y: +(g.my + g.mh + 0.04).toFixed(2), w: g.cw, h: 0.3, fontSize: 12, color: accent, align: "center", fontFace: bFont });
         }
 
         // Speaker notes on every item-slide.
