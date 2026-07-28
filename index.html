@@ -720,7 +720,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v1.23.1 · 2026-07-28";
+const APP_VERSION = "v1.24.0 · 2026-07-28";
 
 // Backend base URL. Served from localhost/127.0.0.1/file: -> talk to `vercel dev`
 // on :3000; otherwise the deployed proxy. The proxy (Vercel project "digital-spotlight")
@@ -1499,7 +1499,16 @@ async function generateSpotlight({ passcode, model, mode, band, year, theme, tit
     routineIntro: `"routineIntro": "string — one warm sentence introducing the routine to the class"`,
     steps: `"steps": [\n    { "name": "string — short step label", "minutes": 1, "prompt": "string — a punchy, provocative discussion prompt the teacher poses at this step", "responses": "string — 2 or 3 SHORT examples of what students at this band might actually say in response, so the teacher can anticipate the discussion (e.g. 'Some may say…; others might argue…')" }\n  ]`,
     guidingQuestions: `"guidingQuestions": [ { "question": "string — a guiding question the teacher can ask, pitched to the band", "responses": "string — 2 or 3 SHORT examples of how students at this band might actually answer it, so the teacher can anticipate the discussion (e.g. 'Some may say…; others might argue…')" } ]  — give 3 to 4 of these objects`,
-    studentAction: `"studentAction": "string — ONE concrete action or genuine shift in thinking the student leaves with, drawn from the REAL heart of THIS story: the actual tension, choice, or consequence in the stimulus, not a generic safety platitude. It must connect directly to what made this stimulus matter and give the student something they could truly do or reconsider today. Plain, specific, memorable, pitched to the band — never preachy or a slogan."`,
+    studentAction: `"studentAction": "string — the ONE thing this student actually walks away and does, drawn from the REAL heart of THIS story. Write it the way a student would say it to a friend.\
+HARD RULES:\
+- MAXIMUM 14 WORDS. One sentence. Shorter is better.\
+- ONE single action. NEVER a checklist — if it contains 'and' joining two things to do, or any comma-separated list of things to look for, it is WRONG. Rewrite it as the one that matters most.\
+- It must be something a real teenager would genuinely do in the next week, in the moment, on their own phone, with no extra tools, no research, no adult, no extra steps. If it needs effort or discipline they would not actually spend, it is WRONG.\
+- Everyday words only. No jargon (no 'disclosure labels', 'synthetic', 'provenance', 'verify the source', 'critically evaluate', 'digital footprint'). If a 12-year-old would not use the phrase, do not use it.\
+- No slogans, no rules, no 'always'/'never'/'remember to'. Not a lecture. It can be a question they ask themselves, a pause they take, or one thing they look at.\
+BAD (do not imitate): 'Before trusting or sharing an ad with a realistic person in it, pause and check for AI disclosure labels, source details, and signs the image or voice may be synthetic.' — too long, three things at once, jargon, nobody does it.\
+GOOD shape: 'When an ad feels too perfect, ask who made it.' / 'Screenshot it and ask a mate before you buy.' / 'Notice when a video is trying to sell you something.'\
+Pitch the wording to the band, but keep it this short for every band."`,
     keywords: `"keywords": ["8 to 15 short lowercase search terms a teacher might type to FIND this lesson later — the core topics, the real-world hook, and named things in the stimulus (apps, activities, e.g. music, gaming, TikTok, deepfakes), plus close synonyms. Concrete over abstract. For search only; never shown to students."]`,
     learnerProfile: `"learnerProfile": ["1 to 3 IB Learner Profile attributes that fit, e.g. 'Thinker', 'Principled', 'Caring'"]`,
     contentAdvisory: `"contentAdvisory": { "flag": true or false, "categories": [any of "sexual","confronting","self-harm","substance" that genuinely apply], "note": "string — if flag is true, ONE short, warm, plain-text line naming the sensitive themes, pitched to the band (gentler and simpler for PYP, more direct for Senior); empty string if flag is false" }`,
