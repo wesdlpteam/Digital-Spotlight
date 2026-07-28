@@ -682,7 +682,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v1.21.0 · 2026-07-28";
+const APP_VERSION = "v1.22.0 · 2026-07-28";
 
 // Backend base URL. Served from localhost/127.0.0.1/file: -> talk to `vercel dev`
 // on :3000; otherwise the deployed proxy. The proxy (Vercel project "digital-spotlight")
@@ -778,6 +778,131 @@ const INCLUDE_THEME_IN_FILENAME = true;
 // fall back to a poster frame + link/QR so the deck stays portable.
 const VIDEO_EMBED_MAX_BYTES = 25 * 1024 * 1024; // 25 MB
 const MAX_MEDIA = 10; // max images+videos in one provocation reel
+
+/* ---- PowerPoint-friendly video --------------------------------------------
+   PowerPoint plays H.264 video in an MP4. Instagram/Facebook hand out plenty of
+   VP9 clips, which look perfect in the browser AND in desktop PowerPoint
+   (Windows carries a VP9 decoder) but in PowerPoint FOR THE WEB play the audio
+   over a blank frame — and the player keeps running after you leave the show.
+   Three shipped decks were caught by this. So sniff the codec on the way in and
+   re-encode anything that isn't H.264 before it is embedded or uploaded.       */
+const PPT_VIDEO_MIME = 'video/mp4;codecs="avc1.4D401F,mp4a.40.2"';
+const PPT_CONVERT_MAX_EDGE = 1280;   // plenty: the clip shows ~3" wide on the slide
+
+// Walk the MP4/QuickTime box tree to `moov`, then read the codec fourcc out of its
+// sample descriptions. Returns "h264", the offending fourcc, or "" when we can't
+// tell — never guess, an unknown codec is left alone rather than re-encoded.
+async function sniffVideoCodec(file) {
+  try {
+    if (/\.(webm|mkv|ogv)$/i.test(file.name || "") || /webm|matroska|ogg/i.test(file.type || "")) return "webm";
+    const readAt = async (off, len) => new Uint8Array(await file.slice(off, off + len).arrayBuffer());
+    const be32 = (b, i) => ((b[i] << 24 | b[i + 1] << 16 | b[i + 2] << 8 | b[i + 3]) >>> 0);
+    let off = 0, moov = null;
+    while (off + 8 < file.size) {
+      const head = await readAt(off, 16);
+      if (head.length < 8) break;
+      const type = String.fromCharCode(head[4], head[5], head[6], head[7]);
+      let size = be32(head, 0), hdr = 8;
+      if (size === 1) {                                    // 64-bit largesize
+        if (head.length < 16) break;
+        size = Number(new DataView(head.buffer, head.byteOffset, 16).getBigUint64(8));
+        hdr = 16;
+      } else if (size === 0) size = file.size - off;       // "to end of file"
+      if (size < hdr) break;
+      if (type === "moov") { moov = await readAt(off + hdr, Math.min(size - hdr, 4 * 1024 * 1024)); break; }
+      off += size;
+    }
+    if (!moov) return "";
+    const txt = new TextDecoder("latin1").decode(moov);
+    if (txt.includes("avc1") || txt.includes("avc3")) return "h264";
+    for (const cc of ["vp09", "vp08", "hvc1", "hev1", "av01"]) if (txt.includes(cc)) return cc;
+    return "";
+  } catch (_) { return ""; }
+}
+
+// Re-encode a clip to H.264/AAC MP4 in the browser. It plays muted at normal speed
+// into a canvas and records that, so it takes roughly as long as the clip runs —
+// which is why it runs in the background while the teacher keeps working.
+// Rejects when the browser can't record MP4 (then we warn instead of breaking).
+function convertToPptVideo(file, onProgress) {
+  return new Promise((resolve, reject) => {
+    if (!window.MediaRecorder || !MediaRecorder.isTypeSupported(PPT_VIDEO_MIME)) { reject(new Error("no-mp4-recorder")); return; }
+    const url = URL.createObjectURL(file);
+    let settled = false, watchdog = 0;
+    const finish = (fn, arg) => {
+      if (settled) return;
+      settled = true; clearTimeout(watchdog);
+      try { URL.revokeObjectURL(url); } catch (_) {}
+      fn(arg);
+    };
+    const v = document.createElement("video");
+    v.src = url; v.muted = true; v.playsInline = true; v.preload = "auto";
+    v.onerror = () => finish(reject, new Error("decode-failed"));
+    v.onloadedmetadata = () => {
+      const longEdge = Math.max(v.videoWidth, v.videoHeight);
+      if (!longEdge) { finish(reject, new Error("no-dimensions")); return; }
+      // Even dimensions only — H.264 4:2:0 can't encode odd widths/heights.
+      const k = Math.min(1, PPT_CONVERT_MAX_EDGE / longEdge);
+      const cw = Math.max(2, Math.round(v.videoWidth * k / 2) * 2);
+      const ch = Math.max(2, Math.round(v.videoHeight * k / 2) * 2);
+      const canvas = document.createElement("canvas");
+      canvas.width = cw; canvas.height = ch;
+      const ctx = canvas.getContext("2d", { alpha: false });
+      const cStream = canvas.captureStream(0);             // 0 = we push frames ourselves
+      const vTrack = cStream.getVideoTracks()[0];
+      const tracks = [vTrack];
+      // captureStream() still carries the audio track even though the element is muted.
+      try {
+        const elStream = v.captureStream ? v.captureStream() : (v.mozCaptureStream ? v.mozCaptureStream() : null);
+        const aTrack = elStream && elStream.getAudioTracks()[0];
+        if (aTrack) tracks.push(aTrack);
+      } catch (_) {}
+      const px = cw * ch;
+      let rec;
+      try {
+        rec = new MediaRecorder(new MediaStream(tracks), {
+          mimeType: PPT_VIDEO_MIME,
+          videoBitsPerSecond: px >= 1280 * 720 ? 1800000 : px >= 640 * 360 ? 1200000 : 800000,
+          audioBitsPerSecond: 128000,
+        });
+      } catch (err) { finish(reject, err); return; }
+      const chunks = [];
+      rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+      rec.onerror = () => finish(reject, new Error("record-failed"));
+      rec.onstop = () => {
+        const blob = new Blob(chunks, { type: "video/mp4" });
+        if (!blob.size) { finish(reject, new Error("empty-recording")); return; }
+        const base = (file.name || "video").replace(/\.[^.]+$/, "");
+        finish(resolve, new File([blob], base + ".mp4", { type: "video/mp4" }));
+      };
+      const drawFrame = () => { ctx.drawImage(v, 0, 0, cw, ch); if (vTrack.requestFrame) vTrack.requestFrame(); };
+      const pump = () => {
+        if (settled) return;
+        drawFrame();
+        if (onProgress && v.duration) onProgress(Math.min(99, Math.round((v.currentTime / v.duration) * 100)));
+        if (v.ended) return;
+        if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(pump); else setTimeout(pump, 33);
+      };
+      v.onended = () => { drawFrame(); setTimeout(() => { try { rec.stop(); } catch (_) {} }, 150); };
+      // A stalled decode must not hang the export gate forever.
+      watchdog = setTimeout(() => {
+        try { rec.stop(); } catch (_) {}
+        finish(reject, new Error("timed-out"));
+      }, Math.round((isFinite(v.duration) ? v.duration : 300) * 2500) + 20000);
+      // Start recording only once the first frame is actually on the canvas — starting
+      // at play() adds a second of black and silence to the front of every clip.
+      const begin = () => {
+        if (settled) return;
+        drawFrame();
+        try { rec.start(1000); } catch (err) { finish(reject, err); return; }
+        pump();
+      };
+      v.play()
+        .then(() => { if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(begin); else begin(); })
+        .catch(() => finish(reject, new Error("play-blocked")));
+    };
+  });
+}
 
 // SharePoint Media library base — EDIT if the library moves. Uploaded videos become
 // online videos at this URL + their filename. The connected folder (see Connect button)
@@ -1787,6 +1912,9 @@ function App() {
   // In-flight upload promises (id -> Promise<bool>) so add, Reconnect, and the Download
   // gate coalesce onto one upload per video instead of racing / double-posting.
   const uploadPromisesRef = React.useRef(new Map());
+  // In-flight "codec-check -> convert -> upload" chains (id -> Promise). The Download and
+  // Save gates await these so a deck is never built from a half-converted clip.
+  const videoPrepRef = React.useRef(new Map());
   // Non-null => the "video not hosted" block modal is open. { names: [..] }.
   const [hostBlock, setHostBlock] = useState(null);
   React.useEffect(() => {
@@ -1924,6 +2052,59 @@ function App() {
     uploadPromisesRef.current.set(item.id, run);
     try { return await run; } finally { uploadPromisesRef.current.delete(item.id); }
   }
+  // One clip's whole "get it deck-ready" chain: check the codec, re-encode when
+  // PowerPoint couldn't play it, then upload the RESULT to SharePoint. Conversion has
+  // to finish first — otherwise the Media library ends up holding the unplayable
+  // original. Runs in the background; the export gates await it.
+  async function prepareVideoForPpt(vidId, file) {
+    const setIt = (patch) => setMedia(m => m.map(x => x.id === vidId ? { ...x, ...patch } : x));
+    try {
+      const codec = await sniffVideoCodec(file);
+      if (codec && codec !== "h264") {
+        setIt({ convertState: "converting", convertPct: 0 });
+        setMediaNote("This clip is in a format PowerPoint can't show — converting it now, keep working and it'll be ready by Download.");
+        const out = await convertToPptVideo(file, pct => setIt({ convertPct: pct }));
+        videoFilesRef.current.set(vidId, out);          // uploads + embeds now use the converted file
+        let dataUrl = "";
+        if (out.size <= VIDEO_EMBED_MAX_BYTES) { try { dataUrl = await readFileAsDataURL(out); } catch (_) {} }
+        setIt(Object.assign({ convertState: "done", convertPct: 100, convertedFrom: codec, name: out.name, sizeBytes: out.size },
+                            dataUrl ? { dataUrl } : {}));
+        setMediaNote("Converted that clip so it plays in PowerPoint ✓");
+      } else {
+        setIt({ convertState: "done", convertPct: 100 });
+      }
+    } catch (_) {
+      setIt({ convertState: "failed", convertPct: 0 });
+      setMediaNote("Couldn't convert that clip automatically — in PowerPoint on the web it may play sound with no picture. Try a different clip.");
+    }
+    if (folderHandle) {
+      setMediaNote("Uploading video to SharePoint — give it a moment before you Download.");
+      const ok = await ensureVideoHosted({ id: vidId, kind: "video", sharePointUrl: "" });
+      if (!ok) setMediaNote('That video didn\'t reach SharePoint — click "Reconnect" on the Media folder and it will retry.');
+    } else {
+      setMediaNote("Connect the SharePoint Media folder (right) so this video plays online and autoplays.");
+    }
+  }
+
+  // Shared pre-export gate for Download AND Save-to-Lessons: finish every conversion +
+  // upload, then report any clip that still isn't hosted. Save used to skip this
+  // entirely, which is how an unplayable clip reached the Lessons library.
+  async function videosReadyForExport() {
+    if (videoPrepRef.current.size) {
+      setMediaNote("Finishing off your video before building the deck…");
+      await Promise.all(Array.from(videoPrepRef.current.values()));
+    }
+    const current = await new Promise(res => setMedia(m => { res(m); return m; }));
+    const vids = current.filter(x => x.kind === "video");
+    if (!vids.length) return { ok: true, unhosted: [] };
+    setMediaNote("Checking your video is safely on SharePoint…");
+    await Promise.all(vids.map(v => ensureVideoHosted(v)));
+    const fresh = await new Promise(res => setMedia(m => { res(m); return m; }));
+    const unhosted = fresh.filter(x => x.kind === "video" && !x.sharePointUrl);
+    setMediaNote("");
+    return { ok: !unhosted.length, unhosted: unhosted.map(v => v.name || "your video") };
+  }
+
   // Lesson filename: hook title (fallback to deck title, then "Lesson") + date, .pptx.
   function lessonFileName(deck) {
     const raw = (deck && (deck.hook || deck.title)) || "Lesson";
@@ -1946,6 +2127,10 @@ function App() {
     setLessonsReady(true);
     setMediaNote("Saving lesson to SharePoint Lessons…");
     try {
+      // Same gate as Download — saving used to bypass it and could file an unplayable deck.
+      const ready = await videosReadyForExport();
+      if (!ready.ok) { setHostBlock({ names: ready.unhosted }); return; }
+      setMediaNote("Saving lesson to SharePoint Lessons…");
       const finalBlob = await buildDeckBlob(activeBand, spots[activeBand]);
       if (!finalBlob) { setMediaNote("Couldn't build the PowerPoint to save — see the error above."); return; }
       const name = lessonFileName(spots[activeBand]);
@@ -2059,18 +2244,14 @@ function App() {
           videoFilesRef.current.set(vidId, f);   // keep original so upload can run/retry at Download time
           setMedia(m => m.length >= MAX_MEDIA ? m : [...m, { id: vidId, kind: "video", dataUrl, name: f.name, sizeBytes: f.size,
             poster, aspect: width && height ? width / height : 0, frames, text: "", transcribeState: "running", transcribeNote: "",
-            sharePointUrl: "", uploadState: folderHandle ? "uploading" : "none" }]);
+            sharePointUrl: "", uploadState: folderHandle ? "uploading" : "none", convertState: "checking", convertPct: 0 }]);
           if (!frames.length) setMediaNote("Couldn't read frames from " + f.name + " — add a description under its thumbnail.");
-          // Auto-upload to the connected SharePoint Media folder (background). The Download gate
-          // later awaits this and blocks if it didn't land, so a video never silently embeds.
-          if (folderHandle) {
-            setMediaNote("Uploading video to SharePoint — give it a moment before you Download.");
-            ensureVideoHosted({ id: vidId, kind: "video", sharePointUrl: "" }).then(ok => {
-              if (!ok) setMediaNote('That video didn\'t reach SharePoint — click "Reconnect" on the Media folder and it will retry.');
-            });
-          } else {
-            setMediaNote("Connect the SharePoint Media folder (right) so this video plays online and autoplays.");
-          }
+          // Codec-check -> re-encode if PowerPoint can't play it -> THEN upload, so
+          // SharePoint only ever receives a clip that plays. Backgrounded; the Download
+          // and Save gates await it.
+          const prep = prepareVideoForPpt(vidId, f);
+          videoPrepRef.current.set(vidId, prep);
+          prep.finally(() => videoPrepRef.current.delete(vidId));
           {
             (async () => {
               try {
@@ -2746,24 +2927,11 @@ function App() {
     busyRef.current.exporting = true;
     setExporting(true);
     try {
-      // Gate: a video only autoplays + plays online when hosted on SharePoint. Read the
-      // freshest media, await/drive every video's upload, then hard-block if any didn't land
-      // (chosen behaviour) so a not-yet-hosted clip can never silently embed. Reading state via
-      // the identity-return trick avoids a stale closure re-posting an already-hosted file.
-      const current = await new Promise(res => setMedia(m => { res(m); return m; }));
-      const vids = current.filter(x => x.kind === "video");
-      if (vids.length) {
-        setMediaNote("Checking your video is safely on SharePoint…");
-        await Promise.all(vids.map(v => ensureVideoHosted(v)));
-        const fresh = await new Promise(res => setMedia(m => { res(m); return m; }));
-        const unhosted = fresh.filter(x => x.kind === "video" && !x.sharePointUrl);
-        if (unhosted.length) {
-          setMediaNote("");
-          setHostBlock({ names: unhosted.map(v => v.name || "your video") });
-          return;
-        }
-        setMediaNote("");
-      }
+      // Gate: a video only autoplays + plays online when it is H.264 AND hosted on
+      // SharePoint. Finish any conversion, drive every upload, then hard-block if a clip
+      // didn't land (chosen behaviour) so it can never silently embed.
+      const ready = await videosReadyForExport();
+      if (!ready.ok) { setHostBlock({ names: ready.unhosted }); return; }
       const keys = BAND_ORDER.filter(b => spots[b]);
       for (const b of keys) {
         await buildAndSaveDeck(b, spots[b]);
@@ -2945,6 +3113,15 @@ function App() {
                           {it.transcribeState === "running" && <React.Fragment><span className="spinner sm dark"></span> transcribing…</React.Fragment>}
                           {it.transcribeState === "done" && `transcript ready (${(it.text ? it.text.trim().split(/\s+/).length : 0)} words) ${it.transcribeNote}`}
                           {it.transcribeState === "failed" && it.transcribeNote}
+                        </div>
+                      )}
+                      {it.kind === "video" && (it.convertState === "converting" || it.convertState === "failed" || it.convertedFrom) && (
+                        <div className="hint" aria-live="polite" style={{ marginTop: 2 }}>
+                          {it.convertState === "converting" && <React.Fragment><span className="spinner sm dark"></span> making this clip PowerPoint-friendly… {it.convertPct || 0}%</React.Fragment>}
+                          {it.convertState === "done" && it.convertedFrom && <span style={{ color: "var(--accent)", fontWeight: 600 }}>Converted ✓ plays in PowerPoint</span>}
+                          {it.convertState === "failed" && (
+                            <span style={{ background: "var(--warn-bg)", color: "var(--warn-ink)", padding: "1px 6px", borderRadius: 6, fontWeight: 600 }}>Couldn't convert — may play sound with no picture online</span>
+                          )}
                         </div>
                       )}
                       {it.kind === "video" && it.uploadState && (
