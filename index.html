@@ -608,6 +608,22 @@ async function injectYouTubeVideos(blob, ytMarks) {
   return await zip.generateAsync({ type: "blob" });
 }
 
+/* Takeaway slide copy: the punchy action, then the smaller "why it matters" line
+   under it. Returned as pptxgenjs rich-text runs so both live in the SAME box —
+   the existing shrink-to-fit and vertical centring keep working untouched.
+   `size` is the action's font size; the why line sits at half that (floor 12pt). */
+function takeawayRuns(spot, size, opts) {
+  const o = opts || {};
+  // The bang skin appends "!", so drop a trailing full stop first ("…real.!" reads as a typo).
+  const action = o.bang ? (spot.studentAction || "—").replace(/\.\s*$/, "") + "!" : (spot.studentAction || "—");
+  const runs = [{ text: action,
+                  options: { fontSize: size, bold: true, italic: !!o.italic } }];
+  const why = (spot.studentActionWhy || "").trim();
+  if (why) runs.push({ text: "\n" + why,
+                       options: { fontSize: Math.max(12, Math.round(size * 0.5)), bold: false, italic: true } });
+  return runs;
+}
+
 /* ---- Click-advance lock, reel slides only ----
    PowerPoint advances on ANY mouse click by default, so while stepping through a
    multi-item reel a stray click (reaching for a video's play button, or just
@@ -720,7 +736,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v1.24.0 · 2026-07-28";
+const APP_VERSION = "v1.25.0 · 2026-07-28";
 
 // Backend base URL. Served from localhost/127.0.0.1/file: -> talk to `vercel dev`
 // on :3000; otherwise the deployed proxy. The proxy (Vercel project "digital-spotlight")
@@ -1405,6 +1421,7 @@ function shapeDeck(parsed, { band, title }) {
     steps,
     guidingQuestions: normGuiding(parsed.guidingQuestions),
     studentAction: stripMd(parsed.studentAction || ""),
+    studentActionWhy: stripMd(parsed.studentActionWhy || ""),
     keywords: Array.isArray(parsed.keywords) ? parsed.keywords.map(k => stripMd(String(k))).map(s => s.trim().toLowerCase()).filter(Boolean).slice(0, 20) : [],
     learnerProfile: Array.isArray(parsed.learnerProfile) ? parsed.learnerProfile.map(stripMd) : [],
     contentAdvisory: (() => {
@@ -1509,15 +1526,16 @@ HARD RULES:\
 BAD (do not imitate): 'Before trusting or sharing an ad with a realistic person in it, pause and check for AI disclosure labels, source details, and signs the image or voice may be synthetic.' — too long, three things at once, jargon, nobody does it.\
 GOOD shape: 'When an ad feels too perfect, ask who made it.' / 'Screenshot it and ask a mate before you buy.' / 'Notice when a video is trying to sell you something.'\
 Pitch the wording to the band, but keep it this short for every band."`,
+    studentActionWhy: `"studentActionWhy": "string — ONE short line saying why that action is worth bothering with, shown in smaller type under it on the final slide. MAXIMUM 16 WORDS. Plain student language, no jargon, no lecture, no 'because it is important to'. Name the real thing at stake for THEM in THIS story — what they lose, risk, or miss if they do not. Concrete over abstract: what actually happens, not a value word. Do not repeat the action; do not start with 'Because'."`,
     keywords: `"keywords": ["8 to 15 short lowercase search terms a teacher might type to FIND this lesson later — the core topics, the real-world hook, and named things in the stimulus (apps, activities, e.g. music, gaming, TikTok, deepfakes), plus close synonyms. Concrete over abstract. For search only; never shown to students."]`,
     learnerProfile: `"learnerProfile": ["1 to 3 IB Learner Profile attributes that fit, e.g. 'Thinker', 'Principled', 'Caring'"]`,
     contentAdvisory: `"contentAdvisory": { "flag": true or false, "categories": [any of "sexual","confronting","self-harm","substance" that genuinely apply], "note": "string — if flag is true, ONE short, warm, plain-text line naming the sensitive themes, pitched to the band (gentler and simpler for PYP, more direct for Senior); empty string if flag is false" }`,
   };
   const SCOPES = {
-    all: ["hook", "title", "summary", "framing", "routineRationale", "routineName", "routineIntro", "steps", "guidingQuestions", "studentAction", "keywords", "learnerProfile", "contentAdvisory"],
+    all: ["hook", "title", "summary", "framing", "routineRationale", "routineName", "routineIntro", "steps", "guidingQuestions", "studentAction", "studentActionWhy", "keywords", "learnerProfile", "contentAdvisory"],
     title: ["hook", "title"],
     provocation: chosen ? ["routineName", "routineIntro", "steps", "guidingQuestions"] : ["routineRationale", "routineName", "routineIntro", "steps", "guidingQuestions"],
-    takeaway: ["studentAction", "learnerProfile"],
+    takeaway: ["studentAction", "studentActionWhy", "learnerProfile"],
   };
   const keys = SCOPES[scope] || SCOPES.all;
   const includesRoutine = keys.indexOf("routineName") !== -1;
@@ -1640,6 +1658,7 @@ function mergeScopedFields(spot, scope, p) {
       out.guidingQuestions = normGuiding(p.guidingQuestions);
   } else if (scope === "takeaway") {
     if (p.studentAction) out.studentAction = norm(p.studentAction);
+    if (p.studentActionWhy) out.studentActionWhy = norm(p.studentActionWhy);
     if (Array.isArray(p.learnerProfile)) out.learnerProfile = p.learnerProfile.map(stripMd);
   }
   return out;
@@ -2742,7 +2761,7 @@ function App() {
           takeaway(s, c) {
             c.kicker(s, "Your key takeaway", c.T.titleKick);
             s.addShape(c.pptx.ShapeType.roundRect, { x: 1.1, y: 2.2, w: c.W - 2.2, h: 2.8, fill: { color: c.T.cardBg }, rectRadius: 0.18 });
-            s.addText(c.spot.studentAction || "—", { x: 1.7, y: 2.4, w: c.W - 3.4, h: 2.4, fontSize: 26, bold: true, color: c.T.cardInk, valign: "middle", align: "center", fontFace: c.tFont, fit: "shrink" });
+            s.addText(takeawayRuns(c.spot, 26), { x: 1.7, y: 2.4, w: c.W - 3.4, h: 2.4, fontSize: 26, bold: true, color: c.T.cardInk, valign: "middle", align: "center", fontFace: c.tFont, fit: "shrink" });
             if (c.spot.learnerProfile.filter(Boolean).length)
               s.addText("IB Learner Profile: " + c.spot.learnerProfile.filter(Boolean).join(", "), { x: 1.1, y: 5.4, w: c.W - 2.2, h: 0.4, fontSize: 14, italic: true, color: c.T.titleSub, align: "center", fontFace: c.bFont });
           },
@@ -2761,7 +2780,7 @@ function App() {
           takeaway(s, c) {
             s.addText("YOUR KEY TAKEAWAY", { x:0.8, y:1.2, w:c.W-1.6, h:0.4, fontSize:13, bold:true, color:"000000", fontFace:"Arial", charSpacing:2 });
             s.addShape(c.pptx.ShapeType.rect, { x:1.1, y:2.1, w:c.W-2.2, h:3.0, fill:{color:"4F2759"}, line:{color:"000000", width:3.5}, shadow:HARD("C59F40") });
-            s.addText(c.spot.studentAction || "—", { x:1.6, y:2.3, w:c.W-3.2, h:2.6, fontSize:28, bold:true, color:"FFFFFF", align:"center", valign:"middle", fontFace:c.tFont, fit:"shrink" });
+            s.addText(takeawayRuns(c.spot, 28), { x:1.6, y:2.3, w:c.W-3.2, h:2.6, fontSize:28, bold:true, color:"FFFFFF", align:"center", valign:"middle", fontFace:c.tFont, fit:"shrink" });
           },
         },
         editorial: {
@@ -2780,7 +2799,7 @@ function App() {
             s.addText("“", { x:0.9, y:1.0, w:1.5, h:1.2, fontSize:90, color:"C59F40", fontFace:"Arial" });
             // Quote box owns the whole mid-band (y 2.0–5.4) and shrinks to fit, so a long
             // student action can never overflow into the gold rule / IB line below it.
-            s.addText(c.spot.studentAction || "—", { x:1.4, y:2.0, w:c.W-2.8, h:3.4, fontSize:34, italic:true, bold:true, color:"4F2759", valign:"middle", fontFace:"Arial", fit:"shrink" });
+            s.addText(takeawayRuns(c.spot, 34, { italic: true }), { x:1.4, y:2.0, w:c.W-2.8, h:3.4, fontSize:34, italic:true, bold:true, color:"4F2759", valign:"middle", fontFace:"Arial", fit:"shrink" });
             s.addShape(c.pptx.ShapeType.line, { x:1.4, y:5.7, w:2.2, h:0, line:{color:"C59F40", width:1.5} });
             if (c.spot.learnerProfile.filter(Boolean).length)
               s.addText("IB Learner Profile: " + c.spot.learnerProfile.filter(Boolean).join(", "), { x:1.4, y:5.9, w:c.W-2.8, h:0.4, fontSize:13, italic:true, color:c.muted, fontFace:c.bFont });
@@ -2804,7 +2823,7 @@ function App() {
             // hook), so the Wesley footer band + crest survive. Skin only draws the speech card.
             s.addShape(c.pptx.ShapeType.roundRect, { x:1.2, y:1.9, w:c.W-2.4, h:3.2, fill:{color:"FFFFFF"}, line:{color:"000000", width:3}, rectRadius:0.3 });
             s.addText(c.tCase("Your key takeaway"), { x:1.6, y:2.1, w:c.W-3.2, h:0.4, fontSize:13, bold:true, color:"4F2759", fontFace:c.tFont, charSpacing:1 });
-            s.addText((c.spot.studentAction || "—") + "!", { x:1.6, y:2.6, w:c.W-3.2, h:2.0, fontSize:26, bold:true, color:"4F2759", valign:"middle", fontFace:c.tFont, fit:"shrink" });
+            s.addText(takeawayRuns(c.spot, 26, { bang: true }), { x:1.6, y:2.6, w:c.W-3.2, h:2.0, fontSize:26, bold:true, color:"4F2759", valign:"middle", fontFace:c.tFont, fit:"shrink" });
           },
         },
       };
@@ -3537,6 +3556,8 @@ function App() {
                   <div className="action-box" style={{ background: hx(T.accent2) + "22", borderColor: hx(T.accent2) + "66" }}>
                     <div className="cap" style={{ color: "var(--accent-2-ink)" }}>One thing to take away</div>
                     <textarea className="editable" rows={2} aria-label="Student key takeaway" value={spot.studentAction} onChange={e => patch({ studentAction: e.target.value })} />
+                    <div className="cap" style={{ color: "var(--accent-2-ink)", marginTop: 8 }}>Why it matters</div>
+                    <textarea className="editable" rows={2} aria-label="Why the takeaway matters" value={spot.studentActionWhy || ""} onChange={e => patch({ studentActionWhy: e.target.value })} />
                   </div>
                   <div className="lp-chips">
                     {spot.learnerProfile.filter(Boolean).map((lp, i) => <span key={i} className="chip">LP · {lp}</span>)}
